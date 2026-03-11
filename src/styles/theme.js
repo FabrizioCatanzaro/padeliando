@@ -97,6 +97,12 @@ const S = {
 
   // ── Empty state ─────────────────────────────────────────────────────────────
   empty: { textAlign: "center", color: "#444", padding: "40px 20px", fontFamily: "'Barlow', sans-serif", lineHeight: 1.8 },
+
+  groupCard: {
+    background: '#0d1120', border: '1px solid #1a2030', borderRadius: 8,
+    padding: '18px 20px', cursor: 'pointer', transition: 'border-color 0.2s',
+  },
+
 };
 
 export default S;
