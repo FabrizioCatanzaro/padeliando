@@ -1,10 +1,10 @@
 import { useState } from "react";
 import S from "../../styles/theme";
-import { uid, expandPair } from "../../utils/helpers";
+import { expandPair } from "../../utils/helpers";
 import MatchCard from "./MatchCard";
 import MatchForm, { emptyForm } from "./MatchForm";
 
-export default function Matches({ tournament, onUpdate }) {
+export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteMatch }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm]         = useState(emptyForm());
   const [editId, setEditId]     = useState(null);
@@ -13,8 +13,8 @@ export default function Matches({ tournament, onUpdate }) {
 
   function resetForm() { setForm(emptyForm()); setEditId(null); }
 
-  function handleSave() {
-    const { score1, score2, date } = form;
+  async function handleSave() {
+    const { score1, score2 } = form;
     const s1 = parseInt(score1), s2 = parseInt(score2);
 
     if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0)
@@ -33,7 +33,7 @@ export default function Matches({ tournament, onUpdate }) {
         return alert("Los jugadores no pueden repetirse");
     }
 
-    const match = {
+    /*const match = {
       id: editId || uid(), team1, team2,
       score1: s1, score2: s2, date,
       createdAt: editId
@@ -44,8 +44,18 @@ export default function Matches({ tournament, onUpdate }) {
     const matches = editId
       ? tournament.matches.map((m) => (m.id === editId ? match : m))
       : [...tournament.matches, match];
+    */
+    const matchData = { team1, team2, score1: s1, score2: s2, date: form.date };
+    if (editId) {
+      await onEditMatch(editId, matchData);
+    } else {
+      await onAddMatch(matchData);
+    }
+    resetForm();
+    setShowForm(false);
 
-    onUpdate({ ...tournament, matches });
+
+    //onUpdate({ ...tournament, matches });
     resetForm();
     setShowForm(false);
   }
@@ -72,9 +82,9 @@ export default function Matches({ tournament, onUpdate }) {
     setShowForm(true);
   }
 
-  function handleDelete(id) {
-    if (!window.confirm("¿Eliminar este partido?")) return;
-    onUpdate({ ...tournament, matches: tournament.matches.filter((m) => m.id !== id) });
+  async function handleDelete(id) {
+    if (!window.confirm('¿Eliminar este partido?')) return;
+    await onDeleteMatch(id);
   }
 
   const sorted = [...tournament.matches].sort(

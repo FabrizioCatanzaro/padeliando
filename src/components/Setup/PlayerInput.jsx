@@ -1,29 +1,32 @@
-import { useState, useRef, useEffect } from "react";
-import S from "../../styles/theme";
-import { normalize } from "../../utils/helpers";
+import { useState, useRef, useEffect } from 'react';
+import S from '../../styles/theme';
+import { normalize } from '../../utils/helpers';
+import { api } from '../../utils/api';
 
-/**
- * Text input with autocomplete from the global players DB.
- * Shows suggestions as a dropdown. Selecting one fills the field.
- * If the name already exists in the DB, a "✓ ya existe" badge appears.
- */
-export default function PlayerInput({ value, onChange, placeholder, dbPlayers, style }) {
-  const [open, setOpen] = useState(false);
+export default function PlayerInput({ value, onChange, placeholder, style }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [open, setOpen]               = useState(false);
   const ref = useRef();
 
-  const suggestions = value.trim().length >= 1
-    ? dbPlayers.filter(
-        (p) => normalize(p.name).includes(normalize(value)) && normalize(p.name) !== normalize(value)
-      )
-    : [];
-
-  const isExisting = dbPlayers.some((p) => normalize(p.name) === normalize(value));
+  // Fetch con debounce de 250ms
+  useEffect(() => {
+    if (!value.trim()) { setSuggestions([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const players = await api.players.search(value);
+        setSuggestions(players);
+      } catch { setSuggestions([]); }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [value]);
 
   useEffect(() => {
-    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const isExisting = suggestions.some((p) => normalize(p.name) === normalize(value));
 
   return (
     <div ref={ref} style={{ position: "relative", flex: 1 }}>

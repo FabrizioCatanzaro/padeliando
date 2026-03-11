@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import S, { FONTS } from "../../styles/theme";
 import { fmt } from "../../utils/helpers";
-import { loadSharedTournament } from "../../utils/storage";
 import Loader from "../Loader/Loader";
 import Standings from "../Standings/Standings";
 import Stats from "../Stats/Stats";
+import { api } from '../../utils/api';
+import { adaptTournament } from '../../utils/helpers';
+
 
 const TABS = [
   { id: "standings", label: "TABLA", icon: "🏆" },
@@ -17,11 +19,11 @@ export default function ReadonlyView({ id }) {
   const [tab, setTab]               = useState("standings");
 
   useEffect(() => {
-    function load() {
-      const t = loadSharedTournament(id);
-      if (t) {
-        setTournament(t);
-      } else {
+    async function load() {
+      try {
+        const t = await api.readonly.get(id);
+        setTournament(adaptTournament(t));
+      } catch {
         setError(true);
       }
     }
@@ -67,7 +69,7 @@ export default function ReadonlyView({ id }) {
       <div style={S.header}>
         <div>
           <div style={S.logo}>
-            🎾 PADEL<span style={{ color: "#e8f04a" }}>SCORE</span>
+            🎾 PADEL<span style={{ color: "#e8f04a" }}>IANDO</span>
           </div>
           <div style={S.tourneyName}>{tournament.name}</div>
           <div style={S.meta}>
