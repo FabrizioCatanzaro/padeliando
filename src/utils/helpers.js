@@ -46,3 +46,39 @@ export function expandPair(pairId, pairs) {
   const pair = pairs?.find((p) => p.id === pairId);
   return pair ? [pair.p1, pair.p2] : [];
 }
+
+/**
+ * Convierte un partido de la API al formato interno del frontend.
+ * API:      { team1_p1, team1_p2, team2_p1, team2_p2, played_at }
+ * Frontend: { team1: [id,id], team2: [id,id], date }
+ */
+export function adaptMatch(m) {
+  return {
+    ...m,
+    team1: [m.team1_p1, m.team1_p2],
+    team2: [m.team2_p1, m.team2_p2],
+    date:  m.played_at?.slice(0, 10) ?? m.date ?? '',
+  };
+}
+ 
+/**
+ * Convierte una pareja de la API al formato interno del frontend.
+ * API:      { p1_id, p2_id }
+ * Frontend: { p1, p2 }
+ */
+export function adaptPair(p) {
+  return { ...p, p1: p.p1_id, p2: p.p2_id };
+}
+ 
+/**
+ * Normaliza un torneo completo que viene de la API.
+ * Convierte matches y pairs al formato interno.
+ */
+export function adaptTournament(t) {
+  return {
+    ...t,
+    createdAt: t.created_at ?? t.createdAt,
+    matches:   (t.matches ?? []).map(adaptMatch),
+    pairs:     (t.pairs   ?? []).map(adaptPair),
+  };
+}
