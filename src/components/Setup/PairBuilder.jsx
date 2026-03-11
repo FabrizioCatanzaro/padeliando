@@ -1,4 +1,3 @@
-import { useState } from "react";
 import S from "../../styles/theme";
 import { uid } from "../../utils/helpers";
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import S from "../../styles/theme";
-import { uid, getPairLabel } from "../../utils/helpers";
+import {  getPairLabel } from "../../utils/helpers";
 import Modal from "../shared/Modal";
 
 export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {

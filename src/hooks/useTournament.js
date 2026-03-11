@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
-import { adaptTournament, adaptMatch, adaptPair, uid } from '../utils/helpers';
+import { adaptTournament } from '../utils/helpers';
  
 export function useTournament(groupId, tournamentId) {
   const [tournament, setTournament] = useState(null);
