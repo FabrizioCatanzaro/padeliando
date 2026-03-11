@@ -1,148 +1,140 @@
-import { useState, useEffect } from "react";
-import {
-  loadCurrentTournament, saveTournamentLocal, deleteCurrentTournament,
-  getPlayersDB, savePlayersDB, resolvePlayer,
-} from "../utils/storage";
-import { uid } from "../utils/helpers";
-
-export function useTournament() {
-  const [mode, setMode]           = useState("loading");
+import { useState, useEffect, useCallback } from 'react';
+import { api } from '../utils/api';
+import { adaptTournament, adaptMatch, adaptPair, uid } from '../utils/helpers';
+ 
+export function useTournament(groupId, tournamentId) {
   const [tournament, setTournament] = useState(null);
-  const [readonlyId, setReadonlyId] = useState(null);
-  const [saved, setSaved]           = useState(false);
-
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith("#readonly:")) {
-      setReadonlyId(hash.slice(10));
-      setMode("readonly");
-    } else {
-      const existing = loadCurrentTournament();
-      if (existing) { setTournament(existing); setMode("main"); }
-      else setMode("setup");
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(null);
+  const [saved,      setSaved]      = useState(false);
+ 
+  // Carga el torneo al montar (o cuando cambia tournamentId)
+  const reload = useCallback(async () => {
+    if (!tournamentId) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const t = await api.tournaments.get(tournamentId);
+      setTournament(adaptTournament(t));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  function persist(t) {
-    setTournament(t);
-    saveTournamentLocal(t);
-  }
-
-  /**
-   * playerNames: string[]
-   * pairsInput: [{ p1Name, p2Name }] | null  (null → free mode)
-   */
+  }, [tournamentId]);
+ 
+  useEffect(() => { reload(); }, [reload]);
+ 
+  function flash() { setSaved(true); setTimeout(() => setSaved(false), 1500); }
+ 
+  // ── Crear torneo ────────────────────────────────────────────────────
   async function handleCreate(name, playerNames, pairsInput) {
-    let db = getPlayersDB();
-    const players = [];
-    for (const n of playerNames.filter(Boolean)) {
-      const { player, db: newDb } = resolvePlayer(n, db);
-      db = newDb;
-      players.push(player);
-    }
-    savePlayersDB(db);
-
-    const pairs = pairsInput
-      ? pairsInput.map(({ p1Name, p2Name }) => {
-          const p1 = players.find((p) => p.name.toLowerCase() === p1Name.toLowerCase());
-          const p2 = players.find((p) => p.name.toLowerCase() === p2Name.toLowerCase());
-          return { id: uid(), p1: p1?.id, p2: p2?.id };
-        })
-      : [];
-
-    const t = {
-      id: uid(),
+    const t = await api.tournaments.create({
+      groupId,
       name,
-      createdAt: new Date().toISOString(),
-      mode: pairsInput ? "pairs" : "free",
-      players,
-      pairs,
-      matches: [],
-    };
-    persist(t);
-    setMode("main");
+      mode:        pairsInput ? 'pairs' : 'free',
+      playerNames: playerNames.filter(Boolean),
+      pairs:       pairsInput ?? [],
+    });
+    setTournament(adaptTournament(t));
+    return t.id; // para que App.js pueda navegar al torneo
   }
-
-  function handleUpdate(updated) {
-    persist(updated);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+ 
+  // ── Partidos ────────────────────────────────────────────────────────
+  async function handleAddMatch(matchData) {
+    // matchData: { team1, team2, score1, score2, date }
+    await api.matches.create({
+      tournamentId: tournament.id,
+      team1:    matchData.team1,
+      team2:    matchData.team2,
+      score1:   matchData.score1,
+      score2:   matchData.score2,
+      playedAt: matchData.date,
+    });
+    await reload();
+    flash();
   }
-
-  function handleReset() {
-    deleteCurrentTournament();
-    setTournament(null);
-    setMode("setup");
+ 
+  async function handleEditMatch(matchId, matchData) {
+    await api.matches.update(matchId, {
+      team1:    matchData.team1,
+      team2:    matchData.team2,
+      score1:   matchData.score1,
+      score2:   matchData.score2,
+      playedAt: matchData.date,
+    });
+    await reload();
+    flash();
   }
-
-  /** Adds a player mid-tournament, resolving against global DB */
-  function handleAddPlayer(name) {
-    let db = getPlayersDB();
-    const { player, db: newDb } = resolvePlayer(name, db);
-    savePlayersDB(newDb);
-    // Avoid duplicates inside the tournament
-    if (tournament.players.some((p) => p.id === player.id)) return;
-    handleUpdate({ ...tournament, players: [...tournament.players, player] });
+ 
+  async function handleDeleteMatch(matchId) {
+    await api.matches.delete(matchId);
+    await reload();
   }
-
-  /** Edits a player's name globally (updates DB + all tournament references) */
-  function handleEditPlayer(playerId, newName) {
-    let db = getPlayersDB();
-    // Check new name doesn't collide with another existing DB entry
-    const collision = Object.values(db).find(
-      (p) => p.id !== playerId && p.name.toLowerCase() === newName.trim().toLowerCase()
-    );
-    if (collision) {
-      alert(`Ya existe un jugador llamado "${collision.name}" en la base de datos.`);
-      return;
-    }
-    if (db[playerId]) db[playerId].name = newName.trim();
-    savePlayersDB(db);
-    // Update in current tournament
-    const players = tournament.players.map((p) =>
-      p.id === playerId ? { ...p, name: newName.trim() } : p
-    );
-    handleUpdate({ ...tournament, players });
+ 
+  // ── Jugadores ───────────────────────────────────────────────────────
+  async function handleAddPlayer(name) {
+    await api.players.search(name); // solo para verificar
+    // resolve crea o reutiliza y vincula al grupo
+    await fetch(`${process.env.REACT_APP_API_URL}/api/players/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, groupId }),
+    });
+    await reload();
+    flash();
   }
-
-  function handleDeletePlayer(playerId) {
-    const players = tournament.players.filter((p) => p.id !== playerId);
-    const pairs   = tournament.pairs?.filter((p) => p.p1 !== playerId && p.p2 !== playerId) ?? [];
-    handleUpdate({ ...tournament, players, pairs });
+ 
+  async function handleEditPlayer(playerId, newName) {
+    await api.players.rename(playerId, newName);
+    await reload();
+    flash();
   }
-
-  function handleAddPair(p1Id, p2Id) {
-    const pairs = [...(tournament.pairs ?? []), { id: uid(), p1: p1Id, p2: p2Id }];
-    handleUpdate({ ...tournament, pairs });
+ 
+  async function handleDeletePlayer(playerId) {
+    await api.players.removeFromGroup(playerId, groupId);
+    await reload();
   }
-
-  function handleEditPair(pairId, p1Id, p2Id) {
-    const pairs = tournament.pairs.map((p) =>
-      p.id === pairId ? { ...p, p1: p1Id, p2: p2Id } : p
-    );
-    handleUpdate({ ...tournament, pairs });
+ 
+  // ── Parejas ─────────────────────────────────────────────────────────
+  async function handleAddPair(p1Id, p2Id) {
+    await api.pairs.create({ tournamentId: tournament.id, p1Id, p2Id });
+    await reload();
+    flash();
   }
-
-  function handleDeletePair(pairId) {
-    const pairs = tournament.pairs.filter((p) => p.id !== pairId);
-    handleUpdate({ ...tournament, pairs });
+ 
+  async function handleEditPair(pairId, p1Id, p2Id) {
+    await api.pairs.update(pairId, { p1Id, p2Id });
+    await reload();
+    flash();
   }
-
-  function handleResetScores() {
-    handleUpdate({ ...tournament, matches: [] });
+ 
+  async function handleDeletePair(pairId) {
+    await api.pairs.delete(pairId);
+    await reload();
   }
-
+ 
+  // ── Scores y torneo ─────────────────────────────────────────────────
+  async function handleResetScores() {
+    await api.tournaments.resetScores(tournament.id);
+    await reload();
+  }
+ 
+  async function handleDeleteTournament() {
+    await api.tournaments.delete(tournament.id);
+  }
+ 
   function getShareLink() {
-    if (!tournament) return "";
-    return `${window.location.href.split("#")[0]}#readonly:${tournament.id}`;
+    if (!tournament) return '';
+    return `${window.location.href.split('#')[0]}#readonly:${tournament.id}`;
   }
-
+ 
   return {
-    mode, tournament, readonlyId, saved,
-    handleCreate, handleUpdate, handleReset,
-    handleAddPlayer, handleEditPlayer, handleDeletePlayer,
-    handleAddPair, handleEditPair, handleDeletePair,
-    handleResetScores,
+    tournament, loading, error, saved,
+    handleCreate,
+    handleAddMatch,    handleEditMatch,    handleDeleteMatch,
+    handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
+    handleAddPair,     handleEditPair,     handleDeletePair,
+    handleResetScores, handleDeleteTournament,
     getShareLink,
   };
 }
