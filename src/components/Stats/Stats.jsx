@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { calcStandings } from "../../utils/helpers";
-import { loadAllTournaments } from "../../utils/storage";
 import S from "../../styles/theme";
 
 export default function Stats({ tournament }) {
@@ -8,7 +7,7 @@ export default function Stats({ tournament }) {
   const [histTab, setHistTab] = useState("current");
 
   useEffect(() => {
-    setAllTournaments(loadAllTournaments());
+    setAllTournaments([])
   }, []);
 
   return (

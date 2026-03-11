@@ -3,17 +3,15 @@ import S from "../../styles/theme";
 import Modal from "../shared/Modal";
 import PlayerManager from "./PlayerManager";
 import PairManager from "./PairManager";
-import { getPlayersDB } from "../../utils/storage";
 
 export default function Management({
-  tournament, onUpdate,
+  tournament, 
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
   onResetScores, onDeleteTournament,
 }) {
   const [resetModal, setResetModal]   = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
-  const dbPlayers = Object.values(getPlayersDB());
 
   return (
     <div>
@@ -22,7 +20,6 @@ export default function Management({
       {/* Players section */}
       <PlayerManager
         tournament={tournament}
-        dbPlayers={dbPlayers}
         onAdd={onAddPlayer}
         onEdit={onEditPlayer}
         onDelete={onDeletePlayer}

@@ -44,7 +44,6 @@ export default function PlayerManager({ tournament, dbPlayers, onAdd, onEdit, on
             value={newName}
             onChange={setNewName}
             placeholder="Nombre del jugador"
-            dbPlayers={dbPlayers}
           />
           <button onClick={handleAdd} style={S.primaryBtn}>Agregar</button>
         </div>

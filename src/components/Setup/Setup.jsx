@@ -1,7 +1,6 @@
 import { useState } from "react";
 import S, { FONTS } from "../../styles/theme";
 import { uid } from "../../utils/helpers";
-import { getPlayersDB } from "../../utils/storage";
 import PlayerInput from "./PlayerInput";
 import PairBuilder from "./PairBuilder";
 
@@ -11,7 +10,6 @@ export default function Setup({ onCreate }) {
   const [pairs, setPairs]       = useState([]);
   const [step, setStep]         = useState("players"); // "players" | "pairs"
 
-  const dbPlayers = Object.values(getPlayersDB());
   const filledNames = playerNames.filter((n) => n.trim());
   const isEven = filledNames.length > 0 && filledNames.length % 2 === 0;
   const hasDupes = new Set(filledNames.map((n) => n.trim().toLowerCase())).size !== filledNames.length;
@@ -49,7 +47,7 @@ export default function Setup({ onCreate }) {
     <div style={S.page}>
       <style>{FONTS}</style>
       <div style={S.setupCard}>
-        <div style={S.logo}>🎾 PADEL<span style={{ color: "#e8f04a" }}>SCORE</span></div>
+        <div style={S.logo}>🎾 PADEL<span style={{ color: "#e8f04a" }}>IANDO</span></div>
         <p style={S.subtitle}>Creá tu torneo y empezá a jugar</p>
 
         {step === "players" && (
@@ -70,7 +68,6 @@ export default function Setup({ onCreate }) {
                     value={p}
                     onChange={(v) => updatePlayer(i, v)}
                     placeholder={`Jugador ${i + 1}`}
-                    dbPlayers={dbPlayers}
                   />
                   {playerNames.length > 4 && (
                     <button onClick={() => removePlayer(i)} style={S.removeBtn}>✕</button>

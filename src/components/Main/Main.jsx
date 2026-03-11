@@ -14,7 +14,7 @@ const TABS = [
 ];
 
 export default function Main({
-  tournament, onUpdate,
+  tournament, onAddMatch, onEditMatch, onDeleteMatch,
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
   onResetScores, onReset,
@@ -66,12 +66,11 @@ export default function Main({
 
       <div style={S.content}>
         {tab === "standings"  && <Standings  tournament={tournament} />}
-        {tab === "matches"    && <Matches    tournament={tournament} onUpdate={onUpdate} />}
+        {tab === "matches"    && <Matches    tournament={tournament} onAddMatch={onAddMatch} onEditMatch={onEditMatch} onDeleteMatch={onDeleteMatch} />}
         {tab === "stats"      && <Stats      tournament={tournament} />}
         {tab === "management" && (
           <Management
             tournament={tournament}
-            onUpdate={onUpdate}
             onAddPlayer={onAddPlayer}
             onEditPlayer={onEditPlayer}
             onDeletePlayer={onDeletePlayer}
