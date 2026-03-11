@@ -21,7 +21,7 @@ export default function GroupView({ groupId }) {
       <div style={S.header}>
         <div>
           <div style={S.logo} onClick={() => { window.location.hash = '/'; }}>
-            🎾 PADEL<span style={{ color: '#e8f04a' }}>IANDO</span>
+            🎾 PADEL<span style={{ color: '#e8f04a' }}>EANDO</span>
           </div>
           <div style={S.tourneyName}>{group.name}</div>
         </div>

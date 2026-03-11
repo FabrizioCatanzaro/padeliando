@@ -26,7 +26,7 @@ export default function HomeView() {
     <div style={S.page}>
       <style>{FONTS}</style>
       <div style={S.header}>
-        <div style={S.logo}>🎾 PADEL<span style={{ color: '#e8f04a' }}>IANDO</span></div>
+        <div style={S.logo}>🎾 PADEL<span style={{ color: '#e8f04a' }}>EANDO</span></div>
         <button onClick={() => setShowNew(!showNew)} style={S.primaryBtn}>
           {showNew ? 'Cancelar' : '+ Nuevo grupo'}
         </button>

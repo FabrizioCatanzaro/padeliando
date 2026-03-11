@@ -47,7 +47,7 @@ export default function Setup({ onCreate }) {
     <div style={S.page}>
       <style>{FONTS}</style>
       <div style={S.setupCard}>
-        <div style={S.logo}>🎾 PADEL<span style={{ color: "#e8f04a" }}>IANDO</span></div>
+        <div style={S.logo}>🎾 PADEL<span style={{ color: "#e8f04a" }}>EANDO</span></div>
         <p style={S.subtitle}>Creá tu torneo y empezá a jugar</p>
 
         {step === "players" && (

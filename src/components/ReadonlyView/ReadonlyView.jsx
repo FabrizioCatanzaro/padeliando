@@ -69,7 +69,7 @@ export default function ReadonlyView({ id }) {
       <div style={S.header}>
         <div>
           <div style={S.logo}>
-            🎾 PADEL<span style={{ color: "#e8f04a" }}>IANDO</span>
+            🎾 PADEL<span style={{ color: "#e8f04a" }}>EANDO</span>
           </div>
           <div style={S.tourneyName}>{tournament.name}</div>
           <div style={S.meta}>
