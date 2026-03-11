@@ -1,25 +1,37 @@
-import logo from './logo.svg';
-import './App.css';
+import { useTournament } from "./hooks/useTournament";
+import Loader       from "./components/Loader/Loader";
+import Setup        from "./components/Setup/Setup";
+import Main         from "./components/Main/Main";
+import ReadonlyView from "./components/ReadonlyView/ReadonlyView";
 
-function App() {
+export default function App() {
+  const {
+    mode, tournament, readonlyId, saved,
+    handleCreate, handleUpdate, handleReset,
+    handleAddPlayer, handleEditPlayer, handleDeletePlayer,
+    handleAddPair, handleEditPair, handleDeletePair,
+    handleResetScores,
+    getShareLink,
+  } = useTournament();
+
+  if (mode === "loading")  return <Loader />;
+  if (mode === "setup")    return <Setup onCreate={handleCreate} />;
+  if (mode === "readonly") return <ReadonlyView id={readonlyId} />;
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Main
+      tournament={tournament}
+      onUpdate={handleUpdate}
+      onAddPlayer={handleAddPlayer}
+      onEditPlayer={handleEditPlayer}
+      onDeletePlayer={handleDeletePlayer}
+      onAddPair={handleAddPair}
+      onEditPair={handleEditPair}
+      onDeletePair={handleDeletePair}
+      onResetScores={handleResetScores}
+      onReset={handleReset}
+      shareLink={getShareLink()}
+      saved={saved}
+    />
   );
 }
-
-export default App;
