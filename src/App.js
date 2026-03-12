@@ -4,8 +4,10 @@ import Loader       from './components/Loader/Loader';
 import Setup        from './components/Setup/Setup';
 import Main         from './components/Main/Main';
 import ReadonlyView from './components/ReadonlyView/ReadonlyView';
-import HomeView     from './components/Home/HomeView';    // nuevo
-import GroupView    from './components/Group/GroupView';  // nuevo
+import HomeView     from './components/Home/HomeView';
+import GroupView    from './components/Group/GroupView';
+import AuthView     from './components/Auth/AuthView';
+import ProfileView  from './components/Auth/ProfileView';
  
 function parseHash() {
   const hash = window.location.hash.slice(1) || '/';
@@ -14,6 +16,12 @@ function parseHash() {
   const parts = hash.replace(/^\//, '').split('/');
   if (parts[0] === '' || hash === '/')
     return { view: 'home' };
+  if (parts[0] === 'login')
+    return { view: 'login' };
+  if (parts[0] === 'register')
+    return { view: 'register' };
+  if (parts[0] === 'u' && parts[1])
+    return { view: 'profile', username: parts[1] };
   if (parts[0] === 'groups' && parts[2] === 'tournament' && parts[3] === 'new')
     return { view: 'setup', groupId: parts[1] };
   if (parts[0] === 'groups' && parts[2] === 'tournament' && parts[3])
@@ -40,6 +48,9 @@ export default function App() {
           getShareLink, handleToggleStatus } = useTournament(loc.groupId, loc.tournamentId);
  
   if (loc.view === 'readonly') return <ReadonlyView id={loc.tournamentId} />;
+  if (loc.view === 'login')     return <AuthView mode="login" />;
+  if (loc.view === 'register')  return <AuthView mode="register" />;
+  if (loc.view === 'profile')   return <ProfileView username={loc.username} />;
   if (loc.view === 'home')     return <HomeView />;
   if (loc.view === 'group')    return <GroupView groupId={loc.groupId} />;
  
