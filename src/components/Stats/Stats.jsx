@@ -63,6 +63,12 @@ function CurrentStats({ tournament }) {
     if (d > biggestDiff) { biggestDiff = d; biggestWin = m; }
   });
 
+  const longestMatch = played
+  .filter((m) => m.duration_seconds > 0)
+  .sort((a, b) => b.duration_seconds - a.duration_seconds)[0] ?? null;
+  //console.log("longestMach", played);
+  
+
   const getPlayerName = (id) => players.find((p) => p.id === id)?.name ?? "?";
   const leader = standings[0];
   const topPartner = partnerships[0];
@@ -82,14 +88,14 @@ function CurrentStats({ tournament }) {
           <div style={{ ...S.statCard, borderColor: "#e8f04a44" }}>
             <div style={S.statIcon}>🏆</div>
             <div style={{ ...S.statValue, color: "#e8f04a" }}>{leader.name}</div>
-            <div style={S.statLabel}>Líder · {leader.pg} victorias</div>
+            <div style={S.statLabel}>MVP · {leader.pg} victorias</div>
           </div>
         )}
         {topPartner?.played >= 1 && (
           <div style={{ ...S.statCard, borderColor: "#4af0c844" }}>
             <div style={S.statIcon}>🤝</div>
             <div style={{ ...S.statValue, color: "#4af0c8", fontSize: 18 }}>{topPartner.label}</div>
-            <div style={S.statLabel}>Mejor dupla · {topPartner.winRate}% ({topPartner.wins}/{topPartner.played})</div>
+            <div style={S.statLabel}>Mejor pareja · {topPartner.winRate}% ({topPartner.wins}/{topPartner.played})</div>
           </div>
         )}
         {biggestWin && (
@@ -97,6 +103,18 @@ function CurrentStats({ tournament }) {
             <div style={S.statIcon}>💥</div>
             <div style={{ ...S.statValue, fontSize: 22, color: "#f07a4a" }}>{biggestWin.score1} — {biggestWin.score2}</div>
             <div style={S.statLabel}>Partido más amplio · {biggestWin.team1.map(getPlayerName).join(" & ")} vs {biggestWin.team2.map(getPlayerName).join(" & ")}</div>
+          </div>
+        )}
+        {longestMatch && (
+          <div style={{ ...S.statCard, borderColor: "#4af0c844" }}>
+            <div style={S.statIcon}>⏱</div>
+            <div style={{ ...S.statValue, color: "#4af0c8" }}>
+              {String(Math.floor(longestMatch.duration_seconds / 60)).padStart(2,"0")}:
+              {String(longestMatch.duration_seconds % 60).padStart(2,"0")}
+            </div>
+            <div style={S.statLabel}>
+              Partido más extenso · {longestMatch.team1.map(getPlayerName).join(" & ")} vs {longestMatch.team2.map(getPlayerName).join(" & ")}
+            </div>
           </div>
         )}
       </div>
@@ -109,7 +127,7 @@ function CurrentStats({ tournament }) {
 
 function HistoricalStats({ tournaments }) {
   if (tournaments.length === 0)
-    return <div style={S.empty}>No hay torneos anteriores registrados.</div>;
+    return <div style={S.empty}>No hay jornadas anteriores registradas.</div>;
 
   // Aggregate per player name
   const playerMap = {};
@@ -137,7 +155,7 @@ function HistoricalStats({ tournaments }) {
         <div style={S.statCard}>
           <div style={S.statIcon}>📅</div>
           <div style={S.statValue}>{tournaments.length}</div>
-          <div style={S.statLabel}>Torneos jugados</div>
+          <div style={S.statLabel}>Jornadas jugadas</div>
         </div>
         <div style={S.statCard}>
           <div style={S.statIcon}>🎾</div>
@@ -159,7 +177,7 @@ function HistoricalStats({ tournaments }) {
       </div>
 
       <div style={{ marginTop: 20 }}>
-        <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 12 }}>TORNEOS</div>
+        <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 12 }}>JORNADAS</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {[...tournaments].reverse().map((t) => {
             const played = t.matches.filter((m) => m.score1 !== "").length;
@@ -199,7 +217,7 @@ function PerPlayerTable({ standings, showTourneys }) {
               <div style={{ flex: 1, fontWeight: 600, color: "#fff" }}>{p.name}</div>
               {showTourneys && (
                 <div style={{ minWidth: 50, color: "#555", fontSize: 11, fontFamily: "'Courier New', monospace" }}>
-                  {p.torneos}T
+                  {p.torneos}J
                 </div>
               )}
               <div style={{ flex: 2 }}>
@@ -223,7 +241,7 @@ function PartnershipsTable({ partnerships }) {
   if (partnerships.length === 0) return null;
   return (
     <div style={{ marginTop: 24 }}>
-      <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 12 }}>DUPLAS</div>
+      <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 12 }}>PAREJAS</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {partnerships.map((p, i) => (
           <div key={i} style={S.playerStatRow}>

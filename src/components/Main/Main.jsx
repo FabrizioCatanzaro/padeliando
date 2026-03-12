@@ -18,8 +18,10 @@ export default function Main({
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
   onResetScores, onReset,
-  shareLink, saved,
+  shareLink, saved, onToggleStatus
 }) {
+  //console.log("PLAYERS MAP",tournament.players.map(p => p.id))
+  //console.log("MATCHES",tournament.matches[0]?.team1)
   const [tab, setTab]       = useState("standings");
   const [copied, setCopied] = useState(false);
 
@@ -38,8 +40,15 @@ export default function Main({
 
       <div style={S.header}>
         <div>
-          <div style={S.logo}>🎾 PADEL<span style={{ color: "#e8f04a" }}>EANDO</span></div>
+          <div style={{...S.logo, cursor: "pointer"}} onClick={() => { window.location.hash = "/"; }} >🎾 PADEL<span style={{ color: "#e8f04a" }}>EANDO</span></div>
           <div style={S.tourneyName}>{tournament.name}</div>
+          <span style={{
+            fontSize: 11, fontFamily: "'Courier New', monospace",
+            color: tournament.status === 'active' ? '#4af07a' : '#555',
+            marginLeft: 10,
+          }}>
+            {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
+          </span>
           <div style={S.meta}>
             Creado el {fmt(tournament.createdAt)} · {tournament.players.length} jugadores ·{" "}
             {playedCount} partidos ·{" "}
@@ -79,6 +88,7 @@ export default function Main({
             onDeletePair={onDeletePair}
             onResetScores={onResetScores}
             onDeleteTournament={onReset}
+            onToggleStatus={onToggleStatus}
           />
         )}
       </div>

@@ -26,9 +26,9 @@ export default function HomeView() {
     <div style={S.page}>
       <style>{FONTS}</style>
       <div style={S.header}>
-        <div style={S.logo}>🎾 PADEL<span style={{ color: '#e8f04a' }}>EANDO</span></div>
+        <div style={{...S.logo, cursor: "pointer"}} onClick={() => { window.location.hash = "/"; }}>🎾 PADEL<span style={{ color: '#e8f04a' }}>EANDO</span></div>
         <button onClick={() => setShowNew(!showNew)} style={S.primaryBtn}>
-          {showNew ? 'Cancelar' : '+ Nuevo grupo'}
+          {showNew ? 'Cancelar' : '+ Nuevo torneo'}
         </button>
       </div>
  
@@ -48,9 +48,9 @@ export default function HomeView() {
           </div>
         )}
  
-        <div style={S.sectionTitle}>TUS GRUPOS</div>
+        <div style={S.sectionTitle}>TUS TORNEOS</div>
         {groups.length === 0 && (
-          <div style={S.empty}>No hay grupos todavía.<br/>Creá el primero.</div>
+          <div style={S.empty}>No hay torneos todavía.<br/>Creá el primero.</div>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
           {groups.map((g) => (

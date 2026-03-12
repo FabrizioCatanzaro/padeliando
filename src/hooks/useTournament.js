@@ -49,6 +49,7 @@ export function useTournament(groupId, tournamentId) {
       score1:   matchData.score1,
       score2:   matchData.score2,
       playedAt: matchData.date,
+      duration_seconds: matchData.duration_seconds,
     });
     await reload();
     flash();
@@ -98,6 +99,9 @@ export function useTournament(groupId, tournamentId) {
   // ── Parejas ─────────────────────────────────────────────────────────
   async function handleAddPair(p1Id, p2Id) {
     await api.pairs.create({ tournamentId: tournament.id, p1Id, p2Id });
+    if (tournament.mode === 'free') {
+      await api.tournaments.update(tournament.id, { mode: 'pairs' });
+    }
     await reload();
     flash();
   }
@@ -122,6 +126,12 @@ export function useTournament(groupId, tournamentId) {
   async function handleDeleteTournament() {
     await api.tournaments.delete(tournament.id);
   }
+
+  async function handleToggleStatus() {
+    const newStatus = tournament.status === 'active' ? 'finished' : 'active';
+    await api.tournaments.update(tournament.id, { status: newStatus });
+    await reload();
+  }
  
   function getShareLink() {
     if (!tournament) return '';
@@ -135,6 +145,6 @@ export function useTournament(groupId, tournamentId) {
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink,
+    getShareLink, handleToggleStatus
   };
 }

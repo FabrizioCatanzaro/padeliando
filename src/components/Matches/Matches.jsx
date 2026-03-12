@@ -45,7 +45,7 @@ export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteM
       ? tournament.matches.map((m) => (m.id === editId ? match : m))
       : [...tournament.matches, match];
     */
-    const matchData = { team1, team2, score1: s1, score2: s2, date: form.date };
+    const matchData = { team1, team2, score1: s1, score2: s2, date: form.date, duration_seconds: form.duration_seconds };
     if (editId) {
       await onEditMatch(editId, matchData);
     } else {

@@ -68,7 +68,7 @@ export default function ReadonlyView({ id }) {
 
       <div style={S.header}>
         <div>
-          <div style={S.logo}>
+          <div style={{...S.logo, cursor: "pointer"}} onClick={() => { window.location.hash = "/"; }}>
             🎾 PADEL<span style={{ color: "#e8f04a" }}>EANDO</span>
           </div>
           <div style={S.tourneyName}>{tournament.name}</div>

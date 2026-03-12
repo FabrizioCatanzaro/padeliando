@@ -47,15 +47,15 @@ export default function Setup({ onCreate }) {
     <div style={S.page}>
       <style>{FONTS}</style>
       <div style={S.setupCard}>
-        <div style={S.logo}>🎾 PADEL<span style={{ color: "#e8f04a" }}>EANDO</span></div>
-        <p style={S.subtitle}>Creá tu torneo y empezá a jugar</p>
+        <div style={{...S.logo, cursor: "pointer"}} onClick={() => { window.location.hash = "/"; }} >🎾 PADEL<span style={{ color: "#e8f04a" }}>EANDO</span></div>
+        <p style={S.subtitle}>Creá tu jornada y empezá a jugar</p>
 
         {step === "players" && (
           <>
-            <label style={S.label}>NOMBRE DEL TORNEO</label>
+            <label style={S.label}>NOMBRE DE LA JORNADA</label>
             <input
               style={S.input}
-              placeholder="ej: Liga Verano 2025"
+              placeholder="ej: Fecha 1"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />

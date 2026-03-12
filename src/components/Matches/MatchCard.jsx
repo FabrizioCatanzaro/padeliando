@@ -35,6 +35,11 @@ export default function MatchCard({ match, tournament, onEdit, onDelete }) {
           <span style={{ ...S.teamBadge, background: "#1a2a3a" }}>{mode === "pairs" ? "P2" : "E2"}</span>
         </div>
       </div>
+      {match.duration_seconds > 0 && (
+        <div style={{ fontSize: 11, color: "#555", fontFamily: "'Courier New', monospace", marginTop: 4, textAlign: "center" }}>
+          ⏱ {String(Math.floor(match.duration_seconds / 60)).padStart(2,"0")}:{String(match.duration_seconds % 60).padStart(2,"0")} min
+        </div>
+      )}
       <div style={S.matchActions}>
         <button onClick={onEdit}   style={S.actionBtn}>✏️ Editar</button>
         <button onClick={onDelete} style={{ ...S.actionBtn, color: "#f04a4a" }}>🗑️ Eliminar</button>

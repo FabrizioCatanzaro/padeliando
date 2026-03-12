@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import S, { FONTS } from '../../styles/theme';
+import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import Loader from '../Loader/Loader';
@@ -7,6 +8,7 @@ import Loader from '../Loader/Loader';
 export default function GroupView({ groupId }) {
   const [group,   setGroup]   = useState(null);
   const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState(false);
  
   useEffect(() => {
     api.groups.get(groupId).then(setGroup).finally(() => setLoading(false));
@@ -14,13 +16,18 @@ export default function GroupView({ groupId }) {
  
   if (loading) return <Loader />;
   if (!group)  return null;
+
+  async function handleDelete() {
+    await api.groups.delete(groupId);
+    window.location.hash = "/";
+  }
  
   return (
     <div style={S.page}>
       <style>{FONTS}</style>
       <div style={S.header}>
         <div>
-          <div style={S.logo} onClick={() => { window.location.hash = '/'; }}>
+          <div style={{...S.logo, cursor: "pointer"}} onClick={() => { window.location.hash = "/"; }}>
             🎾 PADEL<span style={{ color: '#e8f04a' }}>EANDO</span>
           </div>
           <div style={S.tourneyName}>{group.name}</div>
@@ -30,12 +37,13 @@ export default function GroupView({ groupId }) {
           style={S.primaryBtn}>
           + Nuevo torneo
         </button>
+        <button onClick={() => setDeleteModal(true)} style={S.dangerBtn}>🗑️</button>
       </div>
  
       <div style={S.content}>
-        <div style={S.sectionTitle}>TORNEOS</div>
+        <div style={S.sectionTitle}>JORNADAS</div>
         {(!group.tournaments || group.tournaments.length === 0) && (
-          <div style={S.empty}>No hay torneos todavía.<br/>¡Creá el primero!</div>
+          <div style={S.empty}>No hay jornadas todavía.<br/>¡Creá el primero!</div>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {group.tournaments?.map((t) => (
@@ -58,6 +66,16 @@ export default function GroupView({ groupId }) {
           ))}
         </div>
       </div>
+      {deleteModal && (
+        <Modal
+          title={`¿Eliminar "${group.name}"?`}
+          message="Se eliminarán el torneo y todas sus jornadas. Los jugadores quedan en la base de datos."
+          confirmText="Sí, eliminar"
+          confirmDanger
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteModal(false)}
+        />
+      )}
     </div>
   );
 }

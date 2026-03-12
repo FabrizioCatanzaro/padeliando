@@ -37,7 +37,7 @@ export default function App() {
           handleAddPlayer, handleEditPlayer, handleDeletePlayer,
           handleAddPair, handleEditPair, handleDeletePair,
           handleResetScores, handleDeleteTournament,
-          getShareLink } = useTournament(loc.groupId, loc.tournamentId);
+          getShareLink, handleToggleStatus } = useTournament(loc.groupId, loc.tournamentId);
  
   if (loc.view === 'readonly') return <ReadonlyView id={loc.tournamentId} />;
   if (loc.view === 'home')     return <HomeView />;
@@ -70,6 +70,7 @@ export default function App() {
         onReset={async () => { await handleDeleteTournament(); window.location.hash = `/groups/${loc.groupId}`; }}
         shareLink={getShareLink()}
         saved={saved}
+        onToggleStatus={handleToggleStatus}
       />
     );
   }
