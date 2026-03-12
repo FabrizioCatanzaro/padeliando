@@ -4,6 +4,7 @@ import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import Loader from '../Loader/Loader';
+import { isLoggedIn } from '../../utils/auth';
  
 export default function GroupView({ groupId }) {
   const [group,   setGroup]   = useState(null);
@@ -16,10 +17,16 @@ export default function GroupView({ groupId }) {
  
   if (loading) return <Loader />;
   if (!group)  return null;
+  const loggedIn = isLoggedIn();
 
   async function handleDelete() {
     await api.groups.delete(groupId);
-    window.location.hash = "/";
+    window.location = "/";
+  }
+
+  async function handleTogglePublic() {
+    const updated = await api.groups.update(groupId, { is_public: !group.is_public });
+    setGroup({ ...group, is_public: updated.is_public });
   }
  
   return (
@@ -32,12 +39,23 @@ export default function GroupView({ groupId }) {
           </div>
           <div style={S.tourneyName}>{group.name}</div>
         </div>
-        <button
-          onClick={() => { window.location.hash = `/groups/${groupId}/tournament/new`; }}
-          style={S.primaryBtn}>
-          + Nuevo torneo
-        </button>
-        <button onClick={() => setDeleteModal(true)} style={S.dangerBtn}>🗑️</button>
+        {loggedIn ?? (
+        <>
+          <button onClick={handleTogglePublic} style={{
+            ...S.resetBtn,
+            color: group.is_public ? '#4af0c8' : '#555',
+            borderColor: group.is_public ? '#4af0c844' : '#2a3040',
+          }}>
+            {group.is_public ? '🌐 Público' : '🔒 Privado'}
+          </button>
+          <button
+            onClick={() => { window.location.hash = `/groups/${groupId}/tournament/new`; }}
+            style={S.primaryBtn}>
+            + Nueva jornada
+          </button>
+          <button onClick={() => setDeleteModal(true)} style={S.dangerBtn}>🗑️</button>
+        </>
+        )}
       </div>
  
       <div style={S.content}>

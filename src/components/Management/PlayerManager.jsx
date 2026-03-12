@@ -2,6 +2,7 @@ import { useState } from "react";
 import S from "../../styles/theme";
 import PlayerInput from "../Setup/PlayerInput";
 import Modal from "../shared/Modal";
+import { isLoggedIn } from '../../utils/auth';
 
 export default function PlayerManager({ tournament, dbPlayers, onAdd, onEdit, onDelete }) {
   const [newName, setNewName]     = useState("");
@@ -9,6 +10,7 @@ export default function PlayerManager({ tournament, dbPlayers, onAdd, onEdit, on
   const [editName, setEditName]   = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showAdd, setShowAdd]     = useState(false);
+  const loggedIn = isLoggedIn();
 
   function handleAdd() {
     if (!newName.trim()) return;
@@ -33,9 +35,11 @@ export default function PlayerManager({ tournament, dbPlayers, onAdd, onEdit, on
     <div style={S.manageSection}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 0 }}>JUGADORES</div>
-        <button onClick={() => setShowAdd(!showAdd)} style={S.primaryBtn}>
-          {showAdd ? "Cancelar" : "+ Agregar"}
-        </button>
+        {loggedIn ?? (
+          <button onClick={() => setShowAdd(!showAdd)} style={S.primaryBtn}>
+            {showAdd ? "Cancelar" : "+ Agregar"}
+          </button>
+        )}
       </div>
 
       {showAdd && (
@@ -72,13 +76,17 @@ export default function PlayerManager({ tournament, dbPlayers, onAdd, onEdit, on
                     {tournament.matches.filter(m => [...m.team1, ...m.team2].includes(p.id)).length}P
                   </span>
                 )}
-                <button onClick={() => startEdit(p)} style={S.actionBtn}>✏️</button>
-                <button
-                  onClick={() => setDeleteTarget(p)}
-                  style={{ ...S.actionBtn, color: "#f04a4a" }}
-                >
-                  🗑️
-                </button>
+                {loggedIn ?? (
+                  <>
+                    <button onClick={() => startEdit(p)} style={S.actionBtn}>✏️</button>
+                    <button
+                      onClick={() => setDeleteTarget(p)}
+                      style={{ ...S.actionBtn, color: "#f04a4a" }}
+                    >
+                      🗑️
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>

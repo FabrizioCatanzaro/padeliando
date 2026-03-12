@@ -3,6 +3,7 @@ import S from "../../styles/theme";
 import { expandPair } from "../../utils/helpers";
 import MatchCard from "./MatchCard";
 import MatchForm, { emptyForm } from "./MatchForm";
+import { isLoggedIn } from '../../utils/auth';
 
 export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteMatch }) {
   const [showForm, setShowForm] = useState(false);
@@ -10,6 +11,7 @@ export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteM
   const [editId, setEditId]     = useState(null);
 
   const isPairs = tournament.mode === "pairs";
+  const loggedIn = isLoggedIn();
 
   function resetForm() { setForm(emptyForm()); setEditId(null); }
 
@@ -95,9 +97,11 @@ export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteM
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={S.sectionTitle}>PARTIDOS</div>
-        <button onClick={() => { resetForm(); setShowForm(!showForm); }} style={S.primaryBtn}>
-          {showForm ? "CANCELAR" : "+ NUEVO PARTIDO"}
-        </button>
+        {loggedIn ?? (
+          <button onClick={() => { resetForm(); setShowForm(!showForm); }} style={S.primaryBtn}>
+            {showForm ? "CANCELAR" : "+ NUEVO PARTIDO"}
+          </button>
+        )}
       </div>
 
       {showForm && (

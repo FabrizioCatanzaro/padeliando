@@ -3,6 +3,7 @@ import S from "../../styles/theme";
 import Modal from "../shared/Modal";
 import PlayerManager from "./PlayerManager";
 import PairManager from "./PairManager";
+import { isLoggedIn } from '../../utils/auth';
 
 export default function Management({
   tournament, 
@@ -12,6 +13,7 @@ export default function Management({
 }) {
   const [resetModal, setResetModal]   = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+  const loggedIn = isLoggedIn();
 
   return (
     <div>
@@ -36,6 +38,8 @@ export default function Management({
       )}
 
       {/* Danger zone */}
+      {loggedIn ?? (
+
       <div style={S.dangerZone}>
         <div style={{ ...S.sectionTitle, color: "#f04a4a66", fontSize: 13, marginBottom: 12 }}>
           ZONA DE PELIGRO
@@ -65,6 +69,7 @@ export default function Management({
           </button>
         </div>
       </div>
+      )}
 
       {resetModal && (
         <Modal

@@ -2,6 +2,7 @@ import { useState } from "react";
 import S from "../../styles/theme";
 import {  getPairLabel } from "../../utils/helpers";
 import Modal from "../shared/Modal";
+import { isLoggedIn } from '../../utils/auth';
 
 export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
   const { players, pairs = [] } = tournament;
@@ -12,6 +13,7 @@ export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
   const [editP1, setEditP1]         = useState("");
   const [editP2, setEditP2]         = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const loggedIn = isLoggedIn();
 
   // Players not already in a pair
   const assignedIds = pairs.flatMap((p) => [p.p1, p.p2]);
@@ -37,9 +39,11 @@ export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
     <div style={{ ...S.manageSection, marginTop: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 0 }}>PAREJAS</div>
-        <button onClick={() => setShowAdd(!showAdd)} style={S.primaryBtn}>
-          {showAdd ? "Cancelar" : "+ Nueva pareja"}
-        </button>
+        {loggedIn ?? (
+          <button onClick={() => setShowAdd(!showAdd)} style={S.primaryBtn}>
+            {showAdd ? "Cancelar" : "+ Nueva pareja"}
+          </button>
+        )}
       </div>
 
       {showAdd && (
@@ -95,8 +99,12 @@ export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
                 <span style={{ flex: 1, color: "#ccc", fontFamily: "'Barlow', sans-serif" }}>
                   {getPairLabel(pair.id, pairs, players)}
                 </span>
-                <button onClick={() => startEdit(pair)} style={S.actionBtn}>✏️</button>
-                <button onClick={() => setDeleteTarget(pair)} style={{ ...S.actionBtn, color: "#f04a4a" }}>🗑️</button>
+                {loggedIn ?? (
+                  <>
+                  <button onClick={() => startEdit(pair)} style={S.actionBtn}>✏️</button>
+                  <button onClick={() => setDeleteTarget(pair)} style={{ ...S.actionBtn, color: "#f04a4a" }}>🗑️</button>
+                  </>
+                )}
               </>
             )}
           </div>
