@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import S, { FONTS } from '../../styles/theme';
 import { api } from '../../utils/api';

@@ -1,16 +1,28 @@
-import { getToken } from "./auth";
+import { clearSession } from "./auth";
 const BASE = process.env.REACT_APP_API_URL ?? '';
  
-async function req(method, path, body) {
-  const token = getToken();
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
+async function req(method, path, body, retry = true) {
   const res = await fetch(`${BASE}/api${path}`, {
     method,
-    headers,
+    headers:     { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+
+  // Si el access token expiró, intentar refresh una sola vez
+  if (res.status === 401 && retry) {
+    const refreshed = await fetch(`${BASE}/api/auth/refresh`, {
+      method: 'POST', credentials: 'include',
+    });
+    if (refreshed.ok) {
+      return req(method, path, body, false); // reintentar con el nuevo token
+    } else {
+      clearSession();
+      window.location.hash = '/login';
+      throw new Error('Sesión expirada');
+    }
+  }
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Error desconocido');
   return data;

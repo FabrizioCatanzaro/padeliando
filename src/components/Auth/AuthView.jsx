@@ -68,8 +68,8 @@ export default function AuthView({ mode: initialMode }) {
     try {
       const body = isRegister ? { name, email, password } : { email, password };
       const fn   = isRegister ? api.auth.register : api.auth.login;
-      const { user, token } = await fn(body);
-      saveSession(token, user);
+      const { user } = await fn(body);
+      saveSession(user);
       window.location.hash = '/';
     } catch (e) {
       setError(e.message);
@@ -83,8 +83,8 @@ export default function AuthView({ mode: initialMode }) {
       client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
       callback: async ({ credential }) => {
         try {
-          const { user, token } = await api.auth.google(credential);
-          saveSession(token, user);
+          const { user } = await api.auth.google(credential);
+          saveSession(user);
           window.location.hash = '/';
         } catch (e) {
           setError(e.message);
