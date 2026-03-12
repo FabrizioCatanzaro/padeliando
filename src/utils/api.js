@@ -1,9 +1,14 @@
+import { getToken } from "./auth";
 const BASE = process.env.REACT_APP_API_URL ?? '';
  
 async function req(method, path, body) {
+  const token = getToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const res = await fetch(`${BASE}/api${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await res.json();
@@ -12,11 +17,23 @@ async function req(method, path, body) {
 }
  
 export const api = {
+  // ── Auth ────────────────────────────────────────────────────────────
+  auth: {
+    register: (body)       => req('POST', '/auth/register', body),
+    login:    (body)       => req('POST', '/auth/login',    body),
+    google:   (credential) => req('POST', '/auth/google',   { credential }),
+    me:       ()           => req('GET',  '/auth/me'),
+    search:   (q)          => req('GET',  `/auth/search?q=${encodeURIComponent(q)}`),
+  },
+
+  // ── Groups ──────────────────────────────────────────────────────────
   groups: {
-    list:   ()           => req('GET', '/groups'),
-    get:    (id)         => req('GET', `/groups/${id}`),
-    create: (body)       => req('POST', '/groups', body),
-    delete: (id)         => req('DELETE', `/groups/${id}`),
+    list:       ()       => req('GET',    '/groups'),
+    get:        (id)     => req('GET',    `/groups/${id}`),
+    create:     (body)   => req('POST',   '/groups', body),
+    update:     (id, b)  => req('PUT',    `/groups/${id}`, b),
+    delete:     (id)     => req('DELETE', `/groups/${id}`),
+    byUsername: (username) => req('GET',  `/groups/user/${username}`),
   },
   players: {
     search: (q = '')     => req('GET', `/players?q=${encodeURIComponent(q)}`),
