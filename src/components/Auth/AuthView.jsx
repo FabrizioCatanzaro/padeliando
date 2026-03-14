@@ -117,6 +117,7 @@ export default function AuthView({ mode: initialMode }) {
     if (!window.google) { setError('Google no disponible, recargá la página'); return }
     window.google.accounts.id.initialize({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      use_fedcm_for_prompt: false,
       callback: async ({ credential }) => {
         try {
           const { user } = await api.auth.google(credential)
