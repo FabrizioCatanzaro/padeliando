@@ -1,64 +1,69 @@
-import { clearSession } from "./auth";
-const BASE = process.env.REACT_APP_API_URL ?? '';
- 
+import { clearUser } from './auth'
+
+const BASE = import.meta.env.VITE_API_URL ?? ''
+
 async function req(method, path, body, retry = true) {
   const res = await fetch(`${BASE}/api${path}`, {
     method,
     headers:     { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  })
 
-  // Si el access token expiró, intentar refresh una sola vez
-  if (res.status === 401 && retry) {
+  if (res.status === 401 && retry && path !== '/auth/refresh' && path !== '/auth/login' && path !== '/auth/me') {
     const refreshed = await fetch(`${BASE}/api/auth/refresh`, {
       method: 'POST', credentials: 'include',
-    });
+    })
     if (refreshed.ok) {
-      return req(method, path, body, false); // reintentar con el nuevo token
+      return req(method, path, body, false)
     } else {
-      clearSession();
-      window.location.hash = '/login';
-      throw new Error('Sesión expirada');
+      clearUser()
+      const p = window.location.pathname
+      if (p !== '/login' && p !== '/register' && !p.startsWith('/reset-password/')) {
+        window.location.href = '/login'
+      }
+      throw new Error('Sesión expirada')
     }
   }
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Error desconocido');
-  return data;
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error ?? 'Error desconocido')
+  return data
 }
- 
-export const api = {
-  // ── Auth ────────────────────────────────────────────────────────────
-  auth: {
-    register: (body)       => req('POST', '/auth/register', body),
-    login:    (body)       => req('POST', '/auth/login',    body),
-    google:   (credential) => req('POST', '/auth/google',   { credential }),
-    me:       ()           => req('GET',  '/auth/me'),
-    search:   (q)          => req('GET',  `/auth/search?q=${encodeURIComponent(q)}`),
-  },
 
-  // ── Groups ──────────────────────────────────────────────────────────
+export const api = {
+  auth: {
+    register:       (body) => req('POST', '/auth/register', body),
+    login:          (body) => req('POST', '/auth/login',    body),
+    google:         (cred) => req('POST', '/auth/google',   { credential: cred }),
+    me:             ()     => req('GET',  '/auth/me'),
+    logout:         ()     => req('POST', '/auth/logout'),
+    search:         (q)    => req('GET',  `/auth/search?q=${encodeURIComponent(q)}`),
+    forgotPassword: (email)       => req('POST',  '/auth/forgot-password',  { email }),
+    resetPassword:  (token, pass) => req('POST',  '/auth/reset-password',   { token, password: pass }),
+    updateMe:       (body)        => req('PATCH', '/auth/me', body),
+  },
   groups: {
-    list:       ()       => req('GET',    '/groups'),
-    get:        (id)     => req('GET',    `/groups/${id}`),
-    create:     (body)   => req('POST',   '/groups', body),
-    update:     (id, b)  => req('PUT',    `/groups/${id}`, b),
-    delete:     (id)     => req('DELETE', `/groups/${id}`),
-    byUsername: (username) => req('GET',  `/groups/user/${username}`),
+    list:          ()         => req('GET',    '/groups'),
+    participating: ()         => req('GET',    '/groups/participating'),
+    get:           (id)       => req('GET',    `/groups/${id}`),
+    create:        (body)     => req('POST',   '/groups', body),
+    update:        (id, b)    => req('PUT',    `/groups/${id}`, b),
+    delete:        (id)       => req('DELETE', `/groups/${id}`),
+    byUsername:    (username) => req('GET',    `/groups/user/${username}`),
   },
   players: {
-    search: (q = '')     => req('GET', `/players?q=${encodeURIComponent(q)}`),
-    rename: (id, name)   => req('PATCH', `/players/${id}`, { name }),
-    removeFromGroup: (playerId, groupId) =>
-      req('DELETE', `/players/${playerId}/group/${groupId}`),
+    search:          (q, groupId)    => req('GET',    `/players?q=${encodeURIComponent(q)}${groupId ? `&groupId=${groupId}` : ''}`),
+    resolve:         (name, groupId) => req('POST',   '/players/resolve', { name, groupId }),
+    rename:          (id, name, groupId) => req('PATCH',  `/players/${id}`, { name, groupId }),
+    removeFromGroup: (pId, gId)      => req('DELETE', `/players/${pId}/group/${gId}`),
   },
   tournaments: {
-    get:         (id)       => req('GET',    `/tournaments/${id}`),
-    create:      (body)     => req('POST',   '/tournaments', body),
-    update:      (id, body) => req('PATCH',  `/tournaments/${id}`, body),
-    delete:      (id)       => req('DELETE', `/tournaments/${id}`),
-    resetScores: (id)       => req('DELETE', `/tournaments/${id}/matches`),
+    get:         (id)   => req('GET',    `/tournaments/${id}`),
+    create:      (body) => req('POST',   '/tournaments', body),
+    update:      (id,b) => req('PATCH',  `/tournaments/${id}`, b),
+    delete:      (id)   => req('DELETE', `/tournaments/${id}`),
+    resetScores: (id)   => req('DELETE', `/tournaments/${id}/matches`),
   },
   matches: {
     create: (body)   => req('POST',   '/matches',       body),
@@ -73,4 +78,11 @@ export const api = {
   readonly: {
     get: (id) => req('GET', `/readonly/${id}`),
   },
-};
+  invitations: {
+    list:   ()                           => req('GET',    '/invitations'),
+    count:  ()                           => req('GET',    '/invitations/count'),
+    send:   (playerId, groupId, identifier) => req('POST', '/invitations', { playerId, groupId, identifier }),
+    respond:(id, action)                 => req('PATCH',  `/invitations/${id}`, { action }),
+    cancel: (id)                         => req('DELETE', `/invitations/${id}`),
+  },
+}

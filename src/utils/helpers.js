@@ -82,3 +82,12 @@ export function adaptTournament(t) {
     pairs:     (t.pairs   ?? []).map(adaptPair),
   };
 }
+
+export const emptyForm = () => ({
+  team1: ["", ""],
+  team2: ["", ""],
+  score1: 0,
+  score2: 0,
+  date: new Date().toISOString().slice(0, 10),
+  duration_seconds: null,
+});
