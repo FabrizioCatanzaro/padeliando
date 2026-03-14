@@ -1,15 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import S from "../../styles/theme";
 import { getPairLabel } from "../../utils/helpers";
-
-export const emptyForm = () => ({
-  team1: ["", ""],
-  team2: ["", ""],
-  score1: 0,
-  score2: 0,
-  date: new Date().toISOString().slice(0, 10),
-  duration_seconds: null,
-});
 
 // ── Cronómetro ────────────────────────────────────────────────────────────────
 function Timer({ onStop }) {
@@ -32,11 +22,10 @@ function Timer({ onStop }) {
   }
 
   function resume() {
-    // No resetea los segundos — sigue desde donde estaba
     setRunning(true);
     setStopped(false);
     ref.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-    onStop(null); // limpia el valor guardado hasta que vuelva a parar
+    onStop(null);
   }
 
   useEffect(() => () => clearInterval(ref.current), []);
@@ -46,37 +35,31 @@ function Timer({ onStop }) {
 
   if (!running && !stopped) {
     return (
-      <button onClick={start} style={{ ...S.primaryBtn, width: "100%", marginTop: 12 }}>
+      <button onClick={start} className="bg-brand text-base border-0 w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-3">
         ▶ INICIAR PARTIDO
       </button>
     );
   }
 
-    if (running) {
-      return (
-        <div style={{ textAlign: "center", margin: "12px 0" }}>
-          <div style={{ fontFamily: "'Courier New', monospace", fontSize: 36, color: "#e8f04a", letterSpacing: 6 }}>
-            {mm}:{ss}
-          </div>
-          <button onClick={stop} style={{ ...S.primaryBtn, background: "#4af07a", color: "#000", width: "100%", marginTop: 8, fontWeight: 700 }}>
-            ⏹ TERMINAR PARTIDO
-          </button>
-        </div>
-      );
-    }
-
-    // Detenido — mostrar tiempo + opción de reanudar
-  return (
-    <div style={{ textAlign: "center", margin: "12px 0" }}>
-      <div style={{ fontFamily: "'Courier New', monospace", fontSize: 36, color: "#4af07a", letterSpacing: 6 }}>
-        {mm}:{ss}
+  if (running) {
+    return (
+      <div className="text-center my-3">
+        <div className="font-mono text-[36px] text-brand tracking-[6px]">{mm}:{ss}</div>
+        <button onClick={stop} className="bg-green text-black border-0 w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-2">
+          ⏹ TERMINAR PARTIDO
+        </button>
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        <button onClick={resume} style={{ ...S.resetBtn, flex: 1, fontSize: 12 }}>
+    );
+  }
+
+  return (
+    <div className="text-center my-3">
+      <div className="font-mono text-[36px] text-green tracking-[6px]">{mm}:{ss}</div>
+      <div className="flex gap-2 mt-2">
+        <button onClick={resume} className="bg-transparent text-muted border border-border-strong flex-1 px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans">
           ↩ Reanudar partido
         </button>
-        <div style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center",
-          color: "#4af07a", fontSize: 12, fontFamily: "'Courier New', monospace" }}>
+        <div className="flex-2 flex items-center justify-center text-green text-[12px] font-mono">
           ✓ {mm}:{ss} registrados
         </div>
       </div>
@@ -85,34 +68,34 @@ function Timer({ onStop }) {
 }
 
 // ── Contador +/- ──────────────────────────────────────────────────────────────
-function ScoreCounter({ value, onChange, color = "#e8f04a" }) {
-  const btn = {
-    width: 40, height: 40, borderRadius: 4, border: "1px solid #2a3040",
-    background: "#1a2030", color: "#fff", fontSize: 22, cursor: "pointer",
-    display: "flex", alignItems: "center", justifyContent: "center",
-  };
+function ScoreCounter({ value, onChange, color = "text-brand" }) {
+  const num = Number(value);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
-      <button style={btn} onClick={() => onChange(Math.max(0, value - 1))}>−</button>
-      <span style={{
-        fontFamily: "'Courier New', monospace", fontSize: 34,
-        color, minWidth: 40, textAlign: "center", fontWeight: 700,
-      }}>
-        {value}
+    <div className="flex items-center gap-2.5 justify-center">
+      <button
+        className="w-10 h-10 rounded-sm border border-border-strong bg-border-mid text-white text-[22px] cursor-pointer flex items-center justify-center"
+        onClick={() => onChange(Math.max(0, num - 1))}
+      >−</button>
+      <span className={`font-mono text-[34px] min-w-10 text-center font-bold ${color}`}>
+        {num}
       </span>
-      <button style={{ ...btn, borderColor: color, color }} onClick={() => onChange(value + 1)}>+</button>
+      <button
+        className={`w-10 h-10 rounded-sm border bg-border-mid text-[22px] flex items-center justify-center ${color} border-current ${num >= 7 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
+        onClick={() => onChange(Math.min(7, num + 1))}
+        disabled={num >= 7}
+      >+</button>
     </div>
   );
 }
 
 // ── Scores + fecha ────────────────────────────────────────────────────────────
 function ScoreSection({ form, setForm, isEditing, onSave, onCancel }) {
-  const [timerDone, setTimerDone] = useState(isEditing); // en edición no mostramos timer
+  const [timerDone, setTimerDone] = useState(isEditing);
 
   function handleTimerStop(seconds) {
     if (seconds === null) {
       setForm((f) => ({ ...f, duration_seconds: null }));
-      setTimerDone(false);  // oculta el botón de guardar mientras corre de nuevo
+      setTimerDone(false);
     } else {
       setForm((f) => ({ ...f, duration_seconds: seconds }));
       setTimerDone(true);
@@ -120,36 +103,36 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel }) {
   }
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={S.teamLabel}>🟡 E1</div>
-        <div style={{ ...S.vsLabel, margin: "0 8px" }}>VS</div>
-        <div style={{ ...S.teamLabel, color: "#4af0c8" }}>🔵 E2</div>
+    <div className="mt-4">
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-[11px] tracking-[2px] text-brand font-mono font-bold">🟡 P1</div>
+        <div className="font-condensed font-black text-[32px] text-border-strong text-center mx-2">VS</div>
+        <div className="text-[11px] tracking-[2px] text-cyan font-mono font-bold">🔵 P2</div>
       </div>
-      <div style={{ display: "flex", gap: 16, justifyContent: "center", alignItems: "center" }}>
-        <ScoreCounter value={form.score1} onChange={(v) => setForm((f) => ({ ...f, score1: v }))} color="#e8f04a" />
-        <span style={{ color: "#555", fontFamily: "'Courier New', monospace", fontSize: 20 }}>—</span>
-        <ScoreCounter value={form.score2} onChange={(v) => setForm((f) => ({ ...f, score2: v }))} color="#4af0c8" />
+      <div className="flex gap-4 justify-center items-center">
+        <ScoreCounter value={form.score1} onChange={(v) => setForm((f) => ({ ...f, score1: v }))} color="text-brand" />
+        <span className="text-muted font-mono text-[20px]">—</span>
+        <ScoreCounter value={form.score2} onChange={(v) => setForm((f) => ({ ...f, score2: v }))} color="text-cyan" />
       </div>
 
-      {!isEditing && (
-        <Timer onStop={handleTimerStop} />
-      )}
+      {!isEditing && <Timer onStop={handleTimerStop} />}
 
-      <div style={{ marginTop: 12 }}>
+      <div className="mt-3">
         <input type="date"
-          style={{ ...S.input, width: "auto", fontSize: 13, marginBottom: 0 }}
+          className="bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[13px] rounded-sm outline-none w-auto"
           value={form.date}
           onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
         />
       </div>
 
       {(timerDone || isEditing) && (
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <button onClick={onSave} style={{ ...S.primaryBtn, flex: 1 }}>
+        <div className="flex gap-2.5 mt-4">
+          <button onClick={onSave} disabled={form.score1 === form.score2} className={`text-base border-0 flex-1 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm ${form.score1 === form.score2 ? "bg-border-mid text-muted cursor-not-allowed" : "bg-brand cursor-pointer"}`}>
             {isEditing ? "GUARDAR CAMBIOS" : "REGISTRAR PARTIDO"}
           </button>
-          <button onClick={onCancel} style={S.resetBtn}>Cancelar</button>
+          <button onClick={onCancel} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans">
+            Cancelar
+          </button>
         </div>
       )}
     </div>
@@ -160,13 +143,15 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel }) {
 function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel }) {
   const { pairs, players } = tournament;
   return (
-    <div style={S.form}>
-      <div style={S.formTitle}>{isEditing ? "EDITAR PARTIDO" : "NUEVO PARTIDO"}</div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div style={S.teamLabel}>🟡 PAREJA 1</div>
-          <select style={S.select} value={form.team1Pair || ""}
-            onChange={(e) => setForm({ ...form, team1Pair: e.target.value })}>
+    <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+      <div className="font-condensed font-bold text-[14px] tracking-[2px] text-muted mb-4">
+        {isEditing ? "EDITAR PARTIDO" : "NUEVO PARTIDO"}
+      </div>
+      <div className="flex gap-3 flex-wrap">
+        <div className="flex-1 min-w-35">
+          <div className="text-[11px] tracking-[2px] text-brand font-mono mb-2 font-bold">🟡 PAREJA 1</div>
+          <select className="w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none mb-2"
+            value={form.team1Pair || ""} onChange={(e) => setForm({ ...form, team1Pair: e.target.value })}>
             <option value="">Seleccionar pareja</option>
             {pairs.map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === form.team2Pair}>
@@ -175,10 +160,10 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel }) {
             ))}
           </select>
         </div>
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div style={{ ...S.teamLabel, color: "#4af0c8" }}>🔵 PAREJA 2</div>
-          <select style={S.select} value={form.team2Pair || ""}
-            onChange={(e) => setForm({ ...form, team2Pair: e.target.value })}>
+        <div className="flex-1 min-w-35">
+          <div className="text-[11px] tracking-[2px] text-cyan font-mono mb-2 font-bold">🔵 PAREJA 2</div>
+          <select className="w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none mb-2"
+            value={form.team2Pair || ""} onChange={(e) => setForm({ ...form, team2Pair: e.target.value })}>
             <option value="">Seleccionar pareja</option>
             {pairs.map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === form.team1Pair}>
@@ -209,33 +194,33 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel }) {
   const teamsComplete = form.team1[0] && form.team1[1] && form.team2[0] && form.team2[1];
 
   return (
-    <div style={S.form}>
-      <div style={S.formTitle}>{isEditing ? "EDITAR PARTIDO" : "NUEVO PARTIDO"}</div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div style={S.teamLabel}>🟡 EQUIPO 1</div>
+    <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+      <div className="font-condensed font-bold text-[14px] tracking-[2px] text-muted mb-4">
+        {isEditing ? "EDITAR PARTIDO" : "NUEVO PARTIDO"}
+      </div>
+      <div className="flex gap-3 flex-wrap">
+        <div className="flex-1 min-w-35">
+          <div className="text-[11px] tracking-[2px] text-brand font-mono mb-2 font-bold">🟡 EQUIPO 1</div>
           {[0, 1].map((i) => (
-            <select key={i} style={S.select} value={form.team1[i]}
-              onChange={(e) => updateTeam("team1", i, e.target.value)}>
+            <select key={i} className="w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none mb-2"
+              value={form.team1[i]} onChange={(e) => updateTeam("team1", i, e.target.value)}>
               <option value="">Jugador {i + 1}</option>
               {players.map((p) => (
-                <option key={p.id} value={p.id}
-                  disabled={allSelected.includes(p.id) && form.team1[i] !== p.id}>
+                <option key={p.id} value={p.id} disabled={allSelected.includes(p.id) && form.team1[i] !== p.id}>
                   {p.name}
                 </option>
               ))}
             </select>
           ))}
         </div>
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div style={{ ...S.teamLabel, color: "#4af0c8" }}>🔵 EQUIPO 2</div>
+        <div className="flex-1 min-w-35">
+          <div className="text-[11px] tracking-[2px] text-cyan font-mono mb-2 font-bold">🔵 EQUIPO 2</div>
           {[0, 1].map((i) => (
-            <select key={i} style={S.select} value={form.team2[i]}
-              onChange={(e) => updateTeam("team2", i, e.target.value)}>
+            <select key={i} className="w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none mb-2"
+              value={form.team2[i]} onChange={(e) => updateTeam("team2", i, e.target.value)}>
               <option value="">Jugador {i + 1}</option>
               {players.map((p) => (
-                <option key={p.id} value={p.id}
-                  disabled={allSelected.includes(p.id) && form.team2[i] !== p.id}>
+                <option key={p.id} value={p.id} disabled={allSelected.includes(p.id) && form.team2[i] !== p.id}>
                   {p.name}
                 </option>
               ))}

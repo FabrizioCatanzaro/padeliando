@@ -1,4 +1,3 @@
-import S from "../../styles/theme";
 import { uid } from "../../utils/helpers";
 
 /**
@@ -22,7 +21,6 @@ export default function PairBuilder({ players, pairs, onChange }) {
     onChange(pairs.filter((p) => p.id !== id));
   }
 
-  // Which names are already chosen elsewhere (for a given pair row)
   function takenBy(currentPairId) {
     return pairs
       .filter((p) => p.id !== currentPairId)
@@ -31,74 +29,59 @@ export default function PairBuilder({ players, pairs, onChange }) {
   }
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <label style={S.label}>ARMÁ LAS PAREJAS</label>
-      <p style={{ color: "#555", fontSize: 12, fontFamily: "'Barlow', sans-serif", marginTop: 0, marginBottom: 12 }}>
+    <div className="mt-6">
+      <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2 mt-5">ARMÁ LAS PAREJAS</label>
+      <p className="text-muted font-sans text-[12px] mt-0 mb-3">
         Todos los jugadores deben quedar asignados a una pareja.
       </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {pairs.map((pair) => {
           const taken = takenBy(pair.id);
           return (
-            <div key={pair.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div key={pair.id} className="flex gap-2 items-center">
               <select
-                style={{ ...S.select, flex: 1, marginBottom: 0 }}
+                className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                 value={pair.p1Name}
                 onChange={(e) => updatePair(pair.id, "p1Name", e.target.value)}
               >
                 <option value="">Jugador 1</option>
                 {players.map((p) => (
-                  <option
-                    key={p}
-                    value={p}
-                    disabled={taken.includes(p) || p === pair.p2Name}
-                  >
+                  <option key={p} value={p} disabled={taken.includes(p) || p === pair.p2Name}>
                     {p}{taken.includes(p) && p !== pair.p1Name ? " (asignado)" : ""}
                   </option>
                 ))}
               </select>
 
-              <span style={{ color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 }}>
-                &amp;
-              </span>
+              <span className="text-muted font-condensed font-bold">&amp;</span>
 
               <select
-                style={{ ...S.select, flex: 1, marginBottom: 0 }}
+                className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                 value={pair.p2Name}
                 onChange={(e) => updatePair(pair.id, "p2Name", e.target.value)}
               >
                 <option value="">Jugador 2</option>
                 {players.map((p) => (
-                  <option
-                    key={p}
-                    value={p}
-                    disabled={taken.includes(p) || p === pair.p1Name}
-                  >
+                  <option key={p} value={p} disabled={taken.includes(p) || p === pair.p1Name}>
                     {p}{taken.includes(p) && p !== pair.p2Name ? " (asignado)" : ""}
                   </option>
                 ))}
               </select>
 
-              <button
-                onClick={() => removePair(pair.id)}
-                style={{ ...S.removeBtn, flexShrink: 0 }}
-              >
-                ✕
-              </button>
+              <button onClick={() => removePair(pair.id)} className="bg-surface border-0 text-muted px-3 py-2.5 cursor-pointer rounded-sm text-[12px] shrink-0">✕</button>
             </div>
           );
         })}
       </div>
 
       {pairs.length < players.length / 2 && (
-        <button onClick={addPair} style={{ ...S.addBtn, marginTop: 8 }}>
+        <button onClick={addPair} className="bg-transparent border border-dashed border-border-strong text-muted px-4 py-2 cursor-pointer font-condensed tracking-wide text-[13px] rounded-sm w-full mt-2">
           + Agregar pareja
         </button>
       )}
 
       {!allAssigned && pairs.length > 0 && (
-        <p style={{ color: "#f04a4a", fontSize: 11, fontFamily: "'Courier New', monospace", marginTop: 8 }}>
+        <p className="text-danger text-[11px] font-mono mt-2">
           Todos los jugadores deben estar en una pareja para continuar.
         </p>
       )}

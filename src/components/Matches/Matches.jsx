@@ -1,17 +1,13 @@
 import { useState } from "react";
-import S from "../../styles/theme";
-import { expandPair } from "../../utils/helpers";
+import { expandPair, emptyForm } from "../../utils/helpers";
 import MatchCard from "./MatchCard";
-import MatchForm, { emptyForm } from "./MatchForm";
-import { isLoggedIn } from '../../utils/auth';
-
-export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteMatch }) {
+import MatchForm from "./MatchForm";
+export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, onDeleteMatch }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm]         = useState(emptyForm());
   const [editId, setEditId]     = useState(null);
 
   const isPairs = tournament.mode === "pairs";
-  const loggedIn = isLoggedIn();
 
   function resetForm() { setForm(emptyForm()); setEditId(null); }
 
@@ -35,29 +31,12 @@ export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteM
         return alert("Los jugadores no pueden repetirse");
     }
 
-    /*const match = {
-      id: editId || uid(), team1, team2,
-      score1: s1, score2: s2, date,
-      createdAt: editId
-        ? tournament.matches.find((m) => m.id === editId)?.createdAt
-        : new Date().toISOString(),
-    };
-
-    const matches = editId
-      ? tournament.matches.map((m) => (m.id === editId ? match : m))
-      : [...tournament.matches, match];
-    */
     const matchData = { team1, team2, score1: s1, score2: s2, date: form.date, duration_seconds: form.duration_seconds };
     if (editId) {
       await onEditMatch(editId, matchData);
     } else {
       await onAddMatch(matchData);
     }
-    resetForm();
-    setShowForm(false);
-
-
-    //onUpdate({ ...tournament, matches });
     resetForm();
     setShowForm(false);
   }
@@ -95,10 +74,10 @@ export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteM
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={S.sectionTitle}>PARTIDOS</div>
-        {loggedIn ?? (
-          <button onClick={() => { resetForm(); setShowForm(!showForm); }} style={S.primaryBtn}>
+      <div className="flex justify-between items-center mb-4">
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">PARTIDOS</div>
+        {isOwner && (
+          <button onClick={() => { resetForm(); setShowForm(!showForm); }} className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap">
             {showForm ? "CANCELAR" : "+ NUEVO PARTIDO"}
           </button>
         )}
@@ -115,11 +94,13 @@ export default function Matches({ tournament, onAddMatch, onEditMatch, onDeleteM
       )}
 
       {sorted.length === 0 ? (
-        <div style={S.empty}>No hay partidos registrados todavía.<br />¡Jugá el primero!</div>
+        <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
+          No hay partidos registrados todavía.<br />¡Jugá el primero!
+        </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="flex flex-col gap-2.5">
           {sorted.map((m) => (
-            <MatchCard key={m.id} match={m} tournament={tournament}
+            <MatchCard key={m.id} match={m} tournament={tournament} isOwner={isOwner}
               onEdit={() => handleEdit(m)} onDelete={() => handleDelete(m.id)} />
           ))}
         </div>

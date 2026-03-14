@@ -1,10 +1,8 @@
 import { useState } from "react";
-import S from "../../styles/theme";
-import {  getPairLabel } from "../../utils/helpers";
+import { getPairLabel } from "../../utils/helpers";
 import Modal from "../shared/Modal";
-import { isLoggedIn } from '../../utils/auth';
-
-export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
+import { Pencil, Trash2 } from "lucide-react";
+export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDelete }) {
   const { players, pairs = [] } = tournament;
   const [showAdd, setShowAdd]       = useState(false);
   const [newP1, setNewP1]           = useState("");
@@ -13,9 +11,7 @@ export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
   const [editP1, setEditP1]         = useState("");
   const [editP2, setEditP2]         = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const loggedIn = isLoggedIn();
 
-  // Players not already in a pair
   const assignedIds = pairs.flatMap((p) => [p.p1, p.p2]);
   const freePlayers = players.filter((p) => !assignedIds.includes(p.id));
 
@@ -36,20 +32,20 @@ export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
   }
 
   return (
-    <div style={{ ...S.manageSection, marginTop: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 0 }}>PAREJAS</div>
-        {loggedIn ?? (
-          <button onClick={() => setShowAdd(!showAdd)} style={S.primaryBtn}>
+    <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4 mt-4">
+      <div className="flex justify-between items-center mb-3">
+        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">PAREJAS</div>
+        {isOwner && (
+          <button onClick={() => setShowAdd(!showAdd)} className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap">
             {showAdd ? "Cancelar" : "+ Nueva pareja"}
           </button>
         )}
       </div>
 
       {showAdd && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-          <select style={{ ...S.select, flex: 1, marginBottom: 0 }} value={newP1}
-            onChange={(e) => setNewP1(e.target.value)}>
+        <div className="flex gap-2 mb-3 flex-wrap">
+          <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+            value={newP1} onChange={(e) => setNewP1(e.target.value)}>
             <option value="">Jugador 1</option>
             {players.map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === newP2}>
@@ -57,9 +53,9 @@ export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
               </option>
             ))}
           </select>
-          <span style={{ color: "#555", alignSelf: "center", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 }}>&</span>
-          <select style={{ ...S.select, flex: 1, marginBottom: 0 }} value={newP2}
-            onChange={(e) => setNewP2(e.target.value)}>
+          <span className="text-muted self-center font-condensed font-bold">&</span>
+          <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+            value={newP2} onChange={(e) => setNewP2(e.target.value)}>
             <option value="">Jugador 2</option>
             {players.map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === newP1}>
@@ -67,42 +63,48 @@ export default function PairManager({ tournament, onAdd, onEdit, onDelete }) {
               </option>
             ))}
           </select>
-          <button onClick={handleAdd} style={S.primaryBtn}>Agregar</button>
+          <button onClick={handleAdd} className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap">
+            Agregar
+          </button>
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div className="flex flex-col gap-1.5">
         {pairs.map((pair) => (
-          <div key={pair.id} style={S.playerRow}>
+          <div key={pair.id} className="flex items-center gap-2 bg-base border border-border-mid rounded-md px-3 py-2">
             {editId === pair.id ? (
               <>
-                <select style={{ ...S.select, flex: 1, marginBottom: 0, fontSize: 13 }}
+                <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={editP1} onChange={(e) => setEditP1(e.target.value)}>
                   <option value="">Jugador 1</option>
                   {players.map((p) => (
                     <option key={p.id} value={p.id} disabled={p.id === editP2}>{p.name}</option>
                   ))}
                 </select>
-                <span style={{ color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 }}>&</span>
-                <select style={{ ...S.select, flex: 1, marginBottom: 0, fontSize: 13 }}
+                <span className="text-muted font-condensed font-bold">&</span>
+                <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={editP2} onChange={(e) => setEditP2(e.target.value)}>
                   <option value="">Jugador 2</option>
                   {players.map((p) => (
                     <option key={p.id} value={p.id} disabled={p.id === editP1}>{p.name}</option>
                   ))}
                 </select>
-                <button onClick={confirmEdit} style={{ ...S.primaryBtn, padding: "6px 12px", fontSize: 12 }}>✓</button>
-                <button onClick={() => setEditId(null)} style={{ ...S.resetBtn, padding: "6px 10px" }}>✕</button>
+                <button onClick={confirmEdit} className="bg-brand text-base border-0 px-3 py-1.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm">✓</button>
+                <button onClick={() => setEditId(null)} className="bg-transparent text-muted border border-border-strong px-2.5 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans">✕</button>
               </>
             ) : (
               <>
-                <span style={{ flex: 1, color: "#ccc", fontFamily: "'Barlow', sans-serif" }}>
+                <span className="flex-1 text-content font-sans">
                   {getPairLabel(pair.id, pairs, players)}
                 </span>
-                {loggedIn ?? (
+                {isOwner && (
                   <>
-                  <button onClick={() => startEdit(pair)} style={S.actionBtn}>✏️</button>
-                  <button onClick={() => setDeleteTarget(pair)} style={{ ...S.actionBtn, color: "#f04a4a" }}>🗑️</button>
+                    <div onClick={() => startEdit(pair)} className="bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
+                      <Pencil size={15} />
+                    </div>
+                    <div onClick={() => setDeleteTarget(pair)} className="bg-transparent border-0 text-danger cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
+                      <Trash2 size={15} />
+                    </div>
                   </>
                 )}
               </>

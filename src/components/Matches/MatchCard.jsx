@@ -1,14 +1,12 @@
-import S from "../../styles/theme";
+import { Pencil, Trash2 } from "lucide-react";
 import { fmt, getPairLabel } from "../../utils/helpers";
-
-export default function MatchCard({ match, tournament, onEdit, onDelete }) {
+export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete }) {
   const { team1, team2, score1, score2, date, createdAt } = match;
   const { players, pairs, mode } = tournament;
   const win1 = parseInt(score1) > parseInt(score2);
 
   function getLabel(team) {
     if (mode === "pairs") {
-      // team is stored as [p1Id, p2Id]; find the matching pair by those IDs
       const pair = pairs?.find(
         (p) => (p.p1 === team[0] && p.p2 === team[1]) || (p.p1 === team[1] && p.p2 === team[0])
       );
@@ -18,32 +16,44 @@ export default function MatchCard({ match, tournament, onEdit, onDelete }) {
   }
 
   return (
-    <div style={S.matchCard}>
-      <div style={S.matchDate}>{fmt(date || createdAt)}</div>
-      <div style={S.matchRow}>
-        <div style={{ ...S.matchTeam, color: win1 ? "#e8f04a" : "#888" }}>
-          <span style={S.teamBadge}>{mode === "pairs" ? "P1" : "E1"}</span>
+    <div className="bg-surface border border-border-mid rounded-lg px-4 py-3.5">
+      <div className="text-[11px] text-dim font-mono mb-2.5">{fmt(date || createdAt)}</div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-[16px] ${win1 ? "text-brand" : "text-secondary"}`}>
+          <span className="bg-border-mid px-1.5 py-0.5 rounded-[3px] text-[11px] text-muted font-mono shrink-0">
+            {mode === "pairs" ? "P1" : "E1"}
+          </span>
           {getLabel(team1)}
         </div>
-        <div style={S.matchScore}>
-          <span style={{ color: win1 ? "#e8f04a" : "#888" }}>{score1}</span>
-          <span style={S.scoreDash}>—</span>
-          <span style={{ color: !win1 ? "#4af0c8" : "#888" }}>{score2}</span>
+        <div className="flex items-center gap-2 font-condensed font-black text-[28px] min-w-20 justify-center">
+          <span className={win1 ? "text-brand" : "text-secondary"}>{score1}</span>
+          <span className="text-border-strong text-[20px]">—</span>
+          <span className={!win1 ? "text-cyan" : "text-secondary"}>{score2}</span>
         </div>
-        <div style={{ ...S.matchTeam, ...S.matchTeamRight, color: !win1 ? "#4af0c8" : "#888" }}>
+        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-[16px] justify-end text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
           {getLabel(team2)}
-          <span style={{ ...S.teamBadge, background: "#1a2a3a" }}>{mode === "pairs" ? "P2" : "E2"}</span>
+          <span className="bg-[#1a2a3a] px-1.5 py-0.5 rounded-[3px] text-[11px] text-muted font-mono shrink-0">
+            {mode === "pairs" ? "P2" : "E2"}
+          </span>
         </div>
       </div>
       {match.duration_seconds > 0 && (
-        <div style={{ fontSize: 11, color: "#555", fontFamily: "'Courier New', monospace", marginTop: 4, textAlign: "center" }}>
+        <div className="text-[11px] text-muted font-mono mt-1 text-center">
           ⏱ {String(Math.floor(match.duration_seconds / 60)).padStart(2,"0")}:{String(match.duration_seconds % 60).padStart(2,"0")} min
         </div>
       )}
-      <div style={S.matchActions}>
-        <button onClick={onEdit}   style={S.actionBtn}>✏️ Editar</button>
-        <button onClick={onDelete} style={{ ...S.actionBtn, color: "#f04a4a" }}>🗑️ Eliminar</button>
-      </div>
+      {isOwner && (
+        <div className="flex gap-2 mt-2.5 pt-2.5 border-t border-border-mid">
+          <div onClick={onEdit}   className="flex flex-row gap-2 items-center bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
+            <Pencil size={15} />
+            <span>Editar</span>
+          </div>
+          <div onClick={onDelete} className="flex flex-row gap-2 items-center bg-transparent border-0 text-danger cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
+            <Trash2 size={15} />
+            <span>Eliminar</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

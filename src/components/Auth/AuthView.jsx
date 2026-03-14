@@ -1,233 +1,256 @@
-import { useState } from 'react';
-import S, { FONTS } from '../../styles/theme';
-import { api } from '../../utils/api';
-import { saveSession } from '../../utils/auth';
-import { Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
+import { api } from '../../utils/api'
+import { useAuth } from '../../context/useAuth'
 
-function validatePassword(password) {
-  if (password.length < 8)       return 'Mínimo 8 caracteres';
-  if (!/[A-Z]/.test(password))   return 'Al menos una mayúscula';
-  if (!/[a-z]/.test(password))   return 'Al menos una minúscula';
-  if (!/[0-9]/.test(password))   return 'Al menos un número';
-  return null;
+function validatePassword(p) {
+  if (p.length < 8)       return 'Mínimo 8 caracteres'
+  if (!/[A-Z]/.test(p))   return 'Al menos una mayúscula'
+  if (!/[a-z]/.test(p))   return 'Al menos una minúscula'
+  if (!/[0-9]/.test(p))   return 'Al menos un número'
+  return null
 }
 
 function PasswordStrength({ password }) {
-  if (!password) return null;
+  if (!password) return null
   const checks = [
-    { ok: password.length >= 8,      label: '8+ caracteres' },
-    { ok: /[A-Z]/.test(password),    label: '1 mayúscula' },
-    { ok: /[a-z]/.test(password),    label: '1 minúscula' },
-    { ok: /[0-9]/.test(password),    label: '1 número' },
-  ];
+    { ok: password.length >= 8,    label: '8+ chars' },
+    { ok: /[A-Z]/.test(password),  label: 'Mayúscula' },
+    { ok: /[a-z]/.test(password),  label: 'Minúscula' },
+    { ok: /[0-9]/.test(password),  label: 'Número' },
+  ]
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+    <div className="flex gap-1.5 flex-wrap mt-2">
       {checks.map(({ ok, label }) => (
-        <span key={label} style={{
-          fontSize: 10, fontFamily: "'Courier New',monospace",
-          color: ok ? '#4af07a' : '#555',
-          background: ok ? '#1a2e1a' : '#111',
-          border: `1px solid ${ok ? '#4af07a44' : '#2a3040'}`,
-          padding: '2px 7px', borderRadius: 3,
-        }}>
+        <span key={label} className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors
+          ${ok
+            ? 'text-green bg-[#1a2e1a] border-[#4af07a44]'
+            : 'text-[#555] bg-[#111] border-border-strong'
+          }`}>
           {ok ? '✓' : '○'} {label}
         </span>
       ))}
     </div>
-  );
+  )
+}
+
+function PasswordInput({ value, onChange, placeholder = '········', onKeyDown }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative">
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none pr-10 font-[Barlow]"
+      />
+      <button
+        type="button"
+        onClick={() => setShow(v => !v)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-[#aaa] transition-colors"
+      >
+        {show ? <EyeOff size={15} /> : <Eye size={15} />}
+      </button>
+    </div>
+  )
 }
 
 export default function AuthView({ mode: initialMode }) {
-  const [mode,      setMode]      = useState(initialMode);
-  const [name,      setName]      = useState('');
-  const [email,     setEmail]     = useState('');
-  const [password,  setPassword]  = useState('');
-  const [password2, setPassword2] = useState('');
-  const [error,     setError]     = useState(null);
-  const [loading,   setLoading]   = useState(false);
-  const [showPass,  setShowPass]  = useState(false);
-  const [showPass2, setShowPass2] = useState(false);
+  const [mode,      setMode]      = useState(initialMode)
+  const [name,      setName]      = useState('')
+  const [email,     setEmail]     = useState('')
+  const [password,  setPassword]  = useState('')
+  const [password2, setPassword2] = useState('')
+  const [error,     setError]     = useState(null)
+  const [loading,   setLoading]   = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
 
-  const isRegister = mode === 'register';
+  const { login } = useAuth()
+  const navigate  = useNavigate()
+  const isRegister = mode === 'register'
 
   function getFormError() {
-    if (isRegister) {
-      const pwErr = validatePassword(password);
-      if (pwErr) return pwErr;
-      if (password !== password2) return 'Las contraseñas no coinciden';
-    }
-    return null;
+    if (!isRegister) return null
+    const pwErr = validatePassword(password)
+    if (pwErr) return pwErr
+    if (password !== password2) return 'Las contraseñas no coinciden'
+    return null
   }
 
   async function handleSubmit() {
-    setError(null);
-    const formErr = getFormError();
-    if (formErr) { setError(formErr); return; }
-
-    setLoading(true);
+    setError(null)
+    const formErr = getFormError()
+    if (formErr) { setError(formErr); return }
+    setLoading(true)
     try {
-      const body = isRegister ? { name, email, password } : { email, password };
-      const fn   = isRegister ? api.auth.register : api.auth.login;
-      const { user } = await fn(body);
-      saveSession(user);
-      window.location.hash = '/';
+      const body = isRegister ? { name, email, password } : { email, password }
+      const fn   = isRegister ? api.auth.register : api.auth.login
+      const { user } = await fn(body)
+      login(user)
+      navigate('/')
     } catch (e) {
-      setError(e.message);
+      setError(e.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
+    }
+  }
+
+  async function handleForgot() {
+    if (!forgotEmail.trim()) return
+    setLoading(true)
+    try {
+      await api.auth.forgotPassword(forgotEmail)
+      setForgotSent(true)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   function handleGoogle() {
+    if (!window.google) { setError('Google no disponible, recargá la página'); return }
     window.google.accounts.id.initialize({
-      client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
       callback: async ({ credential }) => {
         try {
-          const { user } = await api.auth.google(credential);
-          saveSession(user);
-          window.location.hash = '/';
+          const { user } = await api.auth.google(credential)
+          login(user)
+          navigate('/')
         } catch (e) {
-          setError(e.message);
+          setError(e.message)
         }
       },
-    });
-    window.google.accounts.id.prompt();
+    })
+    window.google.accounts.id.prompt()
   }
 
   function switchMode(m) {
-    setMode(m);
-    setError(null);
-    setPassword('');
-    setPassword2('');
+    setMode(m); setError(null); setPassword(''); setPassword2(''); setShowForgot(false)
+  }
+
+  const label = 'block text-[11px] tracking-widest text-[#555] font-mono mb-1.5 mt-4'
+
+  // Vista de "olvidé mi contraseña"
+  if (showForgot) {
+    return (
+      <div className="min-h-screen bg-base flex items-start justify-center pt-10 px-4">
+        <div className="w-full max-w-sm">
+          {forgotSent ? (
+            <div className="mt-8 text-center">
+              <div className="text-green text-4xl mb-4">✓</div>
+              <p className="text-white font-semibold mb-2">Mail enviado</p>
+              <p className="text-[#555] text-sm">Revisá tu casilla. El enlace expira en 1 hora.</p>
+              <button onClick={() => switchMode('login')}
+                className="mt-6 text-brand text-sm hover:underline">
+                Volver al login
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-[#555] text-sm mt-1 mb-8">Recuperá tu contraseña</p>
+              <label className={label}>EMAIL</label>
+              <input
+                type="email"
+                placeholder="tu@email.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]"
+              />
+              {error && <p className="text-danger text-xs font-mono mt-2">{error}</p>}
+              <button onClick={handleForgot} disabled={loading}
+                className="w-full mt-6 bg-brand text-base font-[Barlow_Condensed] font-black tracking-widest py-3 rounded text-sm disabled:opacity-50">
+                {loading ? 'ENVIANDO...' : 'ENVIAR ENLACE'}
+              </button>
+              <button onClick={() => setShowForgot(false)}
+                className="w-full mt-3 text-[#555] text-sm hover:text-[#aaa] transition-colors">
+                Volver
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div style={S.page}>
-      <style>{FONTS}</style>
-      <div style={S.setupCard}>
-        <div style={{ ...S.logo, fontSize: 28, marginBottom: 4, cursor: "pointer" }} onClick={() => { window.location = '/'; }}>
-          🎾 PADEL<span style={{ color: '#e8f04a' }}>EANDO</span>
-        </div>
-        <p style={S.subtitle}>
+    <div className="min-h-screen bg-base flex items-start justify-center pt-10 px-4">
+      <div className="w-full max-w-sm">
+        <p className="text-[#555] text-sm mb-8">
           {isRegister ? 'Creá tu cuenta' : 'Ingresá a tu cuenta'}
         </p>
 
         {isRegister && (
           <>
-            <label style={S.label}>NOMBRE</label>
-            <input style={S.input} placeholder="Tu nombre"
-              value={name} onChange={(e) => setName(e.target.value)} />
+            <label className={label}>NOMBRE</label>
+            <input placeholder="Tu nombre" value={name} onChange={e => setName(e.target.value)} minLength={6} maxLength={20}
+              className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" />
           </>
         )}
 
-        <label style={S.label}>EMAIL</label>
-        <input style={S.input} type="email" placeholder="tu@email.com"
-          value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label className={label}>EMAIL</label>
+        <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)}
+          className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" />
 
-        <label style={S.label}>CONTRASEÑA</label>
-        <div style={{ position: 'relative' }}>
-          <input
-            style={{ ...S.input, marginBottom: 0, paddingRight: 40 }}
-            type={showPass ? 'text' : 'password'}
-            placeholder="········"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button
-            onClick={() => setShowPass((v) => !v)}
-            style={{
-              position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-              color: '#555', display: 'flex', alignItems: 'center',
-            }}
-          >
-            {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
+        <label className={label}>CONTRASEÑA</label>
+        <PasswordInput value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()}/>
         {isRegister && <PasswordStrength password={password} />}
 
         {isRegister && (
           <>
-            <label style={S.label}>REPETIR CONTRASEÑA</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                style={{
-                  ...S.input, marginBottom: 0, paddingRight: 40,
-                  borderColor: password2 && password !== password2 ? '#f04a4a' : '#1a2030',
-                }}
-                type={showPass2 ? 'text' : 'password'}
-                placeholder="········"
-                value={password2}
-                onChange={(e) => setPassword2(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              />
-              <button
-                onClick={() => setShowPass2((v) => !v)}
-                style={{
-                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                  color: '#555', display: 'flex', alignItems: 'center',
-                }}
-              >
-                {showPass2 ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
+            <label className={label}>REPETIR CONTRASEÑA</label>
+            <PasswordInput
+              value={password2}
+              onChange={e => setPassword2(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            />
             {password2 && password !== password2 && (
-              <div style={{ fontSize: 11, color: '#f04a4a', fontFamily: "'Courier New',monospace", marginTop: 4 }}>
-                Las contraseñas no coinciden
-              </div>
+              <p className="text-danger text-xs font-mono mt-1">Las contraseñas no coinciden</p>
             )}
           </>
         )}
 
         {!isRegister && (
-          // En login el Enter también envía
-          <input style={{ display: 'none' }} onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} />
-        )}
-
-        {error && (
-          <div style={{ color: '#f04a4a', fontSize: 12, fontFamily: "'Courier New',monospace", marginTop: 10 }}>
-            {error}
+          <div className="text-right mt-1">
+            <button onClick={() => setShowForgot(true)}
+              className="text-[#555] text-xs hover:text-[#aaa] font-mono transition-colors">
+              ¿Olvidaste tu contraseña?
+            </button>
           </div>
         )}
 
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          style={{ ...S.createBtn, opacity: loading ? 0.5 : 1 }}
-        >
+        {error && <p className="text-danger text-xs font-mono mt-3">{error}</p>}
+
+        <button onClick={handleSubmit} disabled={loading}
+          className="w-full mt-5 bg-brand text-base font-[Barlow_Condensed] font-black tracking-widest py-3 rounded text-sm disabled:opacity-50 transition-opacity">
           {loading ? 'CARGANDO...' : isRegister ? 'REGISTRARSE' : 'INGRESAR'}
         </button>
 
-        <div style={{ textAlign: 'center', margin: '16px 0', color: '#333',
-                      fontSize: 12, fontFamily: "'Courier New',monospace" }}>— o —</div>
+        <div className="text-center my-4 text-[#333] text-xs font-mono">— o —</div>
 
-        <button onClick={handleGoogle} style={{
-          width: '100%', background: '#fff', color: '#333', border: 'none',
-          padding: '11px', borderRadius: 4, cursor: 'pointer', fontSize: 14,
-          fontFamily: "'Barlow',sans-serif", fontWeight: 600,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        }}>
-          <img src="https://www.google.com/favicon.ico" alt="" style={{ width: 16, height: 16 }} />
+        <button onClick={handleGoogle}
+          className="w-full bg-white text-[#333] py-2.5 rounded text-sm font-semibold font-[Barlow] flex items-center justify-center gap-2.5 hover:bg-gray-100 transition-colors cursor-pointer">
+          <img src="https://www.google.com/favicon.ico" alt="" className="w-4 h-4" />
           Continuar con Google
         </button>
 
-        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#555' }}>
+        <p className="text-center mt-5 text-sm text-[#555]">
           {isRegister ? (
             <>¿Ya tenés cuenta?{' '}
-              <span style={{ color: '#e8f04a', cursor: 'pointer' }} onClick={() => switchMode('login')}>
-                Ingresá
-              </span>
+              <button onClick={() => switchMode('login')} className="text-brand hover:underline">Ingresá</button>
             </>
           ) : (
             <>¿No tenés cuenta?{' '}
-              <span style={{ color: '#e8f04a', cursor: 'pointer' }} onClick={() => switchMode('register')}>
-                Registrate
-              </span>
+              <button onClick={() => switchMode('register')} className="text-brand hover:underline">Registrate</button>
             </>
           )}
-        </div>
+        </p>
       </div>
     </div>
-  );
+  )
 }

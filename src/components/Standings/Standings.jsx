@@ -1,76 +1,47 @@
+import { Medal } from "lucide-react";
 import { calcStandings } from "../../utils/helpers";
-import S from "../../styles/theme";
 
 export default function Standings({ tournament }) {
   const rows = calcStandings(tournament.players, tournament.matches);
 
   return (
     <div>
-      <div style={S.sectionTitle}>TABLA DE POSICIONES</div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={S.table}>
+      <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">TABLA DE POSICIONES</div>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse font-condensed">
           <thead>
             <tr>
-              <th style={S.th}>#</th>
-              <th style={{ ...S.th, textAlign: "left" }}>JUGADOR</th>
-              <th style={S.th}>PJ</th>
-              <th style={S.th}>PG</th>
-              <th style={S.th}>PP</th>
-              <th style={S.th}>GF</th>
-              <th style={S.th}>GC</th>
-              <th style={S.th}>DIF</th>
+              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">#</th>
+              <th className="px-3 py-2.5 text-left text-[11px] tracking-[2px] text-muted border-b border-border font-mono">JUGADOR</th>
+              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">PJ</th>
+              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">PG</th>
+              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">PP</th>
+              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">GF</th>
+              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">GC</th>
+              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">DIF</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.id} style={i % 2 === 0 ? S.trEven : S.trOdd}>
-                <td
-                  style={{
-                    ...S.td,
-                    color:
-                      i === 0 ? "#e8f04a"
-                      : i === 1 ? "#aaa"
-                      : i === 2 ? "#cd7f32"
-                      : "#555",
-                    fontWeight: 700,
-                    fontSize: 18,
-                  }}
-                >
-                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
+              <tr key={r.id} className={i % 2 === 0 ? "bg-surface" : "bg-base"}>
+                <td className={`p-3 text-center text-[18px] flex justify-center items-center ${i === 0 ? "text-brand" : i === 1 ? "text-soft" : i === 2 ? "text-[#cd7f32]" : "text-muted"}`}>
+                  {i === 0 ? <Medal className="text-brand" size={18}/> : i === 1 ? <Medal className="text-soft" size={18}/> : i === 2 ? <Medal className="text-[#cd7f32]" size={18}/> : i + 1}
                 </td>
-                <td
-                  style={{
-                    ...S.td,
-                    textAlign: "left",
-                    fontWeight: 600,
-                    color: "#fff",
-                  }}
-                >
-                  {r.name}
-                </td>
-                <td style={S.td}>{r.pj}</td>
-                <td style={{ ...S.td, color: "#e8f04a", fontWeight: 700 }}>
-                  {r.pg}
-                </td>
-                <td style={{ ...S.td, color: "#f04a4a" }}>{r.pp}</td>
-                <td style={S.td}>{r.sf}</td>
-                <td style={S.td}>{r.sc}</td>
-                <td
-                  style={{
-                    ...S.td,
-                    color: r.sf - r.sc >= 0 ? "#4af07a" : "#f04a4a",
-                    fontWeight: 700,
-                  }}
-                >
-                  {r.sf - r.sc > 0 ? "+" : ""}
-                  {r.sf - r.sc}
+                <td className="p-3 text-left text-[15px] font-semibold text-white">{r.name}</td>
+                <td className="p-3 text-center text-[15px] text-secondary">{r.pj}</td>
+                <td className="p-3 text-center text-[15px] text-brand font-bold">{r.pg}</td>
+                <td className="p-3 text-center text-[15px] text-danger">{r.pp}</td>
+                <td className="p-3 text-center text-[15px] text-secondary">{r.sf}</td>
+                <td className="p-3 text-center text-[15px] text-secondary">{r.sc}</td>
+                <td className={`p-3 text-center text-[15px] font-bold ${r.sf - r.sc >= 0 ? "text-green" : "text-danger"}`}>
+                  {r.sf - r.sc > 0 ? "+" : ""}{r.sf - r.sc}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div style={S.legend}>
+      <div className="mt-3 text-[11px] text-[#333] font-mono">
         PJ: Partidos Jugados · PG: Ganados · PP: Perdidos · GF: Games a Favor ·
         GC: Games en Contra
       </div>

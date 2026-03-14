@@ -1,26 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { calcStandings } from "../../utils/helpers";
-import S from "../../styles/theme";
 
 export default function Stats({ tournament }) {
-  const [allTournaments, setAllTournaments] = useState([]);
+  const [allTournaments] = useState([]);
   const [histTab, setHistTab] = useState("current");
-
-  useEffect(() => {
-    setAllTournaments([])
-  }, []);
 
   return (
     <div>
-      <div style={S.sectionTitle}>ESTADÍSTICAS</div>
+      <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">ESTADÍSTICAS</div>
 
-      <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "1px solid #1a1f2e" }}>
+      <div className="flex mb-5 border-b border-border">
         {[
           { id: "current", label: "Este torneo" },
           { id: "history", label: `Históricas (${allTournaments.length})` },
         ].map((t) => (
           <button key={t.id} onClick={() => setHistTab(t.id)}
-            style={{ ...S.tab, fontSize: 13, ...(histTab === t.id ? S.tabActive : {}) }}>
+            className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all ${histTab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
             {t.label}
           </button>
         ))}
@@ -64,55 +59,53 @@ function CurrentStats({ tournament }) {
   });
 
   const longestMatch = played
-  .filter((m) => m.duration_seconds > 0)
-  .sort((a, b) => b.duration_seconds - a.duration_seconds)[0] ?? null;
-  //console.log("longestMach", played);
-  
+    .filter((m) => m.duration_seconds > 0)
+    .sort((a, b) => b.duration_seconds - a.duration_seconds)[0] ?? null;
 
   const getPlayerName = (id) => players.find((p) => p.id === id)?.name ?? "?";
   const leader = standings[0];
   const topPartner = partnerships[0];
 
   if (played.length === 0)
-    return <div style={S.empty}>Jugá partidos para ver estadísticas 📊</div>;
+    return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">Jugá partidos para ver estadísticas 📊</div>;
 
   return (
     <>
-      <div style={S.statsGrid}>
-        <div style={S.statCard}>
-          <div style={S.statIcon}>🎾</div>
-          <div style={S.statValue}>{played.length}</div>
-          <div style={S.statLabel}>Partidos jugados</div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-2">
+        <div className="bg-surface border border-border-mid rounded-lg p-4 text-center">
+          <div className="text-[28px] mb-2">🎾</div>
+          <div className="font-condensed font-bold text-[26px] text-white mb-1">{played.length}</div>
+          <div className="text-[12px] text-muted font-sans">Partidos jugados</div>
         </div>
         {leader && (
-          <div style={{ ...S.statCard, borderColor: "#e8f04a44" }}>
-            <div style={S.statIcon}>🏆</div>
-            <div style={{ ...S.statValue, color: "#e8f04a" }}>{leader.name}</div>
-            <div style={S.statLabel}>MVP · {leader.pg} victorias</div>
+          <div className="bg-surface border border-brand/27 rounded-lg p-4 text-center">
+            <div className="text-[28px] mb-2">🏆</div>
+            <div className="font-condensed font-bold text-[26px] text-brand mb-1">{leader.name}</div>
+            <div className="text-[12px] text-muted font-sans">MVP · {leader.pg} victorias</div>
           </div>
         )}
         {topPartner?.played >= 1 && (
-          <div style={{ ...S.statCard, borderColor: "#4af0c844" }}>
-            <div style={S.statIcon}>🤝</div>
-            <div style={{ ...S.statValue, color: "#4af0c8", fontSize: 18 }}>{topPartner.label}</div>
-            <div style={S.statLabel}>Mejor pareja · {topPartner.winRate}% ({topPartner.wins}/{topPartner.played})</div>
+          <div className="bg-surface border border-cyan/27 rounded-lg p-4 text-center">
+            <div className="text-[28px] mb-2">🤝</div>
+            <div className="font-condensed font-bold text-[18px] text-cyan mb-1">{topPartner.label}</div>
+            <div className="text-[12px] text-muted font-sans">Mejor pareja · {topPartner.winRate}% ({topPartner.wins}/{topPartner.played})</div>
           </div>
         )}
         {biggestWin && (
-          <div style={{ ...S.statCard, borderColor: "#f04a4a44" }}>
-            <div style={S.statIcon}>💥</div>
-            <div style={{ ...S.statValue, fontSize: 22, color: "#f07a4a" }}>{biggestWin.score1} — {biggestWin.score2}</div>
-            <div style={S.statLabel}>Partido más amplio · {biggestWin.team1.map(getPlayerName).join(" & ")} vs {biggestWin.team2.map(getPlayerName).join(" & ")}</div>
+          <div className="bg-surface border border-danger/27 rounded-lg p-4 text-center">
+            <div className="text-[28px] mb-2">💥</div>
+            <div className="font-condensed font-bold text-[22px] text-[#f07a4a] mb-1">{biggestWin.score1} — {biggestWin.score2}</div>
+            <div className="text-[12px] text-muted font-sans">Partido más amplio · {biggestWin.team1.map(getPlayerName).join(" & ")} vs {biggestWin.team2.map(getPlayerName).join(" & ")}</div>
           </div>
         )}
         {longestMatch && (
-          <div style={{ ...S.statCard, borderColor: "#4af0c844" }}>
-            <div style={S.statIcon}>⏱</div>
-            <div style={{ ...S.statValue, color: "#4af0c8" }}>
+          <div className="bg-surface border border-cyan/27 rounded-lg p-4 text-center">
+            <div className="text-[28px] mb-2">⏱</div>
+            <div className="font-condensed font-bold text-[26px] text-cyan mb-1">
               {String(Math.floor(longestMatch.duration_seconds / 60)).padStart(2,"0")}:
               {String(longestMatch.duration_seconds % 60).padStart(2,"0")}
             </div>
-            <div style={S.statLabel}>
+            <div className="text-[12px] text-muted font-sans">
               Partido más extenso · {longestMatch.team1.map(getPlayerName).join(" & ")} vs {longestMatch.team2.map(getPlayerName).join(" & ")}
             </div>
           </div>
@@ -127,9 +120,8 @@ function CurrentStats({ tournament }) {
 
 function HistoricalStats({ tournaments }) {
   if (tournaments.length === 0)
-    return <div style={S.empty}>No hay jornadas anteriores registradas.</div>;
+    return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay jornadas anteriores registradas.</div>;
 
-  // Aggregate per player name
   const playerMap = {};
   tournaments.forEach((t) => {
     const standings = calcStandings(t.players, t.matches);
@@ -151,46 +143,44 @@ function HistoricalStats({ tournaments }) {
 
   return (
     <>
-      <div style={S.statsGrid}>
-        <div style={S.statCard}>
-          <div style={S.statIcon}>📅</div>
-          <div style={S.statValue}>{tournaments.length}</div>
-          <div style={S.statLabel}>Jornadas jugadas</div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-2">
+        <div className="bg-surface border border-border-mid rounded-lg p-4 text-center">
+          <div className="text-[28px] mb-2">📅</div>
+          <div className="font-condensed font-bold text-[26px] text-white mb-1">{tournaments.length}</div>
+          <div className="text-[12px] text-muted font-sans">Jornadas jugadas</div>
         </div>
-        <div style={S.statCard}>
-          <div style={S.statIcon}>🎾</div>
-          <div style={S.statValue}>{totalMatches}</div>
-          <div style={S.statLabel}>Partidos en total</div>
+        <div className="bg-surface border border-border-mid rounded-lg p-4 text-center">
+          <div className="text-[28px] mb-2">🎾</div>
+          <div className="font-condensed font-bold text-[26px] text-white mb-1">{totalMatches}</div>
+          <div className="text-[12px] text-muted font-sans">Partidos en total</div>
         </div>
         {rows[0] && (
-          <div style={{ ...S.statCard, borderColor: "#e8f04a44" }}>
-            <div style={S.statIcon}>👑</div>
-            <div style={{ ...S.statValue, color: "#e8f04a" }}>{rows[0].name}</div>
-            <div style={S.statLabel}>Mejor jugador histórico · {rows[0].pg}V</div>
+          <div className="bg-surface border border-brand/27 rounded-lg p-4 text-center">
+            <div className="text-[28px] mb-2">👑</div>
+            <div className="font-condensed font-bold text-[26px] text-brand mb-1">{rows[0].name}</div>
+            <div className="text-[12px] text-muted font-sans">Mejor jugador histórico · {rows[0].pg}V</div>
           </div>
         )}
       </div>
 
-      <div style={{ marginTop: 20 }}>
-        <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 12 }}>RANKING HISTÓRICO</div>
+      <div className="mt-5">
+        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">RANKING HISTÓRICO</div>
         <PerPlayerTable standings={rows} showTourneys />
       </div>
 
-      <div style={{ marginTop: 20 }}>
-        <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 12 }}>JORNADAS</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div className="mt-5">
+        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">JORNADAS</div>
+        <div className="flex flex-col gap-1.5">
           {[...tournaments].reverse().map((t) => {
             const played = t.matches.filter((m) => m.score1 !== "").length;
             const winner = calcStandings(t.players, t.matches)[0];
             return (
-              <div key={t.id} style={{ ...S.playerRow, flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                  <span style={{ color: "#fff", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 16 }}>
-                    {t.name}
-                  </span>
-                  {winner && <span style={{ color: "#e8f04a", fontSize: 13 }}>🏆 {winner.name}</span>}
+              <div key={t.id} className="flex items-center gap-2 bg-base border border-border-mid rounded-md px-3 py-2 flex-col">
+                <div className="flex justify-between w-full">
+                  <span className="text-white font-condensed font-bold text-[16px]">{t.name}</span>
+                  {winner && <span className="text-brand text-[13px]">🏆 {winner.name}</span>}
                 </div>
-                <span style={{ color: "#555", fontSize: 11, fontFamily: "'Courier New', monospace" }}>
+                <span className="text-muted text-[11px] font-mono">
                   {new Date(t.createdAt).toLocaleDateString("es-AR")} · {t.players.length} jugadores · {played} partidos
                 </span>
               </div>
@@ -204,30 +194,28 @@ function HistoricalStats({ tournaments }) {
 
 function PerPlayerTable({ standings, showTourneys }) {
   return (
-    <div style={{ marginTop: 16 }}>
+    <div className="mt-4">
       {!showTourneys && (
-        <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 12 }}>RENDIMIENTO POR JUGADOR</div>
+        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">RENDIMIENTO POR JUGADOR</div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {standings.map((p, i) => {
           const pct = p.pj > 0 ? Math.round((p.pg / p.pj) * 100) : 0;
           return (
-            <div key={p.id ?? p.name} style={S.playerStatRow}>
-              <div style={{ minWidth: 24, color: "#666", fontFamily: "'Courier New', monospace", fontWeight: 700 }}>{i + 1}</div>
-              <div style={{ flex: 1, fontWeight: 600, color: "#fff" }}>{p.name}</div>
+            <div key={p.id ?? p.name} className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
+              <div className="min-w-6 text-[#666] font-mono font-bold">{i + 1}</div>
+              <div className="flex-1 font-semibold text-white">{p.name}</div>
               {showTourneys && (
-                <div style={{ minWidth: 50, color: "#555", fontSize: 11, fontFamily: "'Courier New', monospace" }}>
-                  {p.torneos}J
-                </div>
+                <div className="min-w-12.5 text-muted text-[11px] font-mono">{p.torneos}J</div>
               )}
-              <div style={{ flex: 2 }}>
-                <div style={{ height: 8, background: "#1a1f2e", borderRadius: 4, overflow: "hidden" }}>
-                  <div style={{ width: `${pct}%`, height: "100%", borderRadius: 4, transition: "width 0.5s",
-                    background: pct > 60 ? "#e8f04a" : pct > 40 ? "#4af0c8" : "#f04a4a" }} />
+              <div className="flex-2">
+                <div className="h-2 bg-border rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-[width] duration-500 ${pct > 60 ? 'bg-brand' : pct > 40 ? 'bg-cyan' : 'bg-danger'}`}
+                    style={{ width: `${pct}%` }} />
                 </div>
               </div>
-              <div style={{ minWidth: 80, textAlign: "right", fontFamily: "'Courier New', monospace", color: "#aaa", fontSize: 13 }}>
-                {p.pg}G {p.pp}P <span style={{ color: pct >= 50 ? "#e8f04a" : "#f04a4a" }}>({pct}%)</span>
+              <div className="min-w-20 text-right font-mono text-soft text-[13px]">
+                {p.pg}G {p.pp}P <span className={pct >= 50 ? "text-brand" : "text-danger"}>({pct}%)</span>
               </div>
             </div>
           );
@@ -240,19 +228,19 @@ function PerPlayerTable({ standings, showTourneys }) {
 function PartnershipsTable({ partnerships }) {
   if (partnerships.length === 0) return null;
   return (
-    <div style={{ marginTop: 24 }}>
-      <div style={{ ...S.sectionTitle, fontSize: 13, marginBottom: 12 }}>PAREJAS</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="mt-6">
+      <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">PAREJAS</div>
+      <div className="flex flex-col gap-2">
         {partnerships.map((p, i) => (
-          <div key={i} style={S.playerStatRow}>
-            <div style={{ flex: 1, color: "#ccc", fontSize: 14 }}>{p.label}</div>
-            <div style={{ flex: 2 }}>
-              <div style={{ height: 6, background: "#1a1f2e", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ width: `${p.winRate}%`, height: "100%", background: "#4af0c8", borderRadius: 4 }} />
+          <div key={i} className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
+            <div className="flex-1 text-content text-[14px]">{p.label}</div>
+            <div className="flex-2">
+              <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                <div className="h-full bg-cyan rounded-full" style={{ width: `${p.winRate}%` }} />
               </div>
             </div>
-            <div style={{ minWidth: 90, textAlign: "right", fontFamily: "'Courier New', monospace", color: "#aaa", fontSize: 13 }}>
-              {p.wins}G {p.played - p.wins}P <span style={{ color: "#4af0c8" }}>({p.winRate}%)</span>
+            <div className="min-w-22.5 text-right font-mono text-soft text-[13px]">
+              {p.wins}G {p.played - p.wins}P <span className="text-cyan">({p.winRate}%)</span>
             </div>
           </div>
         ))}
