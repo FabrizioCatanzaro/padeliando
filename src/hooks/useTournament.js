@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
 import { adaptTournament } from '../utils/helpers';
- 
+import { useAuth } from '../context/useAuth';
+
 export function useTournament(groupId, tournamentId) {
+  const { user } = useAuth();
   const [tournament, setTournament] = useState(null);
+  const [groupOwnerId, setGroupOwnerId] = useState(null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [saved,      setSaved]      = useState(false);
- 
+
   // Carga el torneo al montar (o cuando cambia tournamentId)
   const reload = useCallback(async () => {
     if (!tournamentId) { setLoading(false); return; }
@@ -15,12 +18,17 @@ export function useTournament(groupId, tournamentId) {
     try {
       const t = await api.tournaments.get(tournamentId);
       setTournament(adaptTournament(t));
+      const gId = groupId ?? t.group_id;
+      if (gId) {
+        const g = await api.groups.get(gId);
+        setGroupOwnerId(g.user_id);
+      }
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [tournamentId]);
+  }, [tournamentId, groupId]);
  
   useEffect(() => { reload(); }, [reload]);
  
@@ -28,6 +36,10 @@ export function useTournament(groupId, tournamentId) {
  
   // ── Crear torneo ────────────────────────────────────────────────────
   async function handleCreate(name, playerNames, pairsInput) {
+    console.log("name",name);
+    console.log("player Names",playerNames);
+    console.log("pairs input",pairsInput);
+    
     const t = await api.tournaments.create({
       groupId,
       name,
@@ -74,13 +86,7 @@ export function useTournament(groupId, tournamentId) {
  
   // ── Jugadores ───────────────────────────────────────────────────────
   async function handleAddPlayer(name) {
-    await api.players.search(name); // solo para verificar
-    // resolve crea o reutiliza y vincula al grupo
-    await fetch(`${process.env.REACT_APP_API_URL}/api/players/resolve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, groupId }),
-    });
+    await api.players.resolve(name, groupId);
     await reload();
     flash();
   }
@@ -132,19 +138,26 @@ export function useTournament(groupId, tournamentId) {
     await api.tournaments.update(tournament.id, { status: newStatus });
     await reload();
   }
+
+  async function handleUpdateName(name) {
+    await api.tournaments.update(tournament.id, { name });
+    await reload();
+  }
  
   function getShareLink() {
     if (!tournament) return '';
-    return `${window.location.href.split('#')[0]}#readonly:${tournament.id}`;
+    return `${window.location.origin}/readonly/${tournament.id}`;
   }
  
+  const isOwner = !!user && !!tournament && groupOwnerId != null && String(groupOwnerId) === String(user.id);
+
   return {
-    tournament, loading, error, saved,
+    tournament, loading, error, saved, isOwner,
     handleCreate,
     handleAddMatch,    handleEditMatch,    handleDeleteMatch,
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus
+    getShareLink, handleToggleStatus, handleUpdateName
   };
 }
