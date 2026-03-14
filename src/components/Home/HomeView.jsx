@@ -8,7 +8,7 @@ import { Globe, Lock, Plus, X } from 'lucide-react';
 import logoUrl from '../../assets/padeleando.ico'
 import FadeInCard from '../shared/FadeInCard'
 
-const EMOJI_LIST = ['🔥','⚡','🚀','🚺','⭐','🚹','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🏋️','🌡️','⛱️','💈','🌏','🏳️‍🌈','🚨','🏍️','🌹','🌼','🥑','🍺','🍷','🧉','🍕','🥚','🍆','💸','🗿','♂️','♀️','🏹','🎻','🧸','🪄','💅🏼','🧑🏼‍🎄','🎉','👑']
+const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','🥚','🍆','💸','🗿','♂️','♀️','🪄','🧑🏼‍🎄','🎉','👑']
 
 export default function HomeView() {
   const [groups,       setGroups]       = useState([]);
@@ -22,6 +22,7 @@ export default function HomeView() {
   const [searchQ,      setSearchQ]      = useState('');
   const [searchRes,    setSearchRes]    = useState([]);
   const [searching,    setSearching]    = useState(false);
+  const [error,     setError]     = useState(null)
 
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -58,9 +59,13 @@ export default function HomeView() {
   }
 
   async function handleCreate() {
-    if (!name.trim()) return;
-    const g = await api.groups.create({ name: name.trim(), description: desc, is_public: isPublic, emojis: selectedEmojis });
-    navigate(`/groups/${g.id}`);
+    try {
+      if (!name.trim()) return;
+      const g = await api.groups.create({ name: name.trim(), description: desc, is_public: isPublic, emojis: selectedEmojis });
+      navigate(`/groups/${g.id}`);
+    } catch (e){
+      setError(e.message)
+    } 
   }
 
   if (loading) return <SkeletonGrid count={6}/>;
@@ -111,7 +116,7 @@ export default function HomeView() {
           <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
             <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>NOMBRE DEL TORNEO</label>
             <input className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" placeholder="ej: C7/C8"
-              value={name} onChange={(e) => setName(e.target.value)} />
+              value={name} onChange={(e) => setName(e.target.value)} maxLength={30} minLength={2}/>
             <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>DESCRIPCIÓN (opcional)</label>
             <input className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" placeholder="ej: Todos los martes a las 17..."
               value={desc} onChange={(e) => setDesc(e.target.value)} />
@@ -141,6 +146,7 @@ export default function HomeView() {
               ))}
             </div>
 
+            {error && <p className="text-danger text-xs font-mono mt-2">{error}</p>}
             <button onClick={handleCreate}
               style={{ width: "100%", background: "#e8f04a", color: "#0a0e1a", border: "none", padding: "14px", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 16, letterSpacing: 2, borderRadius: 4, marginTop: 28, transition: "opacity 0.2s", cursor: "pointer", opacity: name.trim() ? 1 : 0.4 }}>
               CREAR TORNEO
