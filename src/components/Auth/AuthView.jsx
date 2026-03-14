@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { api } from '../../utils/api'
@@ -73,6 +73,36 @@ export default function AuthView({ mode: initialMode }) {
   const { login } = useAuth()
   const navigate  = useNavigate()
   const isRegister = mode === 'register'
+  const googleDivRef = useRef(null)
+
+  useEffect(() => {
+    function initGoogle() {
+      if (!googleDivRef.current) return
+      window.google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: async ({ credential }) => {
+          try {
+            const { user } = await api.auth.google(credential)
+            login(user)
+            navigate('/')
+          } catch (e) {
+            setError(e.message)
+          }
+        },
+      })
+      window.google.accounts.id.renderButton(googleDivRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        width: googleDivRef.current.offsetWidth,
+        text: 'continue_with',
+        locale: 'es_AR',
+      })
+    }
+
+    if (window.google) initGoogle()
+    else window.onGoogleLibraryLoad = initGoogle
+  }, [])
 
   function getFormError() {
     if (!isRegister) return null
@@ -111,24 +141,6 @@ export default function AuthView({ mode: initialMode }) {
     } finally {
       setLoading(false)
     }
-  }
-
-  function handleGoogle() {
-    if (!window.google) { setError('Google no disponible, recargá la página'); return }
-    window.google.accounts.id.initialize({
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      use_fedcm_for_prompt: false,
-      callback: async ({ credential }) => {
-        try {
-          const { user } = await api.auth.google(credential)
-          login(user)
-          navigate('/')
-        } catch (e) {
-          setError(e.message)
-        }
-      },
-    })
-    window.google.accounts.id.prompt()
   }
 
   function switchMode(m) {
@@ -234,11 +246,7 @@ export default function AuthView({ mode: initialMode }) {
 
         <div className="text-center my-4 text-[#333] text-xs font-mono">— o —</div>
 
-        <button onClick={handleGoogle}
-          className="w-full bg-white text-[#333] py-2.5 rounded text-sm font-semibold font-[Barlow] flex items-center justify-center gap-2.5 hover:bg-gray-100 transition-colors cursor-pointer">
-          <img src="https://www.google.com/favicon.ico" alt="" className="w-4 h-4" />
-          Continuar con Google
-        </button>
+        <div ref={googleDivRef} className="w-full flex justify-center" />
 
         <p className="text-center mt-5 text-sm text-[#555]">
           {isRegister ? (
