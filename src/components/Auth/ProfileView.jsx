@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { SkeletonList } from '../shared/Skeleton';
 import { Eye, EyeOff } from 'lucide-react';
+import FadeInCard from '../shared/FadeInCard';
 
 function PasswordInput({ value, onChange, placeholder = '········' }) {
   const [show, setShow] = useState(false)
@@ -91,8 +92,6 @@ export default function ProfileView() {
 
   const { owner, groups } = data;
   const isOwnProfile = user?.username === owner.username;
-  console.log("user", user);
-  
 
   async function handleSave() {
     setSaveError(null); setSaveOk(false);
@@ -140,10 +139,10 @@ export default function ProfileView() {
   }
 
   const label = { display: 'block', fontSize: 11, letterSpacing: 2, color: '#555',
-                  fontFamily: "'Courier New',monospace", marginBottom: 6, marginTop: 16 };
+                  fontFamily: "'Kode Mono',monospace", marginBottom: 6, marginTop: 16 };
 
   return (
-    <div className="min-h-screen bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-15">
       <div className="p-6">
 
         {/* Cabecera de perfil */}
@@ -174,7 +173,7 @@ export default function ProfileView() {
             >{user?.email}</div>
 
             <div style={{ borderTop: '1px solid #1a2030', marginTop: 20, paddingTop: 4 }}>
-              <div style={{ fontSize: 11, color: '#444', fontFamily: "'Courier New',monospace", marginBottom: 4 }}>
+              <div style={{ fontSize: 11, color: '#444', fontFamily: "'Kode Mono',monospace", marginBottom: 4 }}>
                 Dejá en blanco si no querés cambiar la contraseña
               </div>
               <label style={label}>CONTRASEÑA ACTUAL</label>
@@ -187,19 +186,19 @@ export default function ProfileView() {
               <label style={label}>REPETIR NUEVA CONTRASEÑA</label>
               <PasswordInput value={newPass2} onChange={e => setNewPass2(e.target.value)} />
               {newPass2 && newPass !== newPass2 && (
-                <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Courier New',monospace", marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Kode Mono',monospace", marginTop: 4 }}>
                   Las contraseñas no coinciden
                 </div>
               )}
             </div>
 
             {saveError && (
-              <div style={{ fontSize: 12, color: '#e05252', fontFamily: "'Courier New',monospace", marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: '#e05252', fontFamily: "'Kode Mono',monospace", marginTop: 12 }}>
                 {saveError}
               </div>
             )}
             {saveOk && (
-              <div style={{ fontSize: 12, color: '#4af07a', fontFamily: "'Courier New',monospace", marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: '#4af07a', fontFamily: "'Kode Mono',monospace", marginTop: 12 }}>
                 ✓ Guardado
               </div>
             )}
@@ -220,24 +219,33 @@ export default function ProfileView() {
         )}
 
         {/* Lista de torneos */}
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">TORNEOS</div>
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">TORNEOS PROPIOS</div>
 
         {groups.length === 0 && (
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">Este usuario no tiene torneos públicos.</div>
         )}
 
         <div className="flex flex-col gap-2.5">
-          {groups.map((g) => (
-            <div key={g.id} className="bg-surface border border-border-mid rounded-lg px-5 py-4.5 cursor-pointer transition-colors"
+          {groups.map((g, i) => (
+            <FadeInCard key={g.id} delay={i * 60}
+              className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
+              style={{ background: 'linear-gradient(145deg, #111827 0%, #0d1120 100%)' }}
               onClick={() => { navigate(`/groups/${g.id}`); }}>
-              <div className="font-condensed font-bold text-[18px] text-white mb-1">{g.name}</div>
-              {g.description && (
-                <div className="text-[13px] text-[#666] mb-1.5">{g.description}</div>
+              {g.emojis?.length > 0 && (
+                <div className="inline-flex px-3 pt-2 pb-1.5 text-base border-b border-r bg-surface border-border-mid rounded-br-lg leading-none">
+                  {g.emojis.join(' ')}
+                </div>
               )}
-              <div className="text-[11px] text-dim font-mono">
-                {g.player_count} jugadores · {g.tournament_count} jornadas
+              <div className="px-5 py-4">
+                <div className="font-condensed font-bold text-[18px] text-white mb-1">{g.name}</div>
+                {g.description && (
+                  <div className="text-[13px] text-[#666] mb-1.5">{g.description}</div>
+                )}
+                <div className="text-[11px] text-dim font-mono">
+                  {g.player_count} jugadores · {g.tournament_count} jornadas
+                </div>
               </div>
-            </div>
+            </FadeInCard>
           ))}
         </div>
       </div>

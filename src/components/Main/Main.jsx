@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fmt } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
-import Loader       from "../Loader/Loader";
 import Standings    from "../Standings/Standings";
 import Matches      from "../Matches/Matches";
 import Stats        from "../Stats/Stats";
 import Management   from "../Management/Management";
 import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X } from "lucide-react";
+import { SkeletonGrid } from "../shared/Skeleton";
 
 const TABS = [
   { id: "standings",  label: "TABLA",         icon: Trophy              },
@@ -33,9 +33,9 @@ export default function Main() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput]     = useState("");
 
-  if (loading) return <Loader />;
+  if (loading) return <SkeletonGrid count={3} />;
   if (error || !tournament) return (
-    <div className="min-h-screen bg-base text-content font-sans flex items-center justify-center">
+    <div className="bg-base text-content font-sans flex items-center justify-center">
       <div className="text-danger p-10">{error ?? "Error cargando torneo"}</div>
     </div>
   );
@@ -51,7 +51,7 @@ export default function Main() {
   };  
 
   return (
-    <div className="min-h-screen bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex justify-between items-start flex-wrap gap-3 border-b border-border">
         <div>
           <div onClick={() => navigate(`/groups/${groupId}`)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-2">
@@ -87,7 +87,7 @@ export default function Main() {
               )}
             </div>
           )}
-          <span className={`text-[11px] font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
+          <span className={`text-xs font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
             {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
           </span>
           <div className="text-[11px] text-muted font-mono mt-1">
@@ -98,7 +98,7 @@ export default function Main() {
             </span>
           </div>
         </div>
-        <div onClick={copyLink} className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold tracking-wide text-[13px] cursor-pointer rounded-sm">
+        <div onClick={copyLink} className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold tracking-wide text-sm cursor-pointer rounded-sm">
           {copied ? (
             <div className="flex flex-row items-center justify-between gap-2">
               <Check size={15} />

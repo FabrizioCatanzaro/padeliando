@@ -29,7 +29,7 @@ export default function InvitationsView() {
   }
 
   return (
-    <div className="min-h-screen bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-15">
       <div className="p-6">
         <div className="font-condensed font-bold text-[22px] text-white mb-1">Invitaciones</div>
         <div className="text-[12px] text-muted font-mono mb-6">

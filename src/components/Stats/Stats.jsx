@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { calcStandings } from "../../utils/helpers";
+import { Bomb, Clock, Handshake, Swords, Trophy } from "lucide-react";
 
 export default function Stats({ tournament }) {
   const [allTournaments] = useState([]);
@@ -72,40 +73,40 @@ function CurrentStats({ tournament }) {
   return (
     <>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-2">
-        <div className="bg-surface border border-border-mid rounded-lg p-4 text-center">
-          <div className="text-[28px] mb-2">🎾</div>
-          <div className="font-condensed font-bold text-[26px] text-white mb-1">{played.length}</div>
-          <div className="text-[12px] text-muted font-sans">Partidos jugados</div>
+        <div className="bg-surface border border-secondary/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
+          <div className="text-4xl mb-2 text-secondary flex justify-center"><Swords size={30} /></div>
+          <div className="font-condensed font-bold text-3xl text-white mb-1">{played.length}</div>
+          <div className="text-sm text-muted font-sans">Partidos jugados</div>
         </div>
         {leader && (
-          <div className="bg-surface border border-brand/27 rounded-lg p-4 text-center">
-            <div className="text-[28px] mb-2">🏆</div>
-            <div className="font-condensed font-bold text-[26px] text-brand mb-1">{leader.name}</div>
-            <div className="text-[12px] text-muted font-sans">MVP · {leader.pg} victorias</div>
+          <div className="bg-surface border border-brand/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
+            <div className="text-4xl mb-2 flex justify-center text-brand"><Trophy size={30} /></div>
+            <div className="font-condensed font-bold text-3xl text-brand mb-1">{leader.name}</div>
+            <div className="text-sm text-muted font-sans">MVP · {leader.pg} victorias</div>
           </div>
         )}
         {topPartner?.played >= 1 && (
-          <div className="bg-surface border border-cyan/27 rounded-lg p-4 text-center">
-            <div className="text-[28px] mb-2">🤝</div>
-            <div className="font-condensed font-bold text-[18px] text-cyan mb-1">{topPartner.label}</div>
-            <div className="text-[12px] text-muted font-sans">Mejor pareja · {topPartner.winRate}% ({topPartner.wins}/{topPartner.played})</div>
+          <div className="bg-surface border border-cyan/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
+            <div className="text-4xl mb-2 flex justify-center text-cyan"><Handshake size={30} /></div>
+            <div className="font-condensed font-bold text-3xl text-cyan mb-1">{topPartner.label}</div>
+            <div className="text-sm text-muted font-sans">Mejor pareja · {topPartner.winRate}% ({topPartner.wins}/{topPartner.played})</div>
           </div>
         )}
         {biggestWin && (
-          <div className="bg-surface border border-danger/27 rounded-lg p-4 text-center">
-            <div className="text-[28px] mb-2">💥</div>
-            <div className="font-condensed font-bold text-[22px] text-[#f07a4a] mb-1">{biggestWin.score1} — {biggestWin.score2}</div>
-            <div className="text-[12px] text-muted font-sans">Partido más amplio · {biggestWin.team1.map(getPlayerName).join(" & ")} vs {biggestWin.team2.map(getPlayerName).join(" & ")}</div>
+          <div className="bg-surface border border-danger/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
+            <div className="text-3xl mb-2 flex justify-center text-danger"><Bomb size={30} /></div>
+            <div className="font-condensed font-bold text-3xl text-danger mb-1">{biggestWin.score1} — {biggestWin.score2}</div>
+            <div className="text-sm text-muted font-sans">Partido más amplio · {biggestWin.team1.map(getPlayerName).join(" & ")} vs {biggestWin.team2.map(getPlayerName).join(" & ")}</div>
           </div>
         )}
         {longestMatch && (
-          <div className="bg-surface border border-cyan/27 rounded-lg p-4 text-center">
-            <div className="text-[28px] mb-2">⏱</div>
-            <div className="font-condensed font-bold text-[26px] text-cyan mb-1">
+          <div className="bg-surface border border-green/27 rounded-lg p-4 text-center">
+            <div className="text-3xl mb-2 flex justify-center text-green"><Clock size={30} /></div>
+            <div className="font-condensed font-bold text-3xl text-green mb-1">
               {String(Math.floor(longestMatch.duration_seconds / 60)).padStart(2,"0")}:
               {String(longestMatch.duration_seconds % 60).padStart(2,"0")}
             </div>
-            <div className="text-[12px] text-muted font-sans">
+            <div className="text-sm text-muted font-sans">
               Partido más extenso · {longestMatch.team1.map(getPlayerName).join(" & ")} vs {longestMatch.team2.map(getPlayerName).join(" & ")}
             </div>
           </div>

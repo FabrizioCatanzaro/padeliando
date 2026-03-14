@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { Clock, Pencil, Trash2 } from "lucide-react";
 import { fmt, getPairLabel } from "../../utils/helpers";
 export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete }) {
   const { team1, team2, score1, score2, date, createdAt } = match;
@@ -17,12 +17,9 @@ export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete
 
   return (
     <div className="bg-surface border border-border-mid rounded-lg px-4 py-3.5">
-      <div className="text-[11px] text-dim font-mono mb-2.5">{fmt(date || createdAt)}</div>
+      <div className="text-xs text-muted font-mono mb-2.5">{fmt(date || createdAt)}</div>
       <div className="flex items-center gap-3 flex-wrap">
-        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-[16px] ${win1 ? "text-brand" : "text-secondary"}`}>
-          <span className="bg-border-mid px-1.5 py-0.5 rounded-[3px] text-[11px] text-muted font-mono shrink-0">
-            {mode === "pairs" ? "P1" : "E1"}
-          </span>
+        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-xl ${win1 ? "text-brand" : "text-secondary"}`}>
           {getLabel(team1)}
         </div>
         <div className="flex items-center gap-2 font-condensed font-black text-[28px] min-w-20 justify-center">
@@ -30,16 +27,14 @@ export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete
           <span className="text-border-strong text-[20px]">—</span>
           <span className={!win1 ? "text-cyan" : "text-secondary"}>{score2}</span>
         </div>
-        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-[16px] justify-end text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
+        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-xl justify-end text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
           {getLabel(team2)}
-          <span className="bg-[#1a2a3a] px-1.5 py-0.5 rounded-[3px] text-[11px] text-muted font-mono shrink-0">
-            {mode === "pairs" ? "P2" : "E2"}
-          </span>
         </div>
       </div>
       {match.duration_seconds > 0 && (
-        <div className="text-[11px] text-muted font-mono mt-1 text-center">
-          ⏱ {String(Math.floor(match.duration_seconds / 60)).padStart(2,"0")}:{String(match.duration_seconds % 60).padStart(2,"0")} min
+        <div className="flex flex-row gap-3 items-center justify-center text-xs text-muted font-mono mt-1 text-center">
+          <Clock size={12} /> 
+          <span>{String(Math.floor(match.duration_seconds / 60)).padStart(2,"0")}:{String(match.duration_seconds % 60).padStart(2,"0")} min</span>
         </div>
       )}
       {isOwner && (

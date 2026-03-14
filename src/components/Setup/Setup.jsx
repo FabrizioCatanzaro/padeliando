@@ -52,7 +52,7 @@ export default function Setup() {
   }
 
   return (
-    <div className="min-h-screen bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-15">
       <div className="max-w-125 mx-auto px-7 py-10">
         <div className="flex items-center gap-3 mb-6">
           <div onClick={() => navigate(`/groups/${groupId}`)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-2 text-[13px] cursor-pointer rounded-sm font-sans">
@@ -106,7 +106,7 @@ export default function Setup() {
               onClick={handleNext}
               className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-7 transition-opacity cursor-pointer ${playersValid ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
             >
-              {isEven ? "SIGUIENTE → PAREJAS" : "CREAR TORNEO"}
+              {isEven ? "SIGUIENTE → PAREJAS" : "CREAR JORNADA"}
             </button>
           </>
         )}
@@ -124,7 +124,7 @@ export default function Setup() {
               onClick={handleCreate}
               className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-6 transition-opacity cursor-pointer ${allPairsFilled ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
             >
-              CREAR TORNEO
+              CREAR JORNADA
             </button>
           </>
         )}

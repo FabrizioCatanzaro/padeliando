@@ -6,7 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { SkeletonList } from '../shared/Skeleton';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus } from 'lucide-react';
+import FadeInCard from '../shared/FadeInCard';
 
 export default function GroupView() {
   const {groupId} = useParams();
@@ -44,10 +45,10 @@ export default function GroupView() {
     setEditingGroup(false);
   }
   return (
-    <div className="min-h-screen bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex justify-between items-start flex-wrap gap-3 border-b border-border">
         <div className="flex-1 min-w-0">
-          <div onClick={() => navigate('/')} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-3">
+          <div onClick={() => navigate(-1)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-3">
             <ChevronLeft size={15} />
             <span>Volver</span>
           </div>
@@ -103,8 +104,8 @@ export default function GroupView() {
             </div>
           </div>
         ) : (
-          <span style={{ fontSize: 11, color: '#444', fontFamily: "'Courier New',monospace" }}>
-            Dueño: @{group.owner_username ?? '—'}
+          <span style={{ fontSize: 11, color: '#444', fontFamily: "'Kode Mono',monospace" }}>
+            Dueño: <span className='hover:text-white underline cursor-pointer' onClick={() => navigate(`/u/${group.owner_username}`)}>@{group.owner_username ?? '—'}</span>
           </span>
         )}
       </div>
@@ -118,25 +119,16 @@ export default function GroupView() {
           {isOwner && (
             <div
               onClick={() => navigate(`/groups/${groupId}/tournament/new`)}
-              style={{
-                background: '#e8f04a',
-                borderRadius: 8,
-                padding: '18px 20px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#d4dc3a'}
-              onMouseLeave={(e) => e.currentTarget.style.background = '#e8f04a'}
+              className={`border-dashed border-brand border-2 rounded-sm p-2 cursor-pointer flex flex-col items-center justify-center min-h-full transition-[background] duration-200 hover:border-solid hover:bg-surface`}
             >
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 28, color: '#0a0e1a', lineHeight: 1 }}>+</span>
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 15, color: '#0a0e1a', letterSpacing: 3 }}>NUEVA JORNADA</span>
+              <Plus className='text-brand' size={20} />
+              <span className='font-condensed font-bold text-xl text-brand tracking-wide'>NUEVA JORNADA</span>
             </div>
           )}
-          {group.tournaments?.map((t) => (
-            <div key={t.id} className="bg-surface border border-border-mid rounded-lg px-5 py-4.5 cursor-pointer transition-colors"
+          {group.tournaments?.map((t, i) => (
+            <FadeInCard key={t.id} delay={i * 60}
+              className="border border-border-mid rounded-lg px-5 py-4.5 cursor-pointer hover:border-border-strong transition-colors"
+              style={{ background: 'linear-gradient(145deg, #111827 0%, #0d1120 100%)' }}
               onClick={() => { navigate(`/groups/${groupId}/tournament/${t.id}`); }}>
               <div className="flex justify-between items-center">
                 <div className="font-condensed font-bold text-[18px] text-white">{t.name}</div>
@@ -147,7 +139,7 @@ export default function GroupView() {
               <div className="text-[11px] text-dim font-mono mt-1">
                 {fmt(t.created_at)} · {t.match_count} partidos
               </div>
-            </div>
+            </FadeInCard>
           ))}
         </div>
       </div>

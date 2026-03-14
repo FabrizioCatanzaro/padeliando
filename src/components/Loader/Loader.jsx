@@ -14,7 +14,7 @@ export default function Loader() {
         <div style={{ fontSize: 48, marginBottom: 12 }}>🎾</div>
         <div
           style={{
-            fontFamily: "'Courier New', monospace",
+            fontFamily: "'Kode Mono', monospace",
             letterSpacing: 4,
             fontSize: 14,
             color: "#666",

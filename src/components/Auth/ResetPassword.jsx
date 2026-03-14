@@ -83,7 +83,7 @@ export default function ResetPassword() {
   const label = 'block text-[11px] tracking-widest text-[#555] font-mono mb-1.5 mt-4'
 
   return (
-    <div className="min-h-screen bg-base flex items-start justify-center pt-16 px-4">
+    <div className="bg-base flex items-start justify-center pt-16 px-4">
       <div className="w-full max-w-sm">
         <div className="font-[Barlow_Condensed] font-black text-2xl tracking-widest text-white mb-1 cursor-pointer"
           onClick={() => navigate('/')}>
@@ -109,7 +109,7 @@ export default function ResetPassword() {
             <label className={label}>REPETIR CONTRASEÑA</label>
             <PasswordInput value={password2} onChange={e => setPassword2(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()}/>
             {password2 && password !== password2 && (
-              <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Courier New',monospace", marginTop: 4 }}>
+              <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Kode Mono',monospace", marginTop: 4 }}>
                 Las contraseñas no coinciden
               </div>
             )}
