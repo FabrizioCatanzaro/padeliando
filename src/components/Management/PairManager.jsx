@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getPairLabel } from "../../utils/helpers";
 import Modal from "../shared/Modal";
-import { Pencil, Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2, X } from "lucide-react";
 export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDelete }) {
   const { players, pairs = [] } = tournament;
   const [showAdd, setShowAdd]       = useState(false);
@@ -89,8 +89,12 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
                     <option key={p.id} value={p.id} disabled={p.id === editP1}>{p.name}</option>
                   ))}
                 </select>
-                <button onClick={confirmEdit} className="bg-brand text-base border-0 px-3 py-1.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm">✓</button>
-                <button onClick={() => setEditId(null)} className="bg-transparent text-muted border border-border-strong px-2.5 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans">✕</button>
+                <div onClick={confirmEdit} className="bg-brand text-base border-0 px-1.5 py-1.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm">
+                  <Check size={12} />
+                </div>
+                <div onClick={() => setEditId(null)} className="bg-transparent text-muted border border-border-strong px-1.5 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans">
+                  <X size={12}/>
+                </div>
               </>
             ) : (
               <>

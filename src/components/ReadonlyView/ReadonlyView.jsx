@@ -1,18 +1,19 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { fmt } from "../../utils/helpers";
-import Loader from "../Loader/Loader";
 import Standings from "../Standings/Standings";
 import Stats from "../Stats/Stats";
 import MatchCard from "../Matches/MatchCard";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
+import { ChartNoAxesCombined, Eye, Flame, Trophy, User } from "lucide-react";
+import { SkeletonList } from "../shared/Skeleton";
 
 const TABS = [
-  { id: "standings", label: "TABLA",        icon: "🏆" },
-  { id: "matches",   label: "PARTIDOS",     icon: "🎾" },
-  { id: "players",   label: "JUGADORES",    icon: "👤" },
-  { id: "stats",     label: "ESTADÍSTICAS", icon: "📊" },
+  { id: "standings", label: "TABLA",        icon: Trophy },
+  { id: "matches",   label: "PARTIDOS",     icon: Flame},
+  { id: "players",   label: "JUGADORES",    icon: User },
+  { id: "stats",     label: "ESTADÍSTICAS", icon: ChartNoAxesCombined },
 ];
 
 export default function ReadonlyView() {
@@ -38,7 +39,7 @@ export default function ReadonlyView() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-base text-content font-sans pb-15 flex items-center justify-center">
+      <div className="bg-base text-content font-sans pb-15 flex items-center justify-center">
         <div className="text-center text-[#666]">
           <div className="text-[48px] mb-3">🔍</div>
           <div className="text-soft font-mono">Torneo no encontrado.</div>
@@ -48,26 +49,28 @@ export default function ReadonlyView() {
     );
   }
 
-  if (!tournament) return <Loader />;
+  if (!tournament) return <SkeletonList count={2} />;
 
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length;
+  const playedStatus = playedCount === 0 ? 'Sin partidos aún' : `${playedCount} ${playedCount === 1 ? ' partido jugado' : ' partidos jugados'}`;
 
   return (
-    <div className="min-h-screen bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex justify-between items-start flex-wrap gap-3 border-b border-border">
         <div>
-          <div className="font-condensed font-bold text-[28px] text-white tracking-wide">{tournament.name}</div>
-          <div className="text-[11px] text-muted font-mono mt-1">
+          <div className="font-condensed font-bold text-4xl text-white tracking-wide">{tournament.name}</div>
+          <div className="text-sm text-muted font-mono mt-1">
             Creado el {fmt(tournament.createdAt)} · {tournament.players.length} jugadores
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5">
-          <div className="bg-surface text-cyan border border-cyan/27 px-3 py-1.5 font-condensed font-bold tracking-wide text-[12px] rounded-sm">
-            👁 SOLO LECTURA
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="text-muted text-sm font-mono">
+            {playedStatus} · actualiza cada 30s
           </div>
-          <div className="text-dim text-[11px] font-mono">
-            {playedCount} partidos jugados · actualiza cada 30s
+          <div className="flex flex-row gap-2 items-center bg-surface text-cyan border border-cyan/27 px-3 py-1.5 font-condensed font-bold tracking-wide text-sm mt-2 rounded-sm">
+            <Eye size={15} />
+            <span>SOLO LECTURA</span>
           </div>
         </div>
       </div>
@@ -75,8 +78,8 @@ export default function ReadonlyView() {
       <div className="flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all ${tab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
-            {t.icon} {t.label}
+            className={`flex flex-row gap-2 items-center bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${tab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
+            <t.icon size={15}/>{t.label}
           </button>
         ))}
       </div>
