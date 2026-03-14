@@ -14,11 +14,13 @@ import InvitationsView from './components/Invitations/InvitationsView'
 
 function Layout() {
   return (
-    <>
+    <div className="min-h-screen flex flex-col">
       <Header />
-      <Outlet />
+      <div className="flex-1 w-full max-w-6xl mx-auto">
+        <Outlet />
+      </div>
       <Footer />
-    </>
+    </div>
   )
 }
 
