@@ -152,7 +152,7 @@ export default function AuthView({ mode: initialMode }) {
   // Vista de "olvidé mi contraseña"
   if (showForgot) {
     return (
-      <div className="min-h-screen bg-base flex items-start justify-center pt-10 px-4">
+      <div className="bg-base flex items-start justify-center pt-10 px-4">
         <div className="w-full max-w-sm">
           {forgotSent ? (
             <div className="mt-8 text-center">
@@ -192,7 +192,7 @@ export default function AuthView({ mode: initialMode }) {
   }
 
   return (
-    <div className="min-h-screen bg-base flex items-start justify-center pt-10 px-4">
+    <div className="bg-base flex items-start justify-center pt-10 px-4">
       <div className="w-full max-w-sm">
         <p className="text-[#555] text-sm mb-8">
           {isRegister ? 'Creá tu cuenta' : 'Ingresá a tu cuenta'}
