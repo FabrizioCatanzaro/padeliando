@@ -14,14 +14,15 @@ export default function Setup() {
   const [playerNames, setPlayerNames] = useState(["", "", "", ""]);
   const [pairs, setPairs]       = useState([]);
   const [step, setStep]         = useState("players");
+  const [error, setError] = useState(false)
 
   const filledNames = playerNames.filter((n) => n.trim());
-  console.log("filled",filledNames);
   
   const isEven = filledNames.length > 0 && filledNames.length % 2 === 0;
   const hasDupes = new Set(filledNames.map((n) => n.trim().toLowerCase())).size !== filledNames.length;
 
   const playersValid = name.trim() && filledNames.length >= 4 && !hasDupes;
+  const tituloValido = name?.length <= 30 && name?.length >= 2 
 
   const allPairsFilled =
     pairs.length === filledNames.length / 2 &&
@@ -70,6 +71,8 @@ export default function Setup() {
               placeholder="ej: Fecha 1"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              maxLength={30}
+              minLength={2}
             />
 
             <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2 mt-5">
@@ -100,10 +103,10 @@ export default function Setup() {
                   ? `✦ ${filledNames.length} jugadores — en el siguiente paso armás las ${filledNames.length / 2} parejas fijas.`
                   : `✦ ${filledNames.length} jugadores — número impar, los equipos se armarán partido a partido.`}
               </div>
-            )}
-
+            )} 
+            {error && <p className="text-danger text-xs font-mono mt-2">El nombre de la jornada debe tener entre 2 y 30 caracteres</p>}
             <button
-              onClick={handleNext}
+              onClick={() => tituloValido ? handleNext() : setError(true)}
               className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-7 transition-opacity cursor-pointer ${playersValid ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
             >
               {isEven ? "SIGUIENTE → PAREJAS" : "CREAR JORNADA"}
