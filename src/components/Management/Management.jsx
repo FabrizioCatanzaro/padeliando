@@ -1,74 +1,81 @@
 import { useState } from "react";
-import S from "../../styles/theme";
 import Modal from "../shared/Modal";
 import PlayerManager from "./PlayerManager";
 import PairManager from "./PairManager";
-import { isLoggedIn } from '../../utils/auth';
-
+import { Play, RotateCcw, TicketCheck, Trash2 } from "lucide-react";
 export default function Management({
-  tournament, 
+  tournament, isOwner,
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
   onResetScores, onDeleteTournament, onToggleStatus
 }) {
   const [resetModal, setResetModal]   = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
-  const loggedIn = isLoggedIn();
 
   return (
     <div>
-      <div style={S.sectionTitle}>GESTIÓN DE LA JORNADA</div>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">GESTIÓN DE LA JORNADA</div>
+      </div>
 
-      {/* Players section */}
       <PlayerManager
         tournament={tournament}
+        isOwner={isOwner}
         onAdd={onAddPlayer}
         onEdit={onEditPlayer}
         onDelete={onDeletePlayer}
       />
 
-      {/* Pairs section (only in pairs mode) */}
       {(tournament.mode === "pairs" || tournament.players.length % 2 === 0) && (
         <PairManager
           tournament={tournament}
+          isOwner={isOwner}
           onAdd={onAddPair}
           onEdit={onEditPair}
           onDelete={onDeletePair}
         />
       )}
 
-      {/* Danger zone */}
-      {loggedIn ?? (
-
-      <div style={S.dangerZone}>
-        <div style={{ ...S.sectionTitle, color: "#f04a4a66", fontSize: 13, marginBottom: 12 }}>
-          ZONA DE PELIGRO
+      {isOwner && (
+        <div className="bg-[#0d0a0a] border border-danger/13 rounded-lg p-4 mt-2">
+          <div className="font-condensed font-bold text-[13px] tracking-[3px] text-danger/40 mb-3">
+            ZONA DE PELIGRO
+          </div>
+          <div className="flex gap-2.5 flex-wrap">
+            <div
+              onClick={() => setResetModal(true)}
+              className="flex flex-row gap-2 items-center bg-transparent border border-danger/40 text-danger px-4 py-2.25 text-[13px] cursor-pointer rounded-sm font-sans"
+            >
+              <RotateCcw size={15} /> Reiniciar puntos
+            </div>
+            <div
+              onClick={() => setDeleteModal(true)}
+              className="flex flex-row gap-2 bg-danger/13 border border-danger text-danger px-4 py-2.25 text-[13px] cursor-pointer rounded-sm font-sans"
+            >
+              <Trash2 size={15} /> Eliminar jornada
+            </div>
+            <button
+              onClick={() => onToggleStatus()}
+              className={`bg-transparent px-4 py-2.25 text-[13px] cursor-pointer rounded-sm font-sans border ${
+                tournament.status === 'active'
+                  ? 'border-brand/40 text-brand'
+                  : 'border-green/40 text-green'
+              }`}
+            >
+              {tournament.status === 'active' ? (
+                <div className="flex flex-row gap-2 items-center">
+                  <TicketCheck size={15} />
+                  <span>Finalizar jornada</span>
+                </div>
+              ) : (
+                <div className="flex flex-row gap-2 items-center">
+                  <Play size={15} />
+                  <span>Reanudar jornada</span>
+                </div>
+              )}
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            onClick={() => setResetModal(true)}
-            style={{ ...S.dangerBtn, borderColor: "#f04a4a66" }}
-          >
-            🔄 Reiniciar puntos
-          </button>
-          <button
-            onClick={() => setDeleteModal(true)}
-            style={{ ...S.dangerBtn, background: "#f04a4a22", borderColor: "#f04a4a" }}
-          >
-            🗑️ Eliminar jornada
-          </button>
-          <button
-            onClick={() => onToggleStatus()}
-            style={{
-              ...S.dangerBtn,
-              borderColor: tournament.status === 'active' ? '#e8f04a66' : '#4af07a66',
-              color: tournament.status === 'active' ? '#e8f04a' : '#4af07a',
-            }}
-          >
-            {tournament.status === 'active' ? '🏁 Finalizar jornada' : '▶ Reanudar jornada'}
-          </button>
-        </div>
-      </div>
       )}
 
       {resetModal && (
@@ -81,7 +88,6 @@ export default function Management({
           onCancel={() => setResetModal(false)}
         />
       )}
-
 
       {deleteModal && (
         <Modal

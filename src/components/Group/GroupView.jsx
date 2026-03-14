@@ -1,89 +1,157 @@
 import { useState, useEffect } from 'react';
-import S, { FONTS } from '../../styles/theme';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
-import Loader from '../Loader/Loader';
-import { isLoggedIn } from '../../utils/auth';
- 
-export default function GroupView({ groupId }) {
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/useAuth';
+import { SkeletonList } from '../shared/Skeleton';
+import { useParams } from 'react-router-dom';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft } from 'lucide-react';
+
+export default function GroupView() {
+  const {groupId} = useParams();
   const [group,   setGroup]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState(false);
- 
+  const [editingGroup, setEditingGroup] = useState(false);
+  const [editName, setEditName]         = useState("");
+  const [editDesc, setEditDesc]         = useState("");
+  const navigate = useNavigate();
+
   useEffect(() => {
     api.groups.get(groupId).then(setGroup).finally(() => setLoading(false));
   }, [groupId]);
- 
-  if (loading) return <Loader />;
+
+  const { user } = useAuth();
+  if (loading) return <SkeletonList count={3} />;
   if (!group)  return null;
-  const loggedIn = isLoggedIn();
+
+  const isOwner = !!user && String(group.user_id) === String(user.id);
 
   async function handleDelete() {
     await api.groups.delete(groupId);
-    window.location = "/";
+    navigate("/");
   }
 
   async function handleTogglePublic() {
     const updated = await api.groups.update(groupId, { is_public: !group.is_public });
     setGroup({ ...group, is_public: updated.is_public });
   }
- 
+
+  async function handleSaveGroup() {
+    const updated = await api.groups.update(groupId, { name: editName.trim(), description: editDesc.trim() });
+    setGroup({ ...group, name: updated.name ?? editName.trim(), description: updated.description ?? editDesc.trim() });
+    setEditingGroup(false);
+  }
   return (
-    <div style={S.page}>
-      <style>{FONTS}</style>
-      <div style={S.header}>
-        <div>
-          <div style={{...S.logo, cursor: "pointer"}} onClick={() => { window.location.hash = "/"; }}>
-            🎾 PADEL<span style={{ color: '#e8f04a' }}>EANDO</span>
+    <div className="min-h-screen bg-base text-content font-sans pb-15">
+      <div className="px-6 pt-6 pb-5 flex justify-between items-start flex-wrap gap-3 border-b border-border">
+        <div className="flex-1 min-w-0">
+          <div onClick={() => navigate('/')} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-3">
+            <ChevronLeft size={15} />
+            <span>Volver</span>
           </div>
-          <div style={S.tourneyName}>{group.name}</div>
+          {editingGroup ? (
+            <div className="flex flex-col gap-2">
+              <input
+                autoFocus
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="bg-surface border border-border-mid text-white px-2.5 py-1 font-condensed font-bold text-[24px] tracking-wide rounded-sm outline-none"
+              />
+              <input
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                placeholder="Descripción (opcional)"
+                className="bg-surface border border-border-mid text-white px-2.5 py-1 font-sans text-[13px] rounded-sm outline-none"
+              />
+              <div className="flex gap-2">
+                <button onClick={handleSaveGroup} className="bg-brand text-base border-0 px-3 py-1 font-condensed font-bold text-[12px] cursor-pointer rounded-sm">✓ Guardar</button>
+                <button onClick={() => setEditingGroup(false)} className="bg-transparent text-muted border border-border-strong px-3 py-1 font-condensed text-[12px] cursor-pointer rounded-sm">✕ Cancelar</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="font-condensed font-bold text-[28px] text-white tracking-wide">{group.name}</div>
+              </div>
+              <div className="font-condensed text-[14px] text-gray-500 tracking-wide">{group.description}</div>
+            </>
+          )}
         </div>
-        {loggedIn ?? (
-        <>
-          <button onClick={handleTogglePublic} style={{
-            ...S.resetBtn,
-            color: group.is_public ? '#4af0c8' : '#555',
-            borderColor: group.is_public ? '#4af0c844' : '#2a3040',
-          }}>
-            {group.is_public ? '🌐 Público' : '🔒 Privado'}
-          </button>
-          <button
-            onClick={() => { window.location.hash = `/groups/${groupId}/tournament/new`; }}
-            style={S.primaryBtn}>
-            + Nueva jornada
-          </button>
-          <button onClick={() => setDeleteModal(true)} style={S.dangerBtn}>🗑️</button>
-        </>
+        {isOwner ? (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div onClick={handleTogglePublic}
+              className={`bg-transparent border px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans ${group.is_public ? 'text-cyan border-cyan/27 hover:bg-cyan hover:text-gray-800' : 'text-yellow-400 border-border-strong hover:bg-yellow-400 hover:text-gray-800'}`}>
+              {group.is_public ? (
+                <div className='flex flex-row items-center justify-between gap-2'>
+                  <Globe size={15}/>
+                  <span>{`Público`}</span>
+                </div>
+              ): (
+                <div className='flex flex-row items-center justify-between gap-2'>
+                  <Lock size={15}/>
+                  <span> Privado</span>
+                </div>
+              )}
+            </div>
+            <div className="bg-transparent border border-[#333] px-3 py-2 text-danger hover:bg-red-600 hover:text-gray-300 cursor-pointer rounded-sm" onClick={() => setDeleteModal(true)}>
+              <Trash2 size={15}/> 
+            </div>
+            <div onClick={() => { setEditName(group.name); setEditDesc(group.description ?? ""); setEditingGroup(true); }} className="bg-transparent border border-[#333] px-3 py-2 cursor-pointer text-yellow-200 rounded-sm font-sans hover:bg-yellow-200 hover:text-gray-700">
+              <Pencil size={15}/>
+            </div>
+          </div>
+        ) : (
+          <span style={{ fontSize: 11, color: '#444', fontFamily: "'Courier New',monospace" }}>
+            Dueño: @{group.owner_username ?? '—'}
+          </span>
         )}
       </div>
- 
-      <div style={S.content}>
-        <div style={S.sectionTitle}>JORNADAS</div>
-        {(!group.tournaments || group.tournaments.length === 0) && (
-          <div style={S.empty}>No hay jornadas todavía.<br/>¡Creá el primero!</div>
+
+      <div className="p-6">
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">JORNADAS</div>
+        {(!group.tournaments || group.tournaments.length === 0) && !isOwner && (
+          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay jornadas todavía.<br/>¡Creá el primero!</div>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex flex-col gap-2.5">
+          {isOwner && (
+            <div
+              onClick={() => navigate(`/groups/${groupId}/tournament/new`)}
+              style={{
+                background: '#e8f04a',
+                borderRadius: 8,
+                padding: '18px 20px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#d4dc3a'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#e8f04a'}
+            >
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 28, color: '#0a0e1a', lineHeight: 1 }}>+</span>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 15, color: '#0a0e1a', letterSpacing: 3 }}>NUEVA JORNADA</span>
+            </div>
+          )}
           {group.tournaments?.map((t) => (
-            <div key={t.id} style={S.groupCard}
-              onClick={() => { window.location.hash = `/groups/${groupId}/tournament/${t.id}`; }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700,
-                              fontSize: 18, color: '#fff' }}>
-                  {t.name}
-                </div>
-                <span style={{ fontSize: 11, color: t.status==='active'?'#4af07a':'#555',
-                               fontFamily: "'Courier New',monospace" }}>
+            <div key={t.id} className="bg-surface border border-border-mid rounded-lg px-5 py-4.5 cursor-pointer transition-colors"
+              onClick={() => { navigate(`/groups/${groupId}/tournament/${t.id}`); }}>
+              <div className="flex justify-between items-center">
+                <div className="font-condensed font-bold text-[18px] text-white">{t.name}</div>
+                <span className={`text-[11px] font-mono ${t.status === 'active' ? 'text-green' : 'text-muted'}`}>
                   {t.status === 'active' ? 'EN CURSO' : 'FINALIZADO'}
                 </span>
               </div>
-              <div style={{ fontSize: 11, color: '#444', fontFamily: "'Courier New',monospace", marginTop: 4 }}>
+              <div className="text-[11px] text-dim font-mono mt-1">
                 {fmt(t.created_at)} · {t.match_count} partidos
               </div>
             </div>
           ))}
         </div>
       </div>
+
       {deleteModal && (
         <Modal
           title={`¿Eliminar "${group.name}"?`}

@@ -1,16 +1,16 @@
-import S from "../../styles/theme";
-
 export default function Modal({ title, message, confirmText = "Confirmar", confirmDanger = false, onConfirm, onCancel }) {
   return (
-    <div style={S.modalOverlay}>
-      <div style={S.modalBox}>
-        <div style={S.modalTitle}>{title}</div>
-        <div style={S.modalMessage}>{message}</div>
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-          <button onClick={onCancel} style={S.resetBtn}>Cancelar</button>
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-1000 p-5">
+      <div className="bg-surface border border-border-strong rounded-[10px] p-6 max-w-105 w-full">
+        <div className="font-condensed font-bold text-[20px] text-white mb-2.5">{title}</div>
+        <div className="text-[14px] text-secondary leading-relaxed font-sans">{message}</div>
+        <div className="flex gap-2.5 justify-end mt-5">
+          <button onClick={onCancel} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[12px] cursor-pointer rounded font-sans">
+            Cancelar
+          </button>
           <button
             onClick={onConfirm}
-            style={{ ...S.primaryBtn, background: confirmDanger ? "#f04a4a" : "#e8f04a", color: "#0a0e1a" }}
+            className={`border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded whitespace-nowrap text-base ${confirmDanger ? 'bg-danger' : 'bg-brand'}`}
           >
             {confirmText}
           </button>

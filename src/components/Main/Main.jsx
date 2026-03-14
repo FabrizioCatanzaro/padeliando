@@ -1,30 +1,46 @@
 import { useState } from "react";
-import S, { FONTS } from "../../styles/theme";
+import { useParams, useNavigate } from "react-router-dom";
 import { fmt } from "../../utils/helpers";
+import { useTournament } from "../../hooks/useTournament";
+import Loader       from "../Loader/Loader";
 import Standings    from "../Standings/Standings";
 import Matches      from "../Matches/Matches";
 import Stats        from "../Stats/Stats";
 import Management   from "../Management/Management";
+import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X } from "lucide-react";
 
 const TABS = [
-  { id: "standings",  label: "TABLA",         icon: "🏆" },
-  { id: "matches",    label: "PARTIDOS",       icon: "🎾" },
-  { id: "stats",      label: "ESTADÍSTICAS",   icon: "📊" },
-  { id: "management", label: "GESTIÓN",        icon: "⚙️" },
+  { id: "standings",  label: "TABLA",         icon: Trophy              },
+  { id: "matches",    label: "PARTIDOS",       icon: Flame               },
+  { id: "stats",      label: "ESTADÍSTICAS",   icon: ChartNoAxesCombined },
+  { id: "management", label: "GESTIÓN",        icon: Settings            },
 ];
 
-export default function Main({
-  tournament, onAddMatch, onEditMatch, onDeleteMatch,
-  onAddPlayer, onEditPlayer, onDeletePlayer,
-  onAddPair, onEditPair, onDeletePair,
-  onResetScores, onReset,
-  shareLink, saved, onToggleStatus
-}) {
-  //console.log("PLAYERS MAP",tournament.players.map(p => p.id))
-  //console.log("MATCHES",tournament.matches[0]?.team1)
-  const [tab, setTab]       = useState("standings");
-  const [copied, setCopied] = useState(false);
+export default function Main() {
+  const { groupId, tournamentId } = useParams();
+  const navigate = useNavigate();
+  const {
+    tournament, loading, error, saved, isOwner,
+    handleAddMatch, handleEditMatch, handleDeleteMatch,
+    handleAddPlayer, handleEditPlayer, handleDeletePlayer,
+    handleAddPair, handleEditPair, handleDeletePair,
+    handleResetScores, handleDeleteTournament,
+    getShareLink, handleToggleStatus, handleUpdateName,
+  } = useTournament(groupId, tournamentId);
 
+  const [tab, setTab]         = useState("standings");
+  const [copied, setCopied]   = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput]     = useState("");
+
+  if (loading) return <Loader />;
+  if (error || !tournament) return (
+    <div className="min-h-screen bg-base text-content font-sans flex items-center justify-center">
+      <div className="text-danger p-10">{error ?? "Error cargando torneo"}</div>
+    </div>
+  );
+
+  const shareLink   = getShareLink();
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length;
 
   const copyLink = () => {
@@ -32,63 +48,99 @@ export default function Main({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  };
+  };  
 
   return (
-    <div style={S.page}>
-      <style>{FONTS}</style>
-
-      <div style={S.header}>
+    <div className="min-h-screen bg-base text-content font-sans pb-15">
+      <div className="px-6 pt-6 pb-5 flex justify-between items-start flex-wrap gap-3 border-b border-border">
         <div>
-          <div style={{...S.logo, cursor: "pointer"}} onClick={() => { window.location.hash = "/"; }} >🎾 PADEL<span style={{ color: "#e8f04a" }}>EANDO</span></div>
-          <div style={S.tourneyName}>{tournament.name}</div>
-          <span style={{
-            fontSize: 11, fontFamily: "'Courier New', monospace",
-            color: tournament.status === 'active' ? '#4af07a' : '#555',
-            marginLeft: 10,
-          }}>
+          <div onClick={() => navigate(`/groups/${groupId}`)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-2">
+            <ChevronLeft size={15} />
+            <span>Volver</span>
+          </div>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && nameInput.trim()) { handleUpdateName(nameInput.trim()); setEditingName(false); }
+                  if (e.key === 'Escape') setEditingName(false);
+                }}
+                className="bg-surface border border-border-mid text-white px-2.5 py-1 font-condensed font-bold text-[24px] tracking-wide rounded-sm outline-none"
+              />
+              <div onClick={() => { if (nameInput.trim()) { handleUpdateName(nameInput.trim()); } setEditingName(false); }} className="bg-brand text-base border-0 px-2 py-2 font-condensed font-bold text-[12px] cursor-pointer rounded-sm">
+                <Check size={15} />
+              </div>
+              <div onClick={() => setEditingName(false)} className="bg-transparent text-muted border border-border-strong px-2 py-2 font-condensed text-[12px] cursor-pointer rounded-sm">
+                <X size={15} />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="font-condensed font-bold text-[28px] text-white tracking-wide">{tournament.name}</div>
+              {isOwner && (
+                <div onClick={() => { setNameInput(tournament.name); setEditingName(true); }} className="bg-transparent text-muted border border-border-strong px-2 py-2 text-[11px] cursor-pointer rounded-sm font-sans">
+                  <Pencil size={13}/>
+                </div>
+              )}
+            </div>
+          )}
+          <span className={`text-[11px] font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
             {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
           </span>
-          <div style={S.meta}>
+          <div className="text-[11px] text-muted font-mono mt-1">
             Creado el {fmt(tournament.createdAt)} · {tournament.players.length} jugadores ·{" "}
             {playedCount} partidos ·{" "}
-            <span style={{ color: tournament.mode === "pairs" ? "#4af0c8" : "#e8f04a" }}>
+            <span className={tournament.mode === "pairs" ? "text-cyan" : "text-brand"}>
               {tournament.mode === "pairs" ? "parejas fijas" : "equipos libres"}
             </span>
           </div>
         </div>
-        <button onClick={copyLink} style={S.shareBtn}>
-          {copied ? "✓ COPIADO" : "🔗 COMPARTIR"}
-        </button>
+        <div onClick={copyLink} className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold tracking-wide text-[13px] cursor-pointer rounded-sm">
+          {copied ? (
+            <div className="flex flex-row items-center justify-between gap-2">
+              <Check size={15} />
+              <span>COPIADO!</span>
+            </div>
+          ) : (
+            <div className="flex flex-row items-center justify-between gap-2">
+              <Share2 size={15} />
+              <span>COMPARTIR</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {saved && <div style={S.savedBadge}>✓ Guardado</div>}
+      {saved && <div className="bg-[#1a2e1a] text-green px-4 py-1.5 text-[12px] font-mono text-center">✓ Guardado</div>}
 
-      <div style={S.tabs}>
+      <div className="flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ ...S.tab, ...(tab === t.id ? S.tabActive : {}) }}>
-            {t.icon} {t.label}
-          </button>
+          <div key={t.id} onClick={() => setTab(t.id)}
+            className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${tab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
+             <t.icon size={14} className="inline mr-1.5" />{t.label}
+          </div>
         ))}
       </div>
 
-      <div style={S.content}>
+      <div className="p-6">
         {tab === "standings"  && <Standings  tournament={tournament} />}
-        {tab === "matches"    && <Matches    tournament={tournament} onAddMatch={onAddMatch} onEditMatch={onEditMatch} onDeleteMatch={onDeleteMatch} />}
+        {tab === "matches"    && <Matches    tournament={tournament} isOwner={isOwner} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} />}
         {tab === "stats"      && <Stats      tournament={tournament} />}
         {tab === "management" && (
           <Management
             tournament={tournament}
-            onAddPlayer={onAddPlayer}
-            onEditPlayer={onEditPlayer}
-            onDeletePlayer={onDeletePlayer}
-            onAddPair={onAddPair}
-            onEditPair={onEditPair}
-            onDeletePair={onDeletePair}
-            onResetScores={onResetScores}
-            onDeleteTournament={onReset}
-            onToggleStatus={onToggleStatus}
+            isOwner={isOwner}
+            onAddPlayer={handleAddPlayer}
+            onEditPlayer={handleEditPlayer}
+            onDeletePlayer={handleDeletePlayer}
+            onAddPair={handleAddPair}
+            onEditPair={handleEditPair}
+            onDeletePair={handleDeletePair}
+            onResetScores={handleResetScores}
+            onDeleteTournament={async () => { await handleDeleteTournament(); navigate(`/groups/${groupId}`); }}
+            onToggleStatus={handleToggleStatus}
           />
         )}
       </div>
