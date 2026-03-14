@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { User } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 import { api } from '../../utils/api'
+import logoUrl from '../../assets/padeleando.ico'
 
 export default function Header() {
   const [open, setOpen] = useState(false)
@@ -37,10 +38,11 @@ export default function Header() {
   return (
     <div className="px-6 py-4 flex justify-between items-center border-b border-border bg-base">
       <div
-        className="font-[Barlow_Condensed] font-black text-xl tracking-widest text-white cursor-pointer"
+        className="flex flex-row gap-2 items-center font-condensed font-black text-xl tracking-widest text-white cursor-pointer"
         onClick={() => location.pathname === '/' ? navigate(0) : navigate('/')}
       >
-        🎾 PADEL<span className="text-brand">EANDO</span>
+        <img className='max-w-8' src={logoUrl}/>
+        <span>PADEL<span className="text-brand">EANDO</span></span>
       </div>
 
       <div className="relative" ref={ref}>
@@ -48,9 +50,9 @@ export default function Header() {
           onClick={() => setOpen(o => !o)}
           className="relative bg-transparent border border-border-strong p-2 rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors"
         >
-          <User size={18} />
+          <User className='text-gray-200' size={18} />
           {displayCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-brand text-base text-[9px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
+            <span className="absolute -top-1 animate-pulse -right-1 bg-brand text-base text-[9px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
               {displayCount > 9 ? '9+' : displayCount}
             </span>
           )}
@@ -60,24 +62,24 @@ export default function Header() {
           <div className="absolute right-0 top-full mt-1 bg-surface-alt border border-border-strong rounded min-w-40 z-50 overflow-hidden">
             {isLoggedIn ? (
               <>
-                <div className="px-4 py-2.5 text-[11px] text-[#555] font-mono border-b border-border-mid">
+                <div className="px-4 py-2.5 text-[11px] text-gray-500 font-mono border-b border-border-mid">
                   @{user?.username}
                 </div>
                 <button
                   onClick={() => go(`/u/${user?.username}`)}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0"
+                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans"
                 >
                   Mi perfil
                 </button>
                 <button
                   onClick={() => go('/')}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0"
+                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans"
                 >
                   Mis torneos
                 </button>
                 <button
                   onClick={() => go('/invitations')}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-between"
+                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-between font-sans"
                 >
                   <span>Invitaciones</span>
                   {displayCount > 0 && (
