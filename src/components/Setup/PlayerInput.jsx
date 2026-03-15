@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { normalize } from '../../utils/helpers';
 import { api } from '../../utils/api';
 
-// groupId: si se pasa, el autocomplete muestra solo jugadores de ese grupo (evita confusión entre "Pepe" de distintos grupos)
-export default function PlayerInput({ value, onChange, placeholder, className, groupId }) {
+// groupId: filtra solo jugadores de ese grupo específico.
+// searchMine: filtra jugadores de todos los grupos del usuario autenticado (para Setup).
+export default function PlayerInput({ value, onChange, placeholder, className, groupId, searchMine }) {
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen]               = useState(false);
   const ref = useRef();
@@ -12,12 +13,12 @@ export default function PlayerInput({ value, onChange, placeholder, className, g
     if (!value.trim()) return;
     const t = setTimeout(async () => {
       try {
-        const players = await api.players.search(value, groupId);
+        const players = await api.players.search(value, groupId, searchMine);
         setSuggestions(players);
       } catch { setSuggestions([]); }
     }, 250);
     return () => clearTimeout(t);
-  }, [value, groupId]);
+  }, [value, groupId, searchMine]);
 
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };

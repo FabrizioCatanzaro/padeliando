@@ -1,9 +1,15 @@
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
-export const fmt = (d) =>
-  new Date(d).toLocaleDateString("es-AR", {
+// Strings con solo fecha (YYYY-MM-DD) se parsean como UTC midnight en JS,
+// lo que en Argentina (UTC-3) retrocede un día. Agregando T00:00 sin Z
+// se fuerza el parseo en timezone local.
+export const fmt = (d) => {
+  const str = String(d);
+  const date = new Date(str.length === 10 ? str + 'T00:00' : str);
+  return date.toLocaleDateString("es-AR", {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
+};
 
 export const normalize = (s) => s.trim().toLowerCase();
 
@@ -83,11 +89,16 @@ export function adaptTournament(t) {
   };
 }
 
+export const localDateStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export const emptyForm = () => ({
   team1: ["", ""],
   team2: ["", ""],
   score1: 0,
   score2: 0,
-  date: new Date().toISOString().slice(0, 10),
+  date: localDateStr(),
   duration_seconds: null,
 });

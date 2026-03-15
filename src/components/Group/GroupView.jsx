@@ -48,7 +48,7 @@ export default function GroupView() {
     <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex justify-between items-start flex-wrap gap-3 border-b border-border">
         <div className="flex-1 min-w-0">
-          <div onClick={() => navigate(-1)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-3">
+          <div onClick={() => navigate('/')} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-3">
             <ChevronLeft size={15} />
             <span>Volver</span>
           </div>
@@ -139,6 +139,11 @@ export default function GroupView() {
               <div className="text-[11px] text-dim font-mono mt-1">
                 {fmt(t.created_at)} · {t.match_count} partidos
               </div>
+              {t.status === 'finished' && t.winner_label && (
+                <div className="text-[12px] text-brand font-mono mt-1.5">
+                  🏆 {t.winner_label}
+                </div>
+              )}
             </FadeInCard>
           ))}
         </div>

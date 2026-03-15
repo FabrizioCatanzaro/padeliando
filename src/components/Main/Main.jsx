@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fmt } from "../../utils/helpers";
+import { fmt, calcStandings } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import Standings    from "../Standings/Standings";
 import Matches      from "../Matches/Matches";
@@ -33,6 +33,12 @@ export default function Main() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput]     = useState("");
 
+  useEffect(() => {
+    if (!loading && tournament && !isOwner) {
+      navigate(`/readonly/${tournamentId}`, { replace: true });
+    }
+  }, [loading, tournament, isOwner, tournamentId, navigate]);
+
   if (loading) return <SkeletonGrid count={3} />;
   if (error || !tournament) return (
     <div className="bg-base text-content font-sans flex items-center justify-center">
@@ -42,6 +48,29 @@ export default function Main() {
 
   const shareLink   = getShareLink();
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length;
+
+  // Ganador(es) de la jornada — solo cuando está finalizada
+  let winnerLabel = null;
+  if (tournament.status === 'finished') {
+    const standings = calcStandings(tournament.players, tournament.matches);
+    if (tournament.mode === 'pairs' && tournament.pairs?.length > 0) {
+      const pairRows = tournament.pairs.map((pair) => {
+        const stats  = standings.find((r) => r.id === pair.p1) ?? standings.find((r) => r.id === pair.p2) ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
+        const p1Name = tournament.players.find((p) => p.id === pair.p1)?.name ?? '?';
+        const p2Name = tournament.players.find((p) => p.id === pair.p2)?.name ?? '?';
+        return { ...stats, id: pair.id, name: `${p1Name} & ${p2Name}` };
+      }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+      const topPg   = pairRows[0]?.pg ?? 0;
+      const topDiff = pairRows[0] ? pairRows[0].sf - pairRows[0].sc : 0;
+      const top     = pairRows.filter((r) => r.pj > 0 && r.pg === topPg && (r.sf - r.sc) === topDiff);
+      if (top.length) winnerLabel = top.map((r) => r.name).join(' / ');
+    } else {
+      const topPg   = standings[0]?.pg ?? 0;
+      const topDiff = standings[0] ? standings[0].sf - standings[0].sc : 0;
+      const top     = standings.filter((r) => r.pj > 0 && r.pg === topPg && (r.sf - r.sc) === topDiff);
+      if (top.length) winnerLabel = top.map((r) => r.name).join(' / ');
+    }
+  }
 
   const copyLink = () => {
     navigator.clipboard.writeText(shareLink).then(() => {
@@ -90,6 +119,9 @@ export default function Main() {
           <span className={`text-xs font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
             {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
           </span>
+          {winnerLabel && (
+            <div className="text-[12px] text-brand font-mono mt-0.5">🏆 {winnerLabel}</div>
+          )}
           <div className="text-[11px] text-muted font-mono mt-1">
             Creado el {fmt(tournament.createdAt)} · {tournament.players.length} jugadores ·{" "}
             {playedCount} partidos ·{" "}

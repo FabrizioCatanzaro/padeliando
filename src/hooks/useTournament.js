@@ -36,9 +36,6 @@ export function useTournament(groupId, tournamentId) {
  
   // ── Crear torneo ────────────────────────────────────────────────────
   async function handleCreate(name, playerNames, pairsInput) {
-    console.log("name",name);
-    console.log("player Names",playerNames);
-    console.log("pairs input",pairsInput);
     
     const t = await api.tournaments.create({
       groupId,
@@ -85,20 +82,31 @@ export function useTournament(groupId, tournamentId) {
   }
  
   // ── Jugadores ───────────────────────────────────────────────────────
+  async function syncMode() {
+    const t = await api.tournaments.get(tournamentId);
+    const count = (t.players ?? []).length;
+    const expected = count % 2 !== 0 ? 'free' : 'pairs';
+    if (expected !== t.mode) {
+      await api.tournaments.update(t.id, { mode: expected });
+    }
+  }
+
   async function handleAddPlayer(name) {
-    await api.players.resolve(name, groupId);
+    await api.players.resolve(name, groupId, tournamentId);
+    await syncMode();
     await reload();
     flash();
   }
- 
+
   async function handleEditPlayer(playerId, newName) {
-    await api.players.rename(playerId, newName);
+    await api.players.rename(playerId, newName, groupId);
     await reload();
     flash();
   }
- 
+
   async function handleDeletePlayer(playerId) {
-    await api.players.removeFromGroup(playerId, groupId);
+    await api.players.removeFromTournament(playerId, tournamentId);
+    await syncMode();
     await reload();
   }
  
