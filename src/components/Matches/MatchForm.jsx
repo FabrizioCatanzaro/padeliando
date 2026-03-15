@@ -59,9 +59,6 @@ function Timer({ onStop }) {
         <button onClick={resume} className="bg-transparent text-muted border border-border-strong flex-1 px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans">
           ↩ Reanudar partido
         </button>
-        <div className="flex-2 flex items-center justify-center text-green text-[12px] font-mono">
-          ✓ {mm}:{ss} registrados
-        </div>
       </div>
     </div>
   );
@@ -117,7 +114,7 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel }) {
 
       {!isEditing && <Timer onStop={handleTimerStop} />}
 
-      <div className="mt-3">
+      <div className="mt-3 flex justify-center">
         <input type="date"
           className="bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[13px] rounded-sm outline-none w-auto"
           value={form.date}

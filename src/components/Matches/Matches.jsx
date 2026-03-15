@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { expandPair, emptyForm } from "../../utils/helpers";
+import { expandPair, emptyForm, localDateStr } from "../../utils/helpers";
 import MatchCard from "./MatchCard";
 import MatchForm from "./MatchForm";
 export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, onDeleteMatch }) {
@@ -53,11 +53,11 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       );
       setForm({ ...emptyForm(), team1Pair: pair1?.id ?? "", team2Pair: pair2?.id ?? "",
         score1: String(m.score1), score2: String(m.score2),
-        date: m.date || new Date().toISOString().slice(0, 10) });
+        date: m.date || localDateStr() });
     } else {
       setForm({ team1: [...m.team1], team2: [...m.team2],
         score1: String(m.score1), score2: String(m.score2),
-        date: m.date || new Date().toISOString().slice(0, 10) });
+        date: m.date || localDateStr() });
     }
     setEditId(m.id);
     setShowForm(true);
