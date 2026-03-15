@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { fmt } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
 import Stats from "../Stats/Stats";
 import MatchCard from "../Matches/MatchCard";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
-import { ChartNoAxesCombined, Eye, Flame, Trophy, User } from "lucide-react";
+import { ChartNoAxesCombined, ChevronLeft, Eye, Flame, Trophy, User } from "lucide-react";
 import { SkeletonList } from "../shared/Skeleton";
 
 const TABS = [
@@ -18,6 +18,7 @@ const TABS = [
 
 export default function ReadonlyView() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [tournament, setTournament] = useState(null);
   const [error, setError]           = useState(false);
   const [tab, setTab]               = useState("standings");
@@ -58,9 +59,24 @@ export default function ReadonlyView() {
     <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex justify-between items-start flex-wrap gap-3 border-b border-border">
         <div>
+          {window.history.length > 1 && (
+            <div onClick={() => navigate(-1)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-3">
+              <ChevronLeft size={15} />
+              <span>Volver</span>
+            </div>
+          )}
           <div className="font-condensed font-bold text-4xl text-white tracking-wide">{tournament.name}</div>
+          <span className={`text-xs font-mono mt-0.5 ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
+            {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
+          </span>
           <div className="text-sm text-muted font-mono mt-1">
             Creado el {fmt(tournament.createdAt)} · {tournament.players.length} jugadores
+            {tournament.owner_username && (
+              <> · <span
+                className="text-soft hover:text-white underline cursor-pointer"
+                onClick={() => navigate(`/u/${tournament.owner_username}`)}
+              >@{tournament.owner_username}</span></>
+            )}
           </div>
         </div>
 
