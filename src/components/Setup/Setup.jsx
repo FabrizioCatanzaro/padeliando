@@ -81,7 +81,7 @@ export default function Setup() {
             <div className="flex flex-col gap-2">
               {playerNames.map((p, i) => (
                 <div key={i} className="flex gap-2">
-                  <PlayerInput value={p} onChange={(v) => updatePlayer(i, v)} placeholder={`Jugador ${i + 1}`} />
+                  <PlayerInput value={p} onChange={(v) => updatePlayer(i, v)} placeholder={`Jugador ${i + 1}`} searchMine />
                   {playerNames.length > 4 && (
                     <button onClick={() => removePlayer(i)} className="bg-surface border-0 text-muted px-3 py-2.5 cursor-pointer rounded-sm text-[12px] shrink-0">✕</button>
                   )}
