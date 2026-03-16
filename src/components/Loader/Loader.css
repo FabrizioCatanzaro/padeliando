@@ -1,0 +1,40 @@
+.loader-ring {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loader-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 4px solid transparent;
+  border-top-color: #e8f04a;
+  border-right-color: #e8f04a33;
+  animation: spin 0.9s linear infinite;
+}
+
+.loader-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.loader-label {
+  font-family: "Kode Mono", monospace;
+  letter-spacing: 4px;
+  font-size: 13px;
+  color: #666;
+  margin-top: 18px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

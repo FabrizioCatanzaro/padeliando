@@ -3,10 +3,10 @@ import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import { useNavigate } from 'react-router-dom'
 import { useAuth }     from '../../context/useAuth'
-import { SkeletonGrid } from '../shared/Skeleton'
 import { Globe, Lock, Plus, X } from 'lucide-react';
 import logoUrl from '../../assets/padeleando.ico'
 import FadeInCard from '../shared/FadeInCard'
+import Loader from '../Loader/Loader';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','🥚','🍆','💸','🗿','♂️','♀️','🪄','🧑🏼‍🎄','🎉','👑']
 
@@ -68,7 +68,7 @@ export default function HomeView() {
     } 
   }
 
-  if (loading) return <SkeletonGrid count={6}/>;
+  if (loading) return <Loader />;
 
   return (
     <div className="bg-base text-[#ccc] font-[Barlow] pb-16">
@@ -182,7 +182,7 @@ export default function HomeView() {
                   style={{ background: 'linear-gradient(145deg, #111827 0%, #0d1120 100%)' }}
                   onClick={() => { navigate(`/groups/${g.id}`); }}>
                   {g.emojis?.length > 0 && (
-                    <div className="inline-flex px-3 pt-2 pb-1.5 text-base border-b border-r border-border-mid rounded-br-lg leading-none">
+                    <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
                       {g.emojis.join(' ')}
                     </div>
                   )}
@@ -259,11 +259,8 @@ export default function HomeView() {
               Registrate para guardar tus torneos y compartirlos.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
-              <button onClick={() => { navigate('/login'); }}className="bg-transparent text-[#555] border border-border-strong px-3 py-2 text-xs rounded cursor-pointer">
-                Ingresar
-              </button>
-              <button onClick={() => { navigate('/register'); }} className="bg-brand text-base font-[Barlow_Condensed] font-bold text-sm tracking-widest px-5 py-2.5 rounded cursor-pointer whitespace-nowrap">
-                Registrarse
+              <button onClick={() => { navigate('/login'); }} className="bg-brand text-base font-[Barlow_Condensed] font-bold text-sm tracking-widest px-5 py-2.5 rounded cursor-pointer whitespace-nowrap">
+                Iniciar sesión
               </button>
             </div>
           </div>

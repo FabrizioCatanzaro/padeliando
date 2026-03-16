@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import { CheckCircle, XCircle } from 'lucide-react';
+import Loader from '../Loader/Loader';
 
 export default function InvitationsView() {
   const [invitations, setInvitations] = useState([]);
@@ -37,7 +38,7 @@ export default function InvitationsView() {
         </div>
 
         {loading && (
-          <div className="text-muted text-sm font-mono">Cargando...</div>
+          <Loader />
         )}
 
         {error && (

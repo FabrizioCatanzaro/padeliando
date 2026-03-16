@@ -7,7 +7,7 @@ import MatchCard from "../Matches/MatchCard";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
 import { ChartNoAxesCombined, ChevronLeft, Eye, Flame, Trophy, User } from "lucide-react";
-import { SkeletonList } from "../shared/Skeleton";
+import Loader from "../Loader/Loader";
 
 const TABS = [
   { id: "standings", label: "TABLA",        icon: Trophy },
@@ -50,7 +50,7 @@ export default function ReadonlyView() {
     );
   }
 
-  if (!tournament) return <SkeletonList count={2} />;
+  if (!tournament) return <Loader />;
 
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length;
   const playedStatus = playedCount === 0 ? 'Sin partidos aún' : `${playedCount} ${playedCount === 1 ? ' partido jugado' : ' partidos jugados'}`;
