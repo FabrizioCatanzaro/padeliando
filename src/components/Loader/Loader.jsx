@@ -8,9 +8,11 @@ export default function Loader() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        height: "100vh",
+        minHeight: "70vh",
+        flex: 1,
         background: "#0a0e1a",
       }}
+
     >
       <div style={{ textAlign: "center" }}>
         <div className="loader-ring">
