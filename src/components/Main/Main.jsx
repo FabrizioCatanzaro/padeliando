@@ -7,7 +7,7 @@ import Matches      from "../Matches/Matches";
 import Stats        from "../Stats/Stats";
 import Management   from "../Management/Management";
 import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X } from "lucide-react";
-import { SkeletonGrid } from "../shared/Skeleton";
+import Loader from "../Loader/Loader";
 
 const TABS = [
   { id: "standings",  label: "TABLA",         icon: Trophy              },
@@ -39,7 +39,7 @@ export default function Main() {
     }
   }, [loading, tournament, isOwner, tournamentId, navigate]);
 
-  if (loading) return <SkeletonGrid count={3} />;
+  if (loading) return <Loader />;
   if (error || !tournament) return (
     <div className="bg-base text-content font-sans flex items-center justify-center">
       <div className="text-danger p-10">{error ?? "Error cargando torneo"}</div>

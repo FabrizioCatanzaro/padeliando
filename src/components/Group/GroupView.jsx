@@ -4,7 +4,7 @@ import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { SkeletonList } from '../shared/Skeleton';
+import Loader from '../Loader/Loader';
 import { useParams } from 'react-router-dom';
 import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus } from 'lucide-react';
 import FadeInCard from '../shared/FadeInCard';
@@ -24,7 +24,7 @@ export default function GroupView() {
   }, [groupId]);
 
   const { user } = useAuth();
-  if (loading) return <SkeletonList count={3} />;
+  if (loading) return <Loader />;
   if (!group)  return null;
 
   const isOwner = !!user && String(group.user_id) === String(user.id);

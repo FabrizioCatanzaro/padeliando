@@ -3,9 +3,9 @@ import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { SkeletonList } from '../shared/Skeleton';
 import { Eye, EyeOff } from 'lucide-react';
 import FadeInCard from '../shared/FadeInCard';
+import Loader from '../Loader/Loader';
 
 function PasswordInput({ value, onChange, placeholder = '········' }) {
   const [show, setShow] = useState(false)
@@ -87,7 +87,7 @@ export default function ProfileView() {
       .finally(() => setLoading(false));
   }, [username]);
 
-  if (loading) return <SkeletonList count={4} />;
+  if (loading) return <Loader />;
   if (error)   return <div className="text-danger p-10">{error}</div>;
 
   const { owner, groups } = data;

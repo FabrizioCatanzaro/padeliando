@@ -87,7 +87,7 @@ export default function ResetPassword() {
       <div className="w-full max-w-sm">
         <div className="font-[Barlow_Condensed] font-black text-2xl tracking-widest text-white mb-1 cursor-pointer"
           onClick={() => navigate('/')}>
-          PADEL<span className="text-base">EANDO</span>
+          PADEL<span className="text-brand">EANDO</span>
         </div>
 
         {done ? (
