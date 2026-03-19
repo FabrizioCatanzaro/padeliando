@@ -25,7 +25,7 @@ export default function Main() {
     handleAddPlayer, handleEditPlayer, handleDeletePlayer,
     handleAddPair, handleEditPair, handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName,
+    getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch,
   } = useTournament(groupId, tournamentId);
 
   const [tab, setTab]         = useState("standings");
@@ -72,12 +72,21 @@ export default function Main() {
     }
   }
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareLink).then(() => {
+  const copyLink = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: tournament.name,
+          text: `¡Te invito a ver la fecha "${tournament.name}"! Seguí los resultados en vivo acá:`,
+          url: shareLink,
+        });
+      } catch { /* usuario canceló */ }
+    } else {
+      await navigator.clipboard.writeText(shareLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
-  };  
+    }
+  };
 
   return (
     <div className="bg-base text-content font-sans pb-15">
@@ -158,7 +167,7 @@ export default function Main() {
 
       <div className="p-6">
         {tab === "standings"  && <Standings  tournament={tournament} />}
-        {tab === "matches"    && <Matches    tournament={tournament} isOwner={isOwner} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} />}
+        {tab === "matches"    && <Matches    tournament={tournament} isOwner={isOwner} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
         {tab === "stats"      && <Stats      tournament={tournament} />}
         {tab === "management" && (
           <Management
