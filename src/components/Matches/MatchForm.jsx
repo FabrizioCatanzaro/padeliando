@@ -1,65 +1,75 @@
 import { useState, useEffect, useRef } from "react";
 import { getPairLabel } from "../../utils/helpers";
+import { CirclePlay, CircleStop, CircleX, Play } from "lucide-react";
 
-// ── Cronómetro ────────────────────────────────────────────────────────────────
-function Timer({ onStop }) {
-  const [seconds, setSeconds] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [stopped, setStopped] = useState(false);
+const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
+
+// ── Cronómetro (controlado, basado en timestamps) ──────────────────────────────
+function Timer({ timerState = EMPTY_TIMER, onTimerChange, onStop }) {
+  const running = timerState.startedAt !== null && timerState.stoppedAt === null;
+  const stopped = timerState.startedAt !== null && timerState.stoppedAt !== null;
+  const [liveSeconds, setLiveSeconds] = useState(0);
   const ref = useRef(null);
 
-  function start() {
-    setRunning(true);
-    setStopped(false);
-    ref.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-  }
-
-  function stop() {
+  useEffect(() => {
     clearInterval(ref.current);
-    setRunning(false);
-    setStopped(true);
-    onStop(seconds);
-  }
+    if (!running) return;
+    // Date.now() solo dentro del callback del interval, nunca en el render
+    ref.current = setInterval(() => {
+      setLiveSeconds(Math.floor((Date.now() - timerState.startedAt) / 1000));
+    }, 500);
+    return () => clearInterval(ref.current);
+  }, [running, timerState.startedAt]);
 
-  function resume() {
-    setRunning(true);
-    setStopped(false);
-    ref.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-    onStop(null);
-  }
-
-  useEffect(() => () => clearInterval(ref.current), []);
+  // Cómputo puro (sin Date.now): solo para stopped e idle
+  const seconds = stopped
+    ? Math.floor((timerState.stoppedAt - timerState.startedAt) / 1000)
+    : running ? liveSeconds : 0;
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(seconds % 60).padStart(2, "0");
 
+  function start() {
+    onTimerChange({ startedAt: Date.now(), stoppedAt: null });
+  }
+
+  function stop() {
+    const now = Date.now();
+    const secs = Math.floor((now - timerState.startedAt) / 1000);
+    onTimerChange({ startedAt: timerState.startedAt, stoppedAt: now });
+    onStop(secs);
+  }
+
+  function resume() {
+    const elapsed = timerState.stoppedAt - timerState.startedAt;
+    const newStartedAt = Date.now() - elapsed;
+    onTimerChange({ startedAt: newStartedAt, stoppedAt: null });
+    onStop(null);
+  }
+
   if (!running && !stopped) {
     return (
-      <button onClick={start} className="bg-brand text-base border-0 w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-3">
-        ▶ INICIAR PARTIDO
-      </button>
+      <div onClick={start} className="flex flex-row items-center justify-center gap-2 bg-brand text-base border-0 w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-3">
+        <Play size={13} />
+        <span>INICIAR CRONÓMETRO</span>
+      </div>
     );
   }
 
   if (running) {
     return (
-      <div className="text-center my-3">
+      
+      <div className="flex flex-row items-center gap-2 justify-center text-center my-3">
         <div className="font-mono text-[36px] text-brand tracking-[6px]">{mm}:{ss}</div>
-        <button onClick={stop} className="bg-green text-black border-0 w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-2">
-          ⏹ TERMINAR PARTIDO
-        </button>
+        <CircleStop onClick={stop} size={30} className="bg-brand rounded-4xl items-center text-black cursor-pointer"/>
       </div>
     );
   }
 
   return (
-    <div className="text-center my-3">
+    <div className="flex flex-row items-center gap-2 justify-center text-center my-3">
       <div className="font-mono text-[36px] text-green tracking-[6px]">{mm}:{ss}</div>
-      <div className="flex gap-2 mt-2">
-        <button onClick={resume} className="bg-transparent text-muted border border-border-strong flex-1 px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans">
-          ↩ Reanudar partido
-        </button>
-      </div>
+      <CirclePlay onClick={resume} size={30} className="bg-green rounded-4xl items-center text-black cursor-pointer"/>
     </div>
   );
 }
@@ -86,16 +96,14 @@ function ScoreCounter({ value, onChange, color = "text-brand" }) {
 }
 
 // ── Scores + fecha ────────────────────────────────────────────────────────────
-function ScoreSection({ form, setForm, isEditing, onSave, onCancel }) {
-  const [timerDone, setTimerDone] = useState(isEditing);
+function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, onTimerChange }) {
+  const timerDone = isEditing || (timerState.startedAt !== null && timerState.stoppedAt !== null);
 
   function handleTimerStop(seconds) {
     if (seconds === null) {
       setForm((f) => ({ ...f, duration_seconds: null }));
-      setTimerDone(false);
     } else {
       setForm((f) => ({ ...f, duration_seconds: seconds }));
-      setTimerDone(true);
     }
   }
 
@@ -112,7 +120,9 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel }) {
         <ScoreCounter value={form.score2} onChange={(v) => setForm((f) => ({ ...f, score2: v }))} color="text-cyan" />
       </div>
 
-      {!isEditing && <Timer onStop={handleTimerStop} />}
+      {!isEditing && (
+        <Timer timerState={timerState} onTimerChange={onTimerChange} onStop={handleTimerStop} />
+      )}
 
       <div className="mt-3 flex justify-center">
         <input type="date"
@@ -122,27 +132,26 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel }) {
         />
       </div>
 
-      {(timerDone || isEditing) && (
         <div className="flex gap-2.5 mt-4">
-          <button onClick={onSave} disabled={form.score1 === form.score2} className={`text-base border-0 flex-1 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm ${form.score1 === form.score2 ? "bg-border-mid text-muted cursor-not-allowed" : "bg-brand cursor-pointer"}`}>
+          <button onClick={onSave} disabled={(form.score1 === form.score2) || (!timerDone)} className={`text-base border-0 flex-1 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm ${((form.score1 === form.score2) || (!timerDone))? "bg-border-mid text-muted cursor-not-allowed" : "bg-brand cursor-pointer"}`}>
             {isEditing ? "GUARDAR CAMBIOS" : "REGISTRAR PARTIDO"}
           </button>
           <button onClick={onCancel} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans">
             Cancelar
           </button>
         </div>
-      )}
     </div>
   );
 }
 
 // ── Pairs mode ────────────────────────────────────────────────────────────────
-function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel }) {
+function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, timerState, onTimerChange }) {
   const { pairs, players } = tournament;
   return (
     <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-      <div className="font-condensed font-bold text-[14px] tracking-[2px] text-muted mb-4">
-        {isEditing ? "EDITAR PARTIDO" : "NUEVO PARTIDO"}
+      <div className="flex flex-row items-center justify-between font-condensed font-bold text-[14px] tracking-[2px] text-muted mb-4">
+        <span>{isEditing ? "EDITAR PARTIDO" : "NUEVO PARTIDO"}</span>
+        <CircleX className="text-muted" size={20} onClick={onCancel}/>
       </div>
       <div className="flex gap-3 flex-wrap">
         <div className="flex-1 min-w-35">
@@ -171,14 +180,14 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel }) {
         </div>
       </div>
       {form.team1Pair && form.team2Pair && (
-        <ScoreSection form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel} />
+        <ScoreSection form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel} timerState={timerState} onTimerChange={onTimerChange} />
       )}
     </div>
   );
 }
 
 // ── Free mode ─────────────────────────────────────────────────────────────────
-function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel }) {
+function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, timerState, onTimerChange }) {
   const { players } = tournament;
   const allSelected = [...form.team1, ...form.team2].filter(Boolean);
 
@@ -226,7 +235,7 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel }) {
         </div>
       </div>
       {teamsComplete && (
-        <ScoreSection form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel} />
+        <ScoreSection form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel} timerState={timerState} onTimerChange={onTimerChange} />
       )}
     </div>
   );

@@ -24,12 +24,30 @@
   --color-content: #cccccc;
 }
 
+html.light {
+  --color-base: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-surface-alt: #eef0f5;
+  --color-border: #dde1ec;
+  --color-border-mid: #cdd3e0;
+  --color-border-strong: #b8c0d0;
+  --color-brand: #6e7a00;
+  --color-cyan: #0a9070;
+  --color-green: #166534;
+  --color-danger: #dc2626;
+  --color-muted: #94a3b8;
+  --color-dim: #9ca3af;
+  --color-secondary: #4b5563;
+  --color-soft: #374151;
+  --color-content: #1e293b;
+}
+
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background-color: #0a0e1a;
-  color: #ccc;
+  background-color: var(--color-base);
+  color: var(--color-content);
 }
 
 input[type=number]::-webkit-outer-spin-button,

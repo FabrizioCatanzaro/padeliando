@@ -6,7 +6,7 @@ import Stats from "../Stats/Stats";
 import MatchCard from "../Matches/MatchCard";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
-import { ChartNoAxesCombined, ChevronLeft, Eye, Flame, Trophy, User } from "lucide-react";
+import { ChartNoAxesCombined, ChevronLeft, Eye, Flame, Trophy, User, Zap } from "lucide-react";
 import Loader from "../Loader/Loader";
 
 const TABS = [
@@ -70,13 +70,13 @@ export default function ReadonlyView() {
             {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
           </span>
           <div className="text-sm text-muted font-mono mt-1">
-            Creado el {fmt(tournament.createdAt)} · {tournament.players.length} jugadores
+            Creado el {fmt(tournament.createdAt)}
             {tournament.owner_username && (
-              <> · <span
+              <> por <span
                 className="text-soft hover:text-white underline cursor-pointer"
                 onClick={() => navigate(`/u/${tournament.owner_username}`)}
               >@{tournament.owner_username}</span></>
-            )}
+            )} · {tournament.players.length} jugadores
           </div>
         </div>
 
@@ -90,6 +90,20 @@ export default function ReadonlyView() {
           </div>
         </div>
       </div>
+
+      {Array.isArray(tournament.live_match) && tournament.live_match.length > 0 && (
+        <div className="border-b border-brand/30">
+          {tournament.live_match.map((m, i) => (
+            <div key={i} className="flex items-center gap-3 px-6 py-2.5 bg-brand/10">
+              <Zap size={13} className="text-brand shrink-0" />
+              <span className="font-condensed font-bold text-[12px] tracking-wide text-brand whitespace-nowrap">EN VIVO</span>
+              <span className="text-soft font-sans text-[13px]">
+                {m.team1Label} <span className="text-muted">vs</span> {m.team2Label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (

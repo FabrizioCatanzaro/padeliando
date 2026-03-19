@@ -19,9 +19,10 @@ export default function HomeView() {
   const [isPublic,     setIsPublic]     = useState(true);
   const [showNew,      setShowNew]      = useState(false);
   const [selectedEmojis, setSelectedEmojis] = useState([]);
-  const [searchQ,      setSearchQ]      = useState('');
-  const [searchRes,    setSearchRes]    = useState([]);
-  const [searching,    setSearching]    = useState(false);
+  const [searchQ,        setSearchQ]        = useState('');
+  const [searchUsers,    setSearchUsers]    = useState([]);
+  const [searchGroups,   setSearchGroups]   = useState([]);
+  const [searching,      setSearching]      = useState(false);
   const [error,     setError]     = useState(null)
 
   const { isLoggedIn } = useAuth();
@@ -40,14 +41,22 @@ export default function HomeView() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Búsqueda de perfiles con debounce
+  // Búsqueda de perfiles y torneos con debounce
   useEffect(() => {
-    if (!searchQ.trim() || searchQ.length < 2) { setSearchRes([]); return; }
+    if (!searchQ.trim() || searchQ.length < 2) { setSearchUsers([]); setSearchGroups([]); return; }
     const t = setTimeout(async () => {
       setSearching(true);
-      try { setSearchRes(await api.auth.search(searchQ)); }
-      catch { setSearchRes([]); }
-      finally { setSearching(false); }
+      try {
+        const [users, groups] = await Promise.all([
+          api.auth.search(searchQ),
+          api.groups.search(searchQ),
+        ]);
+        setSearchUsers(users);
+        setSearchGroups(groups);
+      } catch {
+        setSearchUsers([]);
+        setSearchGroups([]);
+      } finally { setSearching(false); }
     }, 300);
     return () => clearTimeout(t);
   }, [searchQ]);
@@ -77,36 +86,60 @@ export default function HomeView() {
         <div style={{ marginBottom: 28, position: 'relative' }}>
           <input
             className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-sans"
-            placeholder="🔍 Buscar perfiles por nombre o @usuario..."
+            placeholder="🔍 Buscar perfiles o torneos..."
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
           />
           {searchQ.trim().length >= 2 && (
             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
                           background: '#111827', border: '1px solid #2a3040', borderTop: 'none',
-                          borderRadius: '0 0 4px 4px', maxHeight: 200, overflowY: 'auto' }}>
+                          borderRadius: '0 0 4px 4px', maxHeight: 300, overflowY: 'auto' }}>
               {searching && (
-                <div className='font-mono px-4 py-2 text-xs text-gray-500' >buscando...</div>
+                <div className='font-mono px-4 py-2 text-xs text-gray-500'>buscando...</div>
               )}
-              {!searching && searchRes.length === 0 && (
-                <div className='font-mono px-4 py-2 text-xs text-gray-500' >Sin resultados...</div>
+              {!searching && searchUsers.length === 0 && searchGroups.length === 0 && (
+                <div className='font-mono px-4 py-2 text-xs text-gray-500'>Sin resultados...</div>
               )}
-              {searchRes.map((u) => (
-                <div key={u.id}
-                  onClick={() => { navigate(`/u/${u.username}`); setSearchQ(''); setSearchRes([]); }}
-                  style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1a2030' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#1a2030'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div style={{ color: '#fff', fontFamily: "'Barlow Condensed',sans-serif",
-                        fontWeight: 700, fontSize: 16 }}>
-                    {u.name}
-                  </div>
-                  <div style={{ color: '#555', fontSize: 11, fontFamily: "'Kode Mono',monospace" }}>
-                    @{u.username}
-                  </div>
-                </div>
-              ))}
+              {!searching && searchUsers.length > 0 && (
+                <>
+                  <div className='font-mono px-4 pt-2 pb-1 text-[10px] text-gray-600 tracking-widest'>PERFILES</div>
+                  {searchUsers.map((u) => (
+                    <div key={u.id}
+                      onClick={() => { navigate(`/u/${u.username}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); }}
+                      style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1a2030' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#1a2030'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ color: '#fff', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16 }}>
+                        {u.name}
+                      </div>
+                      <div style={{ color: '#555', fontSize: 11, fontFamily: "'Kode Mono',monospace" }}>
+                        @{u.username}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+              {!searching && searchGroups.length > 0 && (
+                <>
+                  <div className='font-mono px-4 pt-2 pb-1 text-[10px] text-gray-600 tracking-widest'>TORNEOS</div>
+                  {searchGroups.map((g) => (
+                    <div key={g.id}
+                      onClick={() => { navigate(`/groups/${g.id}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); }}
+                      style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1a2030' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#1a2030'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ color: '#fff', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16 }}>
+                        {g.emojis?.length > 0 && <span className='mr-1'>{g.emojis.join(' ')}</span>}{g.name}
+                      </div>
+                      <div style={{ color: '#555', fontSize: 11, fontFamily: "'Kode Mono',monospace" }}>
+                        @{g.owner_username}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -253,7 +286,7 @@ export default function HomeView() {
         ) : (
           <div className="text-center text-[#444] py-10 px-5 leading-loose">
             <div className='flex flex-col items-center justify-center'>
-              <img className='max-w-30 my-4' src={logoUrl}/>
+              <img className='max-w-30 my-4 opacity-20' src={logoUrl}/>
             </div>
             <div style={{ color: '#aaa', marginBottom: 8 }}>
               Registrate para guardar tus torneos y compartirlos.

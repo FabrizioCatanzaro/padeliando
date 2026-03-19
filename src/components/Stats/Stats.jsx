@@ -120,7 +120,7 @@ function CurrentStats({ tournament }) {
       topPairWinRate = pairStats ? Math.round((pairStats.wins / pairStats.played) * 100) : 0;
       topPairRecord  = pairStats ? `${pairStats.wins}/${pairStats.played}` : "0/0";
     }
-  }
+  }  
 
   if (played.length === 0)
     return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">Jugá partidos para ver estadísticas 📊</div>;
@@ -162,11 +162,11 @@ function CurrentStats({ tournament }) {
         {!isPairs && topPlayed >= 1 && (
           <div className="bg-surface border border-cyan/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
             <div className="text-4xl mb-2 flex justify-center text-cyan"><Handshake size={30} /></div>
-            <div className="font-condensed font-bold text-3xl text-cyan mb-1 leading-tight">
+            <div className={`${tiedPartners.length > 1 ? 'text-lg' :'text-3xl'} font-condensed font-bold text-3xl text-cyan mb-1 leading-tight`}>
               {topPairIsTied ? tiedPartnersLabel : topPartner.label}
             </div>
             <div className="text-sm text-muted font-sans">
-              {topPairIsTied ? "Empate" : "Mejor pareja"} · {topWinRate}% ({topWins}/{topPlayed})
+              {topPairIsTied ? `Rendimiento por parejas ${'\n'} Empatado` : "Mejor pareja"} · {topWinRate}% ({topWins}/{topPlayed})
             </div>
           </div>
         )}
@@ -233,7 +233,7 @@ function HistoricalStats({ tournaments }) {
   });
   const individualRows = Object.values(playerMap)
     .filter((r) => r.pj > 0)
-    .sort((a, b) => b.pg - a.pg || b.pj - a.pj);
+    .sort((a, b) => b.pg - a.pg || b.pj - a.pj);  
 
   // ── Standings por pareja (solo jornadas en modo parejas) ───────────────
   const pairMap = {};
