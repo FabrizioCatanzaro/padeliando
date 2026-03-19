@@ -7,7 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import FadeInCard from '../shared/FadeInCard';
 import Loader from '../Loader/Loader';
 
-function PasswordInput({ value, onChange, placeholder = '········' }) {
+function PasswordInput({ value, onChange, placeholder = '* * * * * * *' }) {
   const [show, setShow] = useState(false)
   return (
     <div className="relative">
@@ -90,7 +90,7 @@ export default function ProfileView() {
   if (loading) return <Loader />;
   if (error)   return <div className="text-danger p-10">{error}</div>;
 
-  const { owner, groups } = data;
+  const { owner, groups, stats } = data;
   const isOwnProfile = user?.username === owner.username;
 
   async function handleSave() {
@@ -167,6 +167,16 @@ export default function ProfileView() {
               onChange={e => setEditName(e.target.value)}
               minLength={6} maxLength={20}
             />
+            <label style={label}>NOMBRE DE USUARIO</label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#555] text-sm font-mono select-none">@</span>
+              <input
+                className="w-full bg-surface border border-border-mid text-white pl-7 pr-3.5 py-2.5 rounded text-sm outline-none font-mono"
+                value={editUsername}
+                onChange={e => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                minLength={3} maxLength={20}
+              />
+            </div>
             <label style={label}>MAIL</label>
             <div
               className="w-full bg-surface border border-border-mid text-muted px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]"
@@ -215,6 +225,38 @@ export default function ProfileView() {
                 Cancelar
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Estadísticas generales como jugador */}
+        {stats && (stats.torneos > 0 || stats.partidos > 0) && (
+          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-4">ESTADÍSTICAS</div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'JORNADAS', value: stats.torneos },
+                { label: 'PARTIDOS', value: stats.partidos },
+                { label: 'VICTORIAS', value: stats.victorias },
+              ].map(({ label: l, value }) => (
+                <div key={l} className="text-center">
+                  <div className="font-condensed font-bold text-[28px] text-white leading-none">{value}</div>
+                  <div className="text-[10px] font-mono text-[#444] mt-1 tracking-widest">{l}</div>
+                </div>
+              ))}
+            </div>
+            {stats.partidos > 0 && (
+              <div className="mt-4 pt-3 border-t border-border-mid">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-1.5 rounded-full bg-brand"
+                    style={{ width: `${Math.round((stats.victorias / stats.partidos) * 100)}%`, transition: 'width 0.4s' }}
+                  />
+                  <span className="text-[11px] font-mono text-[#555] whitespace-nowrap">
+                    {Math.round((stats.victorias / stats.partidos) * 100)}% victorias
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
