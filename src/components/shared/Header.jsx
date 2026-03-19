@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { User } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
+//import { useTheme } from '../../context/ThemeContext'
 import { api } from '../../utils/api'
 import logoUrl from '../../assets/padeleando.ico'
 
@@ -9,6 +10,7 @@ export default function Header() {
   const [open, setOpen] = useState(false)
   const [invCount, setInvCount] = useState(0)
   const { user, isLoggedIn, logout } = useAuth()
+  //const { theme, toggle } = useTheme()
   const displayCount = isLoggedIn ? invCount : 0
   const navigate = useNavigate()
   const location = useLocation()
@@ -45,7 +47,16 @@ export default function Header() {
         <span>PADEL<span className="text-brand">EANDO</span></span>
       </div>
 
-      <div className="relative" ref={ref}>
+      <div className="flex items-center gap-2">
+        {/* <button
+          onClick={toggle}
+          className="bg-transparent border border-border-strong p-2 rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors"
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button> */}
+
+        <div className="relative" ref={ref}>
         <button
           onClick={() => setOpen(o => !o)}
           className="relative bg-transparent border border-border-strong p-2 rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors"
@@ -106,6 +117,7 @@ export default function Header() {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   )
