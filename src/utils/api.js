@@ -45,6 +45,7 @@ export const api = {
   },
   groups: {
     list:          ()         => req('GET',    '/groups'),
+    search:        (q)        => req('GET',    `/groups/search?q=${encodeURIComponent(q)}`),
     participating: ()         => req('GET',    '/groups/participating'),
     get:           (id)       => req('GET',    `/groups/${id}`),
     history:       (id)       => req('GET',    `/groups/${id}/history`),
@@ -66,6 +67,7 @@ export const api = {
     update:      (id,b) => req('PATCH',  `/tournaments/${id}`, b),
     delete:      (id)   => req('DELETE', `/tournaments/${id}`),
     resetScores: (id)   => req('DELETE', `/tournaments/${id}/matches`),
+    setLive:     (id,d) => req('PATCH',  `/tournaments/${id}/live`, { live_match: d }),
   },
   matches: {
     create: (body)   => req('POST',   '/matches',       body),
