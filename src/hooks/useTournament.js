@@ -151,7 +151,11 @@ export function useTournament(groupId, tournamentId) {
     await api.tournaments.update(tournament.id, { name });
     await reload();
   }
- 
+
+  async function handleSetLiveMatch(data) {
+    await api.tournaments.setLive(tournament.id, data ?? null);
+  }
+
   function getShareLink() {
     if (!tournament) return '';
     return `${window.location.origin}/readonly/${tournament.id}`;
@@ -166,6 +170,6 @@ export function useTournament(groupId, tournamentId) {
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName
+    getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch
   };
 }
