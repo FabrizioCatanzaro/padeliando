@@ -75,9 +75,10 @@ export default function Setup() {
               minLength={2}
             />
 
-            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2 mt-5">
+            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1 mt-5">
               JUGADORES <span className="text-muted">(mínimo 4)</span>
             </label>
+            <p className="text-[11px] text-dim font-mono mb-2">Escribí un nombre o <span className="text-brand">@usuario</span> para invitar a alguien registrado.</p>
             <div className="flex flex-col gap-2">
               {playerNames.map((p, i) => (
                 <div key={i} className="flex gap-2">
