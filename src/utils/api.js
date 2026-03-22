@@ -67,7 +67,11 @@ export const api = {
     update:      (id,b) => req('PATCH',  `/tournaments/${id}`, b),
     delete:      (id)   => req('DELETE', `/tournaments/${id}`),
     resetScores: (id)   => req('DELETE', `/tournaments/${id}/matches`),
-    setLive:     (id,d) => req('PATCH',  `/tournaments/${id}/live`, { live_match: d }),
+    setLive:      (id,d)       => req('PATCH',  `/tournaments/${id}/live`, { live_match: d }),
+    schedule:     (id)         => req('POST',   `/tournaments/${id}/schedule`),
+    bracket:      (id)         => req('POST',   `/tournaments/${id}/bracket`),
+    updateBracket:(id, mId, b) => req('PATCH',  `/tournaments/${id}/bracket/${mId}`, b),
+    setBracket:   (id, b)     => req('PATCH',  `/tournaments/${id}/bracket`, { bracket: b }),
   },
   matches: {
     create: (body)   => req('POST',   '/matches',       body),

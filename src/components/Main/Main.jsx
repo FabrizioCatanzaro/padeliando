@@ -6,13 +6,22 @@ import Standings    from "../Standings/Standings";
 import Matches      from "../Matches/Matches";
 import Stats        from "../Stats/Stats";
 import Management   from "../Management/Management";
-import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X } from "lucide-react";
+import Previa       from "../Americano/Previa";
+import Bracket      from "../Americano/Bracket";
+import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, GitBranch } from "lucide-react";
 import Loader from "../Loader/Loader";
 
-const TABS = [
+const LIGA_TABS = [
   { id: "standings",  label: "TABLA",         icon: Trophy              },
   { id: "matches",    label: "PARTIDOS",       icon: Flame               },
   { id: "stats",      label: "ESTADÍSTICAS",   icon: ChartNoAxesCombined },
+  { id: "management", label: "GESTIÓN",        icon: Settings            },
+];
+
+const AMERICANO_TABS = [
+  { id: "standings",  label: "TABLA",          icon: Trophy              },
+  { id: "previa",     label: "PREVIA",         icon: List                },
+  { id: "bracket",    label: "CUADRO",        icon: GitBranch           },
   { id: "management", label: "GESTIÓN",        icon: Settings            },
 ];
 
@@ -26,12 +35,16 @@ export default function Main() {
     handleAddPair, handleEditPair, handleDeletePair,
     handleResetScores, handleDeleteTournament,
     getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch,
+    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
   } = useTournament(groupId, tournamentId);
 
-  const [tab, setTab]         = useState("standings");
+  const [tab, setTab]         = useState(null);
   const [copied, setCopied]   = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput]     = useState("");
+
+  // Derivar el tab activo sin setState en effect: null = aún no eligió el usuario
+  const activeTab = tab ?? (tournament?.format === 'americano' ? 'previa' : 'standings');
 
   useEffect(() => {
     if (!loading && tournament && !isOwner) {
@@ -45,6 +58,9 @@ export default function Main() {
       <div className="text-danger p-10">{error ?? "Error cargando torneo"}</div>
     </div>
   );
+
+  const isAmericano = tournament.format === 'americano';
+  const TABS = isAmericano ? AMERICANO_TABS : LIGA_TABS;
 
   const shareLink   = getShareLink();
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length;
@@ -77,7 +93,7 @@ export default function Main() {
       try {
         await navigator.share({
           title: tournament.name,
-          text: `¡Te invito a ver la fecha "${tournament.name}"! Seguí los resultados en vivo acá:`,
+          text: `¡Te invito a ver "${tournament.name}"! Seguí los resultados en vivo acá:`,
           url: shareLink,
         });
       } catch { /* usuario canceló */ }
@@ -134,9 +150,13 @@ export default function Main() {
           <div className="text-[11px] text-muted font-mono mt-1">
             Creado el {fmt(tournament.createdAt)} · {tournament.players.length} jugadores ·{" "}
             {playedCount} partidos ·{" "}
-            <span className={tournament.mode === "pairs" ? "text-cyan" : "text-brand"}>
-              {tournament.mode === "pairs" ? "parejas fijas" : "equipos libres"}
-            </span>
+            {isAmericano ? (
+              <span className="text-brand">americano</span>
+            ) : (
+              <span className={tournament.mode === "pairs" ? "text-cyan" : "text-brand"}>
+                {tournament.mode === "pairs" ? "parejas fijas" : "equipos libres"}
+              </span>
+            )}
           </div>
         </div>
         <div onClick={copyLink} className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold tracking-wide text-sm cursor-pointer rounded-sm">
@@ -159,17 +179,44 @@ export default function Main() {
       <div className="flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (
           <div key={t.id} onClick={() => setTab(t.id)}
-            className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${tab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
+            className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${activeTab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
              <t.icon size={14} className="inline mr-1.5" />{t.label}
           </div>
         ))}
       </div>
 
       <div className="p-6">
-        {tab === "standings"  && <Standings  tournament={tournament} />}
-        {tab === "matches"    && <Matches    tournament={tournament} isOwner={isOwner} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
-        {tab === "stats"      && <Stats      tournament={tournament} />}
-        {tab === "management" && (
+        {/* Liga tabs */}
+        {activeTab === "standings"  && <Standings  tournament={tournament} />}
+        {activeTab === "matches"    && <Matches    tournament={tournament} isOwner={isOwner} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
+        {activeTab === "stats"      && <Stats      tournament={tournament} />}
+
+        {/* Americano tabs */}
+        {activeTab === "previa" && (
+          <Previa
+            tournament={tournament}
+            isOwner={isOwner}
+            onAddMatch={handleAddMatch}
+            onEditMatch={handleEditMatch}
+            onDeleteMatch={handleDeleteMatch}
+            onSetLiveMatch={handleSetLiveMatch}
+            onGenerateSchedule={handleGenerateSchedule}
+            onGenerateBracket={handleGenerateBracket}
+          />
+        )}
+        {activeTab === "bracket" && (
+          <Bracket
+            tournament={tournament}
+            isOwner={isOwner}
+            onGenerateBracket={handleGenerateBracket}
+            onUpdateMatch={handleUpdateBracketMatch}
+            onSetBracket={handleSetBracket}
+            onSetLiveMatch={handleSetLiveMatch}
+          />
+        )}
+
+        {/* Gestión (shared) */}
+        {activeTab === "management" && (
           <Management
             tournament={tournament}
             isOwner={isOwner}
