@@ -4,16 +4,24 @@ import { fmt } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
 import Stats from "../Stats/Stats";
 import MatchCard from "../Matches/MatchCard";
+import Bracket from "../Americano/Bracket";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
-import { ChartNoAxesCombined, ChevronLeft, Eye, Flame, Trophy, User, Zap } from "lucide-react";
+import { ChartNoAxesCombined, ChevronLeft, Eye, Flame, GitBranch, List, Trophy, User, Zap } from "lucide-react";
 import Loader from "../Loader/Loader";
 
-const TABS = [
+const LIGA_TABS = [
   { id: "standings", label: "TABLA",        icon: Trophy },
-  { id: "matches",   label: "PARTIDOS",     icon: Flame},
+  { id: "matches",   label: "PARTIDOS",     icon: Flame },
   { id: "players",   label: "JUGADORES",    icon: User },
   { id: "stats",     label: "ESTADÍSTICAS", icon: ChartNoAxesCombined },
+];
+
+const AMERICANO_TABS = [
+  { id: "standings", label: "TABLA",      icon: Trophy },
+  { id: "matches",   label: "PREVIA",     icon: List },
+  { id: "bracket",   label: "CUADRO",     icon: GitBranch },
+  { id: "players",   label: "JUGADORES",  icon: User },
 ];
 
 export default function ReadonlyView() {
@@ -52,6 +60,8 @@ export default function ReadonlyView() {
 
   if (!tournament) return <Loader />;
 
+  const isAmericano = tournament.format === 'americano';
+  const TABS = isAmericano ? AMERICANO_TABS : LIGA_TABS;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length;
   const playedStatus = playedCount === 0 ? 'Sin partidos aún' : `${playedCount} ${playedCount === 1 ? ' partido jugado' : ' partidos jugados'}`;
 
@@ -119,6 +129,7 @@ export default function ReadonlyView() {
         {tab === "stats"     && <Stats     tournament={tournament} />}
         {tab === "matches"   && <ReadonlyMatches tournament={tournament} />}
         {tab === "players"   && <ReadonlyPlayers tournament={tournament} />}
+        {tab === "bracket"   && <Bracket tournament={tournament} isOwner={false} />}
       </div>
     </div>
   );

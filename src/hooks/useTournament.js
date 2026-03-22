@@ -35,12 +35,13 @@ export function useTournament(groupId, tournamentId) {
   function flash() { setSaved(true); setTimeout(() => setSaved(false), 1500); }
  
   // ── Crear torneo ────────────────────────────────────────────────────
-  async function handleCreate(name, playerNames, pairsInput) {
-    
+  async function handleCreate(name, playerNames, pairsInput, format = 'liga') {
+
     const t = await api.tournaments.create({
       groupId,
       name,
       mode:        pairsInput ? 'pairs' : 'free',
+      format,
       playerNames: playerNames.filter(Boolean),
       pairs:       pairsInput ?? [],
     });
@@ -156,6 +157,27 @@ export function useTournament(groupId, tournamentId) {
     await api.tournaments.setLive(tournament.id, data ?? null);
   }
 
+  async function handleGenerateSchedule() {
+    const data = await api.tournaments.schedule(tournament.id);
+    localStorage.setItem(`previa_schedule_${tournament.id}`, JSON.stringify(data.schedule));
+    return data.schedule;
+  }
+
+  async function handleGenerateBracket() {
+    await api.tournaments.bracket(tournament.id);
+    await reload();
+  }
+
+  async function handleUpdateBracketMatch(matchId, score1, score2) {
+    await api.tournaments.updateBracket(tournament.id, matchId, { score1, score2 });
+    await reload();
+  }
+
+  async function handleSetBracket(bracket) {
+    await api.tournaments.setBracket(tournament.id, bracket);
+    await reload();
+  }
+
   function getShareLink() {
     if (!tournament) return '';
     return `${window.location.origin}/readonly/${tournament.id}`;
@@ -170,6 +192,7 @@ export function useTournament(groupId, tournamentId) {
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch
+    getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch,
+    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
   };
 }
