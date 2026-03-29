@@ -1,6 +1,6 @@
 import { Clock, Pencil, Trash2 } from "lucide-react";
 import { fmt, getPairLabel } from "../../utils/helpers";
-export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete }) {
+export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete, matchNum }) {
   const { team1, team2, score1, score2, date, createdAt } = match;
   const { players, pairs, mode } = tournament;
   const win1 = parseInt(score1) > parseInt(score2);
@@ -17,7 +17,9 @@ export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete
 
   return (
     <div className="bg-surface border border-border-mid rounded-lg px-4 py-3.5">
-      <div className="text-xs text-muted font-mono mb-2.5">{fmt(date || createdAt)}</div>
+      <div className="text-xs text-muted font-mono mb-2.5">
+        {matchNum != null && <span className="mr-1.5">#{matchNum} ·</span>}{fmt(date || createdAt)}
+      </div>
       <div className="flex items-center gap-3 flex-wrap">
         <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-xl ${win1 ? "text-brand" : "text-secondary"}`}>
           {getLabel(team1)}
