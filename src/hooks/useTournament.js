@@ -168,8 +168,8 @@ export function useTournament(groupId, tournamentId) {
     await reload();
   }
 
-  async function handleUpdateBracketMatch(matchId, score1, score2) {
-    await api.tournaments.updateBracket(tournament.id, matchId, { score1, score2 });
+  async function handleUpdateBracketMatch(matchId, score1, score2, duration_seconds) {
+    await api.tournaments.updateBracket(tournament.id, matchId, { score1, score2, duration_seconds });
     await reload();
   }
 
