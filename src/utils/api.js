@@ -20,7 +20,7 @@ async function req(method, path, body, retry = true) {
       clearUser()
       const p = window.location.pathname
       if (p !== '/login' && p !== '/register' && !p.startsWith('/reset-password/')) {
-        window.location.href = '/login'
+        window.location.href = '/login?expired=1'
       }
       throw new Error('Sesión expirada')
     }
