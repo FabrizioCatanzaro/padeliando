@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { fmt } from '../../utils/helpers';
+import { adaptTournament, fmt } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import Loader from '../Loader/Loader';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy } from 'lucide-react';
 import FadeInCard from '../shared/FadeInCard';
+import { HistoricalStats } from '../Stats/Stats';
 
 export default function GroupView() {
   const {groupId} = useParams();
@@ -17,11 +18,22 @@ export default function GroupView() {
   const [editingGroup, setEditingGroup] = useState(false);
   const [editName, setEditName]         = useState("");
   const [editDesc, setEditDesc]         = useState("");
+  const [allTournaments, setAllTournaments] = useState([]);
   const navigate = useNavigate();
 
+  async function handleAllTournaments(){
+    try{
+      const data = await api.groups.history(groupId)
+      setAllTournaments(data.map(adaptTournament));
+    } finally{
+      // finally
+    }
+  }
   useEffect(() => {
     api.groups.get(groupId).then(setGroup).finally(() => setLoading(false));
+    handleAllTournaments()
   }, [groupId]);
+
 
   const { user } = useAuth();
   if (loading) return <Loader />;
@@ -115,7 +127,7 @@ export default function GroupView() {
         {(!group.tournaments || group.tournaments.length === 0) && !isOwner && (
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay jornadas todavía.<br/>¡Creá el primero!</div>
         )}
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5 mb-10">
           {isOwner && (
             <div
               onClick={() => navigate(`/groups/${groupId}/tournament/new`)}
@@ -140,13 +152,15 @@ export default function GroupView() {
                 {fmt(t.created_at)} · {t.match_count} partidos
               </div>
               {t.status === 'finished' && t.winner_label && (
-                <div className="text-[12px] text-brand font-mono mt-1.5">
-                  🏆 {t.winner_label}
+                <div className="flex items-center gap-2 text-[12px] text-brand font-mono mt-1.5">
+                  <Trophy size={13} /> {t.winner_label}
                 </div>
               )}
             </FadeInCard>
           ))}
         </div>
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS HISTÓRICAS</div>
+        <HistoricalStats tournaments={allTournaments} showJornadas={false} />
       </div>
 
       {deleteModal && (

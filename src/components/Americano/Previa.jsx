@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { expandPair, emptyForm, localDateStr, getPairLabel } from "../../utils/helpers";
 import MatchCard from "../Matches/MatchCard";
 import MatchForm from "../Matches/MatchForm";
+import Modal from "../shared/Modal";
 
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 const getLiveKey  = (id) => `live_${id}`;
@@ -56,8 +57,9 @@ export default function Previa({
     } catch { return []; }
   });
 
-  const [editId,   setEditId]   = useState(null);
-  const [editForm, setEditForm] = useState(null);
+  const [editId,       setEditId]       = useState(null);
+  const [editForm,     setEditForm]     = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     const key = getLiveKey(tournament.id);
@@ -86,7 +88,7 @@ export default function Previa({
     if (newlyStarted) {
       const labels = liveMatches
         .filter((m) => m.timer.startedAt !== null)
-        .map((m) => resolveTeamLabels(m.form));
+        .map((m) => ({ ...resolveTeamLabels(m.form), phase: 'previa' }));
       onSetLiveMatch?.(labels.length > 0 ? labels : null);
     }
     prevLiveRef.current = liveMatches;
@@ -113,7 +115,7 @@ export default function Previa({
       const remaining = prev.filter(m => m.id !== liveId);
       const labels = remaining
         .filter(m => m.timer.startedAt !== null)
-        .map(m => resolveTeamLabels(m.form));
+        .map(m => ({ ...resolveTeamLabels(m.form), phase: 'previa' }));
       onSetLiveMatch?.(labels.length > 0 ? labels : null);
       return remaining;
     });
@@ -139,7 +141,7 @@ export default function Previa({
 
     const labels = remaining
       .filter(m => m.timer.startedAt !== null)
-      .map(m => resolveTeamLabels(m.form));
+      .map(m => ({ ...resolveTeamLabels(m.form), phase: 'previa' }));
     onSetLiveMatch?.(labels.length > 0 ? labels : null);
   }
 
@@ -174,8 +176,7 @@ export default function Previa({
   }
 
   async function handleDelete(id) {
-    if (!window.confirm("¿Eliminar este partido?")) return;
-    await onDeleteMatch(id);
+    setConfirmDelete(id);
   }
 
   // ── Schedule generation ──────────────────────────────────────────────────────
@@ -221,6 +222,16 @@ export default function Previa({
 
   return (
     <div>
+      {confirmDelete && (
+        <Modal
+          title="Eliminar partido"
+          message="¿Estás seguro que querés eliminar este partido? Esta acción no se puede deshacer."
+          confirmText="Eliminar"
+          confirmDanger
+          onConfirm={async () => { setConfirmDelete(null); await onDeleteMatch(confirmDelete); }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">FASE PREVIA</div>
@@ -340,9 +351,10 @@ export default function Previa({
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {sorted.map(m => (
+          {sorted.map((m, i) => (
             <MatchCard key={m.id} match={m} tournament={tournament} isOwner={isOwner}
-              onEdit={() => handleEdit(m)} onDelete={() => handleDelete(m.id)} />
+              onEdit={() => handleEdit(m)} onDelete={() => handleDelete(m.id)}
+              matchNum={sorted.length - i} />
           ))}
         </div>
       )}

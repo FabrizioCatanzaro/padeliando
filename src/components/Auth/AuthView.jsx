@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { api } from '../../utils/api'
 import { useAuth } from '../../context/useAuth'
@@ -73,6 +73,8 @@ export default function AuthView({ mode: initialMode }) {
 
   const { login } = useAuth()
   const navigate  = useNavigate()
+  const [searchParams] = useSearchParams()
+  const sessionExpired = searchParams.get('expired') === '1'
   const isRegister = mode === 'register'
   const googleDivRef = useRef(null)
 
@@ -195,6 +197,12 @@ export default function AuthView({ mode: initialMode }) {
   return (
     <div className="bg-base flex items-start justify-center pt-10 px-4">
       <div className="w-full max-w-sm">
+        {sessionExpired && (
+          <div className="mb-6 px-3.5 py-2.5 rounded border border-[#f0a84a44] bg-[#2e1f0a] text-[#f0a84a] text-xs font-mono">
+            Tu sesión expiró. Por favor ingresá nuevamente.
+          </div>
+        )}
+
         <p className="text-[#555] text-sm mb-8">
           {isRegister ? 'Creá tu cuenta' : 'Ingresá a tu cuenta'}
         </p>

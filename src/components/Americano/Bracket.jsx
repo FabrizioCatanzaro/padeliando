@@ -1,47 +1,103 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { CircleStop, CirclePlay, Play } from "lucide-react";
 
-// ── Contador +/- ───────────────────────────────────────────────────────────────
+const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
+const getLiveKey  = (id) => `bracket_live_${id}`;
+
+// ── Timer ──────────────────────────────────────────────────────────────────────
+function Timer({ timerState = EMPTY_TIMER, onTimerChange, onStop }) {
+  const running = timerState.startedAt !== null && timerState.stoppedAt === null;
+  const stopped = timerState.startedAt !== null && timerState.stoppedAt !== null;
+  const [liveSeconds, setLiveSeconds] = useState(0);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    clearInterval(ref.current);
+    if (!running) return;
+    ref.current = setInterval(() => {
+      setLiveSeconds(Math.floor((Date.now() - timerState.startedAt) / 1000));
+    }, 500);
+    return () => clearInterval(ref.current);
+  }, [running, timerState.startedAt]);
+
+  const seconds = stopped
+    ? Math.floor((timerState.stoppedAt - timerState.startedAt) / 1000)
+    : running ? liveSeconds : 0;
+
+  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
+
+  function start()  { onTimerChange({ startedAt: Date.now(), stoppedAt: null }); }
+  function stop()   {
+    const now = Date.now();
+    onTimerChange({ startedAt: timerState.startedAt, stoppedAt: now });
+    onStop(Math.floor((now - timerState.startedAt) / 1000));
+  }
+  function resume() {
+    const elapsed = timerState.stoppedAt - timerState.startedAt;
+    onTimerChange({ startedAt: Date.now() - elapsed, stoppedAt: null });
+    onStop(null);
+  }
+
+  if (!running && !stopped) {
+    return (
+      <div onClick={start} className="flex flex-row items-center justify-center gap-2 bg-brand text-base border-0 w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-3">
+        <Play size={13} /><span>INICIAR CRONÓMETRO</span>
+      </div>
+    );
+  }
+  if (running) {
+    return (
+      <div className="flex flex-row items-center gap-2 justify-center text-center my-3">
+        <div className="font-mono text-[36px] text-brand tracking-[6px]">{mm}:{ss}</div>
+        <CircleStop onClick={stop} size={30} className="bg-brand rounded-4xl items-center text-black cursor-pointer" />
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-row items-center gap-2 justify-center text-center my-3">
+      <div className="font-mono text-[36px] text-green tracking-[6px]">{mm}:{ss}</div>
+      <CirclePlay onClick={resume} size={30} className="bg-green rounded-4xl items-center text-black cursor-pointer" />
+    </div>
+  );
+}
+
+// ── ScoreCounter ───────────────────────────────────────────────────────────────
 function ScoreCounter({ value, onChange, color = "text-brand" }) {
   const num = Number(value);
   return (
-    <div className="flex items-center gap-1 justify-center">
+    <div className="flex items-center gap-2.5 justify-center">
       <button
+        className="w-10 h-10 rounded-sm border border-border-strong bg-border-mid text-white text-[22px] cursor-pointer flex items-center justify-center"
         onClick={() => onChange(Math.max(0, num - 1))}
-        className="w-5 h-5 rounded-sm border border-border-strong bg-border-mid text-white text-[14px] cursor-pointer flex items-center justify-center leading-none"
       >−</button>
-      <span className={`font-mono text-[28px] min-w-5 text-center font-bold ${color}`}>{num}</span>
+      <span className={`font-mono text-[34px] min-w-10 text-center font-bold ${color}`}>{num}</span>
       <button
+        className={`w-10 h-10 rounded-sm border bg-border-mid text-[22px] flex items-center justify-center ${color} border-current ${num >= 7 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
         onClick={() => onChange(Math.min(7, num + 1))}
-        className={`w-5 h-5 rounded-sm border bg-border-mid text-[14px] flex items-center justify-center leading-none ${color} border-current ${num >= 7 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
         disabled={num >= 7}
       >+</button>
     </div>
   );
 }
 
-// ── Tarjeta de partido del bracket ────────────────────────────────────────────
+// ── Tarjeta de partido del bracket (sólo display + toggle EN VIVO) ─────────────
 function BracketMatchCard({
-  match, phase, isOwner, saving,
-  activeFormId, onOpenForm, onCloseForm,
-  inlineScore, onScoreChange, onSave,
-  standings,
+  match, phase, isOwner, standings,
   editMode, draftMatch, allPairs, onPairChange,
   isLive, onToggleLive,
 }) {
   const isTBD1   = !match.pair1_name;
   const isTBD2   = !match.pair2_name;
   const isPlayed = match.winner_id !== null;
-  const showForm = activeFormId === match.id;
 
   const seed1 = standings?.find(s => s.pair_id === match.pair1_id)?.seed ?? null;
   const seed2 = standings?.find(s => s.pair_id === match.pair2_id)?.seed ?? null;
 
-  // En modo reorganizar: mostrar dropdowns para pares no determinados por ronda anterior
   if (editMode) {
     const dm = draftMatch ?? match;
     return (
       <div className="bg-surface border border-brand/40 rounded-lg p-3">
-        {/* Slot 1 */}
         <select
           value={dm.pair1_id ?? ''}
           onChange={e => onPairChange(phase, match.id, 'pair1', e.target.value)}
@@ -49,13 +105,10 @@ function BracketMatchCard({
         >
           <option value="">— Seleccionar pareja —</option>
           {allPairs.map(p => (
-            <option key={p.pair_id} value={p.pair_id}>
-              #{p.seed} {p.pair_name}
-            </option>
+            <option key={p.pair_id} value={p.pair_id}>#{p.seed} {p.pair_name}</option>
           ))}
         </select>
         <div className="border-t border-border my-1" />
-        {/* Slot 2 */}
         <select
           value={dm.pair2_id ?? ''}
           onChange={e => onPairChange(phase, match.id, 'pair2', e.target.value)}
@@ -63,9 +116,7 @@ function BracketMatchCard({
         >
           <option value="">— Seleccionar pareja —</option>
           {allPairs.map(p => (
-            <option key={p.pair_id} value={p.pair_id}>
-              #{p.seed} {p.pair_name}
-            </option>
+            <option key={p.pair_id} value={p.pair_id}>#{p.seed} {p.pair_name}</option>
           ))}
         </select>
       </div>
@@ -112,9 +163,9 @@ function BracketMatchCard({
         )}
       </div>
 
-      {/* Acciones del owner */}
+      {/* Toggle EN VIVO */}
       {isOwner && !isPlayed && !isTBD1 && !isTBD2 && (
-        <div className="mt-2.5 flex flex-col gap-1.5">
+        <div className="mt-2.5">
           <button
             onClick={onToggleLive}
             className={`w-full border py-1 font-condensed font-bold text-[11px] tracking-wide cursor-pointer rounded-sm transition-colors ${
@@ -125,47 +176,127 @@ function BracketMatchCard({
           >
             {isLive ? '● EN VIVO' : '◌ EN VIVO'}
           </button>
-          {showForm ? (
-            <div className="pt-2 border-t border-border">
-              <div className="flex items-center justify-center gap-3 mb-3">
-                <ScoreCounter
-                  value={inlineScore?.score1 ?? 0}
-                  onChange={v => onScoreChange(match.id, 'score1', v)}
-                  color="text-brand"
-                />
-                <span className="text-muted font-mono text-[18px]">—</span>
-                <ScoreCounter
-                  value={inlineScore?.score2 ?? 0}
-                  onChange={v => onScoreChange(match.id, 'score2', v)}
-                  color="text-cyan"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onSave(match.id)}
-                  disabled={saving || (inlineScore?.score1 ?? 0) === (inlineScore?.score2 ?? 0)}
-                  className="flex-1 bg-brand text-base border-0 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {saving ? "..." : "REGISTRAR"}
-                </button>
-                <button
-                  onClick={onCloseForm}
-                  className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[11px] cursor-pointer rounded-sm font-sans"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => onOpenForm(match.id)}
-              className="w-full bg-transparent text-muted border border-dashed border-border-strong py-1.5 font-condensed font-bold text-[11px] tracking-wide cursor-pointer rounded-sm hover:text-white hover:border-border-mid transition-colors"
-            >
-              + RESULTADO
-            </button>
-          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Card de partido EN VIVO (debajo del cuadro) ────────────────────────────────
+function BracketLiveCard({ liveMatch, bracketMatch, saving, onScoreChange, onSave, onCancel, onTimerChange }) {
+  const timerDone = liveMatch.timer.startedAt !== null && liveMatch.timer.stoppedAt !== null;
+  const { score1, score2 } = liveMatch.score;
+
+  return (
+    <div className="bg-surface border border-green/40 rounded-lg p-5 mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-green font-mono text-[11px] font-bold tracking-wide">● EN VIVO</span>
+        <button
+          onClick={onCancel}
+          className="bg-transparent border-0 text-muted cursor-pointer font-sans text-[13px] hover:text-white"
+        >
+          ✕ Cancelar
+        </button>
+      </div>
+
+      <div className="flex justify-between items-center mb-4">
+        <span className="font-condensed font-bold text-[16px] text-brand flex-1">{bracketMatch.pair1_name}</span>
+        <span className="text-muted font-condensed font-bold text-[14px] px-3">VS</span>
+        <span className="font-condensed font-bold text-[16px] text-cyan flex-1 text-right">{bracketMatch.pair2_name}</span>
+      </div>
+
+      <div className="flex gap-4 justify-center items-center">
+        <ScoreCounter value={score1} onChange={v => onScoreChange('score1', v)} color="text-brand" />
+        <span className="text-muted font-mono text-[20px]">—</span>
+        <ScoreCounter value={score2} onChange={v => onScoreChange('score2', v)} color="text-cyan" />
+      </div>
+
+      <Timer
+        timerState={liveMatch.timer}
+        onTimerChange={onTimerChange}
+        onStop={secs => onScoreChange('duration_seconds', secs)}
+      />
+
+      <button
+        onClick={onSave}
+        disabled={saving || Number(score1) === Number(score2) || !timerDone}
+        className={`w-full border-0 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm mt-2 ${
+          saving || Number(score1) === Number(score2) || !timerDone
+            ? "bg-border-mid text-muted cursor-not-allowed"
+            : "bg-brand text-base cursor-pointer"
+        }`}
+      >
+        {saving ? "REGISTRANDO..." : "REGISTRAR PARTIDO"}
+      </button>
+    </div>
+  );
+}
+
+// ── Card de partido jugado del bracket ────────────────────────────────────────
+function BracketPlayedCard({ match, isOwner, onEdit, matchNum }) {
+  const win1 = match.winner_id === match.pair1_id;
+  return (
+    <div className="bg-surface border border-border-mid rounded-lg px-4 py-3.5">
+      <div className="flex items-center gap-3 flex-wrap">
+        {matchNum != null && (
+          <span className="text-[10px] font-mono text-muted shrink-0 w-3 text-right">#{matchNum}</span>
+        )}
+        <div className={`flex-1 font-condensed font-semibold text-xl ${win1 ? "text-brand" : "text-secondary"}`}>
+          {match.pair1_name}
+        </div>
+        <div className="flex items-center gap-2 font-condensed font-black text-[28px] min-w-20 justify-center">
+          <span className={win1 ? "text-brand" : "text-secondary"}>{match.score1}</span>
+          <span className="text-border-strong text-[20px]">—</span>
+          <span className={!win1 ? "text-cyan" : "text-secondary"}>{match.score2}</span>
+        </div>
+        <div className={`flex-1 font-condensed font-semibold text-xl text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
+          {match.pair2_name}
+        </div>
+      </div>
+      {isOwner && (
+        <div className="mt-2.5 pt-2.5 border-t border-border-mid">
+          <button
+            onClick={onEdit}
+            className="bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5 flex items-center gap-1.5 hover:text-white"
+          >
+            ✎ Editar resultado
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Formulario de edición de resultado jugado ──────────────────────────────────
+function BracketEditCard({ match, saving, editScore, onScoreChange, onSave, onCancel }) {
+  const s1 = Number(editScore.score1), s2 = Number(editScore.score2);
+  return (
+    <div className="bg-surface border border-brand/40 rounded-lg p-5 mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-brand font-mono text-[11px] font-bold tracking-wide">✎ EDITAR RESULTADO</span>
+        <button onClick={onCancel} className="bg-transparent border-0 text-muted cursor-pointer font-sans text-[13px] hover:text-white">
+          ✕ Cancelar
+        </button>
+      </div>
+      <div className="flex justify-between items-center mb-4">
+        <span className="font-condensed font-bold text-[16px] text-brand flex-1">{match.pair1_name}</span>
+        <span className="text-muted font-condensed font-bold text-[14px] px-3">VS</span>
+        <span className="font-condensed font-bold text-[16px] text-cyan flex-1 text-right">{match.pair2_name}</span>
+      </div>
+      <div className="flex gap-4 justify-center items-center">
+        <ScoreCounter value={s1} onChange={v => onScoreChange('score1', v)} color="text-brand" />
+        <span className="text-muted font-mono text-[20px]">—</span>
+        <ScoreCounter value={s2} onChange={v => onScoreChange('score2', v)} color="text-cyan" />
+      </div>
+      <button
+        onClick={onSave}
+        disabled={saving || s1 === s2}
+        className={`w-full border-0 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm mt-4 ${
+          saving || s1 === s2 ? "bg-border-mid text-muted cursor-not-allowed" : "bg-brand text-base cursor-pointer"
+        }`}
+      >
+        {saving ? "GUARDANDO..." : "GUARDAR CAMBIOS"}
+      </button>
     </div>
   );
 }
@@ -174,22 +305,115 @@ function BracketMatchCard({
 export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpdateMatch, onSetBracket, onSetLiveMatch }) {
   const bracket = tournament.bracket;
 
-  const [inlineScores,   setInlineScores]   = useState({});
-  const [saving,         setSaving]         = useState(null);
-  const [activeFormId,   setActiveFormId]   = useState(null);
-  const [generating,     setGenerating]     = useState(false);
-  const [editMode,       setEditMode]       = useState(false);
-  const [draftBracket,   setDraftBracket]   = useState(null);
-  const [savingLayout,   setSavingLayout]   = useState(false);
-  const [liveMatchId,    setLiveMatchId]    = useState(null);
+  const [liveMatches,  setLiveMatches]  = useState(() => {
+    try {
+      const raw = localStorage.getItem(getLiveKey(tournament.id));
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  // Each entry: { matchId, timer: {...}, score: { score1, score2, duration_seconds } }
 
-  function handleToggleLive(matchId, pair1Name, pair2Name) {
-    if (liveMatchId === matchId) {
-      setLiveMatchId(null);
-      onSetLiveMatch?.(null);
+  const [saving,       setSaving]       = useState(null);
+  const [generating,   setGenerating]   = useState(false);
+  const [editMode,     setEditMode]     = useState(false);
+  const [draftBracket, setDraftBracket] = useState(null);
+  const [savingLayout, setSavingLayout] = useState(false);
+  const [editMatchId,  setEditMatchId]  = useState(null);
+  const [editScore,    setEditScore]    = useState({ score1: 0, score2: 0 });
+
+  // Persist liveMatches + sync onSetLiveMatch
+  const prevLiveRef = useRef(liveMatches);
+  useEffect(() => {
+    const key = getLiveKey(tournament.id);
+    if (liveMatches.length > 0) localStorage.setItem(key, JSON.stringify(liveMatches));
+    else                        localStorage.removeItem(key);
+
+    const prevIds = new Set(prevLiveRef.current.map(m => m.matchId));
+    const currIds = new Set(liveMatches.map(m => m.matchId));
+    const changed = prevIds.size !== currIds.size ||
+      [...currIds].some(id => !prevIds.has(id)) ||
+      [...prevIds].some(id => !currIds.has(id));
+    if (changed) {
+      const labels = liveMatches.map(lm => {
+        const result = findBracketMatchWithPhase(lm.matchId);
+        if (!result) return null;
+        return { team1Label: result.match.pair1_name, team2Label: result.match.pair2_name, phase: result.phase };
+      }).filter(Boolean);
+      onSetLiveMatch?.(labels.length > 0 ? labels : null);
+    }
+    prevLiveRef.current = liveMatches;
+  }, [liveMatches]);
+
+  function findBracketMatchWithPhase(matchId) {
+    if (!bracket) return null;
+    if (bracket.final?.id === matchId) return { match: bracket.final, phase: 'final' };
+    for (const phase of ['octavos', 'cuartos', 'semis']) {
+      const found = bracket[phase]?.find(m => m.id === matchId);
+      if (found) return { match: found, phase };
+    }
+    return null;
+  }
+
+  function findBracketMatch(matchId) {
+    return findBracketMatchWithPhase(matchId)?.match ?? null;
+  }
+
+  function handleToggleLive(matchId) {
+    const existing = liveMatches.find(m => m.matchId === matchId);
+    if (existing) {
+      setLiveMatches(prev => prev.filter(m => m.matchId !== matchId));
     } else {
-      setLiveMatchId(matchId);
-      onSetLiveMatch?.([{ team1Label: pair1Name, team2Label: pair2Name }]);
+      setLiveMatches(prev => [...prev, {
+        matchId,
+        timer: EMPTY_TIMER,
+        score: { score1: 0, score2: 0, duration_seconds: null },
+      }]);
+    }
+  }
+
+  function handleTimerChange(matchId, newTimer) {
+    setLiveMatches(prev => prev.map(m => m.matchId === matchId ? { ...m, timer: newTimer } : m));
+  }
+
+  function handleScoreChange(matchId, field, value) {
+    setLiveMatches(prev => prev.map(m =>
+      m.matchId === matchId ? { ...m, score: { ...m.score, [field]: value } } : m
+    ));
+  }
+
+  async function handleSaveResult(matchId) {
+    const lm = liveMatches.find(m => m.matchId === matchId);
+    if (!lm) return;
+    const s1 = Number(lm.score.score1), s2 = Number(lm.score.score2);
+    if (s1 === s2) return;
+    // Cerrar la card ANTES del await para evitar que un remount restaure desde localStorage
+    const remaining = liveMatches.filter(m => m.matchId !== matchId);
+    setLiveMatches(remaining);
+    const key = getLiveKey(tournament.id);
+    if (remaining.length > 0) localStorage.setItem(key, JSON.stringify(remaining));
+    else localStorage.removeItem(key);
+    setSaving(matchId);
+    try {
+      await onUpdateMatch(matchId, s1, s2, lm.score.duration_seconds ?? null);
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  function handleOpenEdit(match) {
+    setEditMatchId(match.id);
+    setEditScore({ score1: match.score1, score2: match.score2 });
+  }
+
+  async function handleSaveEdit() {
+    const s1 = Number(editScore.score1), s2 = Number(editScore.score2);
+    if (s1 === s2) return;
+    setSaving(editMatchId);
+    try {
+      await onUpdateMatch(editMatchId, s1, s2);
+      setEditMatchId(null);
+    } finally {
+      setSaving(null);
     }
   }
 
@@ -199,59 +423,21 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     finally { setGenerating(false); }
   }
 
-  async function handleSaveResult(matchId) {
-    const score = inlineScores[matchId] ?? { score1: 0, score2: 0 };
-    const s1 = Number(score.score1), s2 = Number(score.score2);
-    if (s1 === s2) return;
-    setSaving(matchId);
-    try {
-      await onUpdateMatch(matchId, s1, s2);
-      setInlineScores(prev => { const n = { ...prev }; delete n[matchId]; return n; });
-      setActiveFormId(null);
-    } finally {
-      setSaving(null);
-    }
-  }
-
-  function handleScoreChange(matchId, field, value) {
-    setInlineScores(prev => ({
-      ...prev,
-      [matchId]: { ...(prev[matchId] ?? { score1: 0, score2: 0 }), [field]: value },
-    }));
-  }
-
-  // ── Reorganizar ─────────────────────────────────────────────────────────────
-  function enterEditMode() {
-    setDraftBracket(JSON.parse(JSON.stringify(bracket)));
-    setEditMode(true);
-  }
-
-  function cancelEditMode() {
-    setDraftBracket(null);
-    setEditMode(false);
-  }
+  // ── Reorganizar ──────────────────────────────────────────────────────────────
+  function enterEditMode()  { setDraftBracket(JSON.parse(JSON.stringify(bracket))); setEditMode(true); }
+  function cancelEditMode() { setDraftBracket(null); setEditMode(false); }
 
   async function confirmEditMode() {
     setSavingLayout(true);
-    try {
-      await onSetBracket(draftBracket);
-      setEditMode(false);
-      setDraftBracket(null);
-    } finally {
-      setSavingLayout(false);
-    }
+    try { await onSetBracket(draftBracket); setEditMode(false); setDraftBracket(null); }
+    finally { setSavingLayout(false); }
   }
 
   function updateDraftPair(phaseKey, matchId, slot, pairId) {
     const pair = bracket.standings?.find(s => s.pair_id === pairId);
     setDraftBracket(prev => {
       const next = JSON.parse(JSON.stringify(prev));
-      let match;
-      if (phaseKey === 'final') {
-        match = next.final;
-      } else {
-        match = next[phaseKey]?.find(m => m.id === matchId);
-      }
+      const match = phaseKey === 'final' ? next.final : next[phaseKey]?.find(m => m.id === matchId);
       if (!match) return prev;
       match[`${slot}_id`]   = pair?.pair_id   ?? null;
       match[`${slot}_name`] = pair?.pair_name ?? null;
@@ -265,6 +451,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     return draftBracket[phaseKey]?.find(m => m.id === matchId) ?? null;
   }
 
+  // ── Sin bracket ──────────────────────────────────────────────────────────────
   if (!bracket) {
     return (
       <div>
@@ -289,7 +476,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     );
   }
 
-  const standings  = bracket.standings ?? [];
+  const standings = bracket.standings ?? [];
   const hasResults = bracket.octavos?.some(m => m.winner_id) ||
                      bracket.cuartos?.some(m => m.winner_id) ||
                      bracket.semis?.some(m => m.winner_id)   ||
@@ -297,12 +484,17 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
 
   const phases = [
     bracket.octavos?.length > 0
-      ? { key: "octavos", label: "OCTAVOS",          matches: bracket.octavos }
+      ? { key: "octavos", label: "OCTAVOS",         matches: bracket.octavos }
       : null,
-    { key: "cuartos", label: "CUARTOS DE FINAL",      matches: bracket.cuartos },
-    { key: "semis",   label: "SEMIFINALES",            matches: bracket.semis   },
-    { key: "final",   label: "FINAL",                  matches: bracket.final ? [bracket.final] : [] },
+    { key: "cuartos", label: "CUARTOS DE FINAL",     matches: bracket.cuartos },
+    { key: "semis",   label: "SEMIFINALES",           matches: bracket.semis   },
+    { key: "final",   label: "FINAL",                 matches: bracket.final ? [bracket.final] : [] },
   ].filter(Boolean);
+
+  // Partidos jugados del bracket (para mostrar como cards)
+  const playedBracketMatches = phases
+    .flatMap(p => p.matches)
+    .filter(m => m.winner_id !== null && m.pair1_name && m.pair2_name);  
 
   return (
     <div>
@@ -319,17 +511,10 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
         )}
         {editMode && (
           <div className="flex gap-2">
-            <button
-              onClick={cancelEditMode}
-              className="bg-transparent text-muted border border-border-strong px-3 py-2 font-condensed font-bold text-[12px] cursor-pointer rounded-sm"
-            >
+            <button onClick={cancelEditMode} className="bg-transparent text-muted border border-border-strong px-3 py-2 font-condensed font-bold text-[12px] cursor-pointer rounded-sm">
               CANCELAR
             </button>
-            <button
-              onClick={confirmEditMode}
-              disabled={savingLayout}
-              className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm disabled:opacity-60"
-            >
+            <button onClick={confirmEditMode} disabled={savingLayout} className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm disabled:opacity-60">
               {savingLayout ? "..." : "CONFIRMAR"}
             </button>
           </div>
@@ -357,20 +542,13 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                     match={match}
                     phase={phase.key}
                     isOwner={isOwner}
-                    saving={saving === match.id}
-                    activeFormId={activeFormId}
-                    onOpenForm={id => { setActiveFormId(id); setInlineScores(prev => ({ ...prev, [id]: prev[id] ?? { score1: 0, score2: 0 } })); }}
-                    onCloseForm={() => setActiveFormId(null)}
-                    inlineScore={inlineScores[match.id]}
-                    onScoreChange={handleScoreChange}
-                    onSave={handleSaveResult}
                     standings={standings}
                     editMode={editMode}
                     draftMatch={getDraftMatch(phase.key, match.id)}
                     allPairs={standings}
                     onPairChange={updateDraftPair}
-                    isLive={liveMatchId === match.id}
-                    onToggleLive={() => handleToggleLive(match.id, match.pair1_name, match.pair2_name)}
+                    isLive={liveMatches.some(lm => lm.matchId === match.id)}
+                    onToggleLive={() => handleToggleLive(match.id)}
                   />
                 ))}
               </div>
@@ -378,6 +556,55 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
           ))}
         </div>
       </div>
+
+      {/* Cards EN VIVO (debajo del cuadro) */}
+      {liveMatches.length > 0 && (
+        <div className="mt-6">
+          <div className="font-condensed font-bold text-[12px] tracking-[3px] text-muted mb-3">PARTIDOS EN CURSO</div>
+          {liveMatches.map(lm => {
+            const bracketMatch = findBracketMatch(lm.matchId);
+            if (!bracketMatch) return null;
+            return (
+              <BracketLiveCard
+                key={lm.matchId}
+                liveMatch={lm}
+                bracketMatch={bracketMatch}
+                saving={saving === lm.matchId}
+                onScoreChange={(field, value) => handleScoreChange(lm.matchId, field, value)}
+                onSave={() => handleSaveResult(lm.matchId)}
+                onCancel={() => handleToggleLive(lm.matchId)}
+                onTimerChange={newTimer => handleTimerChange(lm.matchId, newTimer)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Partidos jugados del bracket */}
+      
+      {playedBracketMatches.length > 0 && (
+        <div className="mt-6">
+          <div className="font-condensed font-bold text-[12px] tracking-[3px] text-muted mb-3">RESULTADOS</div>
+          <div className="flex flex-col gap-2.5">
+            {[...playedBracketMatches].reverse().map((m, i) => {
+              const matchNum = playedBracketMatches.length - i;
+              return editMatchId === m.id ? (
+                <BracketEditCard
+                  key={m.id}
+                  match={m}
+                  saving={saving === m.id}
+                  editScore={editScore}
+                  onScoreChange={(field, value) => setEditScore(prev => ({ ...prev, [field]: value }))}
+                  onSave={handleSaveEdit}
+                  onCancel={() => setEditMatchId(null)}
+                />
+              ) : (
+                <BracketPlayedCard key={m.id} match={m} isOwner={isOwner} onEdit={() => handleOpenEdit(m)} matchNum={matchNum} />
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

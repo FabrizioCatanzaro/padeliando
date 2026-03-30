@@ -33,9 +33,11 @@ export function calcStandings(players, matches) {
       else        { s[pid].pp++; s[pid].sf += s2; s[pid].sc += s1; }
     });
   });
-  return Object.values(s).sort(
-    (a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc)
-  );
+  return Object.values(s).sort((a, b) => {
+    const pctA = a.pj > 0 ? a.pg / a.pj : 0;
+    const pctB = b.pj > 0 ? b.pg / b.pj : 0;
+    return pctB - pctA || b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc);
+  });
 }
 
 /** Returns the pair label for a given pair ID, or "?" */

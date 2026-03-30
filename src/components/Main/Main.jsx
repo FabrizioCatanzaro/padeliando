@@ -8,7 +8,7 @@ import Stats        from "../Stats/Stats";
 import Management   from "../Management/Management";
 import Previa       from "../Americano/Previa";
 import Bracket      from "../Americano/Bracket";
-import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, GitBranch } from "lucide-react";
+import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split } from "lucide-react";
 import Loader from "../Loader/Loader";
 
 const LIGA_TABS = [
@@ -21,7 +21,8 @@ const LIGA_TABS = [
 const AMERICANO_TABS = [
   { id: "standings",  label: "TABLA",          icon: Trophy              },
   { id: "previa",     label: "PREVIA",         icon: List                },
-  { id: "bracket",    label: "CUADRO",        icon: GitBranch           },
+  { id: "bracket",    label: "CUADRO",        icon: Split           },
+  { id: "stats",      label: "ESTADÍSTICAS",   icon: ChartNoAxesCombined },
   { id: "management", label: "GESTIÓN",        icon: Settings            },
 ];
 
@@ -63,11 +64,19 @@ export default function Main() {
   const TABS = isAmericano ? AMERICANO_TABS : LIGA_TABS;
 
   const shareLink   = getShareLink();
-  const playedCount = tournament.matches.filter((m) => m.score1 !== "").length;
+  const bracketPlayed = isAmericano
+    ? [...(tournament.bracket?.octavos ?? []), ...(tournament.bracket?.cuartos ?? []),
+       ...(tournament.bracket?.semis   ?? []), ...(tournament.bracket?.final ? [tournament.bracket.final] : [])]
+      .filter(m => m.winner_id != null).length
+    : 0;
+  const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
 
   // Ganador(es) de la jornada — solo cuando está finalizada
   let winnerLabel = null;
   if (tournament.status === 'finished') {
+    if (isAmericano) {
+      if (tournament.bracket?.final?.winner_name) winnerLabel = tournament.bracket.final.winner_name;
+    } else {
     const standings = calcStandings(tournament.players, tournament.matches);
     if (tournament.mode === 'pairs' && tournament.pairs?.length > 0) {
       const pairRows = tournament.pairs.map((pair) => {
@@ -85,6 +94,7 @@ export default function Main() {
       const topDiff = standings[0] ? standings[0].sf - standings[0].sc : 0;
       const top     = standings.filter((r) => r.pj > 0 && r.pg === topPg && (r.sf - r.sc) === topDiff);
       if (top.length) winnerLabel = top.map((r) => r.name).join(' / ');
+    }
     }
   }
 
@@ -145,10 +155,10 @@ export default function Main() {
             {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
           </span>
           {winnerLabel && (
-            <div className="text-[12px] text-brand font-mono mt-0.5">🏆 {winnerLabel}</div>
+            <div className="flex items-center gap-2 text-[12px] text-brand font-mono mt-0.5"><Trophy size={14} /> {winnerLabel}</div>
           )}
           <div className="text-[11px] text-muted font-mono mt-1">
-            Creado el {fmt(tournament.createdAt)} · {tournament.players.length} jugadores ·{" "}
+            Creado el {fmt(tournament.createdAt)} · {isAmericano ? `${tournament.pairs.length} parejas` : `${tournament.players.length} jugadores`} ·{" "}
             {playedCount} partidos ·{" "}
             {isAmericano ? (
               <span className="text-brand">americano</span>
@@ -175,6 +185,18 @@ export default function Main() {
       </div>
 
       {saved && <div className="bg-[#1a2e1a] text-green px-4 py-1.5 text-[12px] font-mono text-center">✓ Guardado</div>}
+
+      {isOwner && isAmericano && tournament.status === 'active' && tournament.bracket?.final?.winner_id && (
+        <div className="px-6 py-3 border-b border-border bg-surface-alt flex items-center justify-between gap-3">
+          <span className="text-muted font-mono text-[12px]">La final fue jugada. ¿Querés cerrar la jornada?</span>
+          <button
+            onClick={handleToggleStatus}
+            className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap"
+          >
+            ■ FINALIZAR JORNADA
+          </button>
+        </div>
+      )}
 
       <div className="flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { expandPair, emptyForm, localDateStr, getPairLabel } from "../../utils/helpers";
 import MatchCard from "./MatchCard";
 import MatchForm from "./MatchForm";
+import Modal from "../shared/Modal";
 
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 const getLiveKey  = (id) => `live_${id}`;
@@ -24,8 +25,9 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
   });
 
   // Partido en edición (separado de los live)
-  const [editId,   setEditId]   = useState(null);
-  const [editForm, setEditForm] = useState(null);
+  const [editId,        setEditId]        = useState(null);
+  const [editForm,      setEditForm]      = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   // Persistir a localStorage
   useEffect(() => {
@@ -175,15 +177,24 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
     setEditId(m.id);
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("¿Eliminar este partido?")) return;
-    await onDeleteMatch(id);
+  function handleDelete(id) {
+    setConfirmDelete(id);
   }
 
   const sorted = [...tournament.matches].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   return (
     <div>
+      {confirmDelete && (
+        <Modal
+          title="Eliminar partido"
+          message="¿Estás seguro que querés eliminar este partido? Esta acción no se puede deshacer."
+          confirmText="Eliminar"
+          confirmDanger
+          onConfirm={async () => { setConfirmDelete(null); await onDeleteMatch(confirmDelete); }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
       <div className="flex justify-between items-center mb-4">
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">PARTIDOS</div>
         {isOwner && (
