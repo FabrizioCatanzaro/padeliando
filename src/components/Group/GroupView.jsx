@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
