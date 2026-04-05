@@ -271,7 +271,7 @@ export default function ProfileView() {
           {groups.map((g, i) => (
             <FadeInCard key={g.id} delay={i * 60}
               className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
-              style={{ background: 'linear-gradient(145deg, #111827 0%, #0d1120 100%)' }}
+              style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
               onClick={() => { navigate(`/groups/${g.id}`); }}>
               {g.emojis?.length > 0 && (
                 <div className="inline-flex px-3 pt-2 pb-1.5 text-base border-b border-r bg-surface border-border-mid rounded-br-lg leading-none">

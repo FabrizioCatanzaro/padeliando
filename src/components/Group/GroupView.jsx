@@ -141,7 +141,7 @@ export default function GroupView() {
           {group.tournaments?.map((t, i) => (
             <FadeInCard key={t.id} delay={i * 60}
               className="border border-border-mid rounded-lg px-5 py-4.5 cursor-pointer hover:border-border-strong transition-colors"
-              style={{ background: 'linear-gradient(145deg, #111827 0%, #0d1120 100%)' }}
+              style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
               onClick={() => { navigate(`/groups/${groupId}/tournament/${t.id}`); }}>
               <div className="flex justify-between items-center">
                 <div className="font-condensed font-bold text-[18px] text-white">{t.name}</div>
