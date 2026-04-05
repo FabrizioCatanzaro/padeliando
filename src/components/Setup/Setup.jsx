@@ -17,27 +17,44 @@ export default function Setup() {
   const [step, setStep]           = useState("formato");
   const [error, setError]         = useState(false);
 
+  const [directPairs, setDirectPairs] = useState(() =>
+    Array.from({ length: 8 }, () => ({ id: uid(), p1Name: "", p2Name: "" }))
+  );
+
   const filledNames = playerNames.filter((n) => n.trim());
 
   const isEven   = filledNames.length > 0 && filledNames.length % 2 === 0;
   const hasDupes = new Set(filledNames.map((n) => n.trim().toLowerCase())).size !== filledNames.length;
 
-  const minPlayers  = format === 'americano' ? 16 : 4;
-  const maxPlayers  = format === 'americano' ? 32 : Infinity;
+  const minPlayers  = 4;
   const playersValid = name.trim()
     && filledNames.length >= minPlayers
-    && filledNames.length <= maxPlayers
-    && !hasDupes
-    && (format === 'americano' ? filledNames.length % 2 === 0 : true);
+    && !hasDupes;
   const tituloValido = name?.length <= 30 && name?.length >= 2;
 
   const allPairsFilled =
     pairs.length === filledNames.length / 2 &&
     pairs.every((p) => p.p1Name && p.p2Name);
 
+  // Validación para el paso direct-pairs (americano)
+  const directPairNames = directPairs.flatMap(p => [p.p1Name.trim(), p.p2Name.trim()]).filter(Boolean);
+  const directHasDupes  = new Set(directPairNames.map(n => n.toLowerCase())).size !== directPairNames.length;
+  const directAllFilled = directPairs.every(p => p.p1Name.trim() && p.p2Name.trim());
+  const directPairsValid = tituloValido && directAllFilled && !directHasDupes;
+
   function addPlayer()         { setPlayerNames([...playerNames, ""]); }
   function removePlayer(i)     { setPlayerNames(playerNames.filter((_, idx) => idx !== i)); }
   function updatePlayer(i, v)  { const p = [...playerNames]; p[i] = v; setPlayerNames(p); }
+
+  function updateDirectPair(id, field, value) {
+    setDirectPairs(directPairs.map(p => p.id === id ? { ...p, [field]: value } : p));
+  }
+  function addDirectPair() {
+    if (directPairs.length < 16) setDirectPairs([...directPairs, { id: uid(), p1Name: "", p2Name: "" }]);
+  }
+  function removeDirectPair(id) {
+    if (directPairs.length > 8) setDirectPairs(directPairs.filter(p => p.id !== id));
+  }
 
   async function onCreate(tournamentName, players, pairsInput, fmt) {
     const tId = await createTournament(tournamentName, players, pairsInput, fmt);
@@ -46,8 +63,7 @@ export default function Setup() {
 
   function handleNext() {
     if (!playersValid) return;
-    const goToPairs = isEven || format === 'americano';
-    if (goToPairs) {
+    if (isEven) {
       setPairs(Array.from({ length: filledNames.length / 2 }, () => ({ id: uid(), p1Name: "", p2Name: "" })));
       setStep("pairs");
     } else {
@@ -57,20 +73,17 @@ export default function Setup() {
 
   function handleCreate() {
     if (!allPairsFilled) return;
-    onCreate(name.trim(), filledNames, pairs, format);
+    onCreate(name.trim(), filledNames, pairs, 'liga');
+  }
+
+  function handleCreateDirect() {
+    if (!directPairsValid) return;
+    const players = directPairs.flatMap(p => [p.p1Name.trim(), p.p2Name.trim()]);
+    const cleanPairs = directPairs.map(p => ({ ...p, p1Name: p.p1Name.trim(), p2Name: p.p2Name.trim() }));
+    onCreate(name.trim(), players, cleanPairs, 'americano');
   }
 
   function infoBox() {
-    if (format === 'americano') {
-      if (filledNames.length === 0) return null;
-      if (filledNames.length % 2 !== 0)
-        return `⚠ ${filledNames.length} jugadores — el número debe ser par para Americano.`;
-      if (filledNames.length < 16)
-        return `⚠ ${filledNames.length} jugadores — Americano requiere mínimo 16 (8 parejas).`;
-      if (filledNames.length > 32)
-        return `⚠ ${filledNames.length} jugadores — Americano admite máximo 32 (16 parejas).`;
-      return `✦ ${filledNames.length} jugadores — ${filledNames.length / 2} parejas. Siguiente: armá las parejas.`;
-    }
     if (filledNames.length < 4) return null;
     return isEven
       ? `✦ ${filledNames.length} jugadores — en el siguiente paso armás las ${filledNames.length / 2} parejas fijas.`
@@ -109,20 +122,20 @@ export default function Setup() {
               </div>
             </div>
             <button
-              onClick={() => setStep("players")}
+              onClick={() => setStep(format === 'americano' ? 'direct-pairs' : 'players')}
               className="w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-7 cursor-pointer"
             >
-              SIGUIENTE → JUGADORES
+              {format === 'americano' ? 'SIGUIENTE → PAREJAS' : 'SIGUIENTE → JUGADORES'}
             </button>
           </>
         )}
 
-        {/* ── STEP: players ── */}
+        {/* ── STEP: players (liga) ── */}
         {step === "players" && (
           <>
             <div className="flex items-center gap-2.5 mb-4">
               <button onClick={() => setStep("formato")} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[13px] cursor-pointer rounded-sm font-sans">← Volver</button>
-              <span className="text-muted text-[12px] font-mono">{format === 'americano' ? 'AMERICANO' : 'LIGA'}</span>
+              <span className="text-muted text-[12px] font-mono">LIGA</span>
             </div>
 
             <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">NOMBRE DE LA JORNADA</label>
@@ -136,10 +149,7 @@ export default function Setup() {
             />
 
             <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1 mt-5">
-              JUGADORES{' '}
-              <span className="text-muted">
-                {format === 'americano' ? '(mínimo 16, máximo 32, número par)' : '(mínimo 4)'}
-              </span>
+              JUGADORES <span className="text-muted">(mínimo 4)</span>
             </label>
             <p className="text-[11px] text-dim font-mono mb-2">Escribí un nombre o <span className="text-brand">@usuario</span> para invitar a alguien registrado.</p>
             <div className="flex flex-col gap-2">
@@ -172,17 +182,78 @@ export default function Setup() {
               onClick={() => tituloValido ? handleNext() : setError(true)}
               className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-7 transition-opacity cursor-pointer ${playersValid ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
             >
-              {format === 'americano' || isEven ? "SIGUIENTE → PAREJAS" : "CREAR JORNADA"}
+              {isEven ? "SIGUIENTE → PAREJAS" : "CREAR JORNADA"}
             </button>
           </>
         )}
 
-        {/* ── STEP: pairs ── */}
+        {/* ── STEP: direct-pairs (americano) ── */}
+        {step === "direct-pairs" && (
+          <>
+            <div className="flex items-center gap-2.5 mb-4">
+              <button onClick={() => setStep("formato")} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[13px] cursor-pointer rounded-sm font-sans">← Volver</button>
+              <span className="text-muted text-[12px] font-mono">AMERICANO</span>
+            </div>
+
+            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">NOMBRE DE LA JORNADA</label>
+            <input
+              className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[14px] rounded-sm outline-none mb-2"
+              placeholder="ej: Fecha 1 - 24/03"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={30}
+              minLength={2}
+            />
+
+            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1 mt-5">
+              PAREJAS <span className="text-muted">(mínimo 8, máximo 16)</span>
+            </label>
+            <p className="text-[11px] text-dim font-mono mb-2">Escribí un nombre o <span className="text-brand">@usuario</span> para invitar a alguien registrado.</p>
+
+            <div className="flex flex-col gap-2">
+              {directPairs.map((pair, i) => (
+                <div key={pair.id} className="flex gap-2 items-center">
+                  <span className="text-muted text-[11px] font-mono w-5 shrink-0 text-right">{i + 1}</span>
+                  <PlayerInput value={pair.p1Name} onChange={(v) => updateDirectPair(pair.id, 'p1Name', v)} placeholder="Jugador 1" searchMine />
+                  <span className="text-muted font-condensed font-bold shrink-0">&amp;</span>
+                  <PlayerInput value={pair.p2Name} onChange={(v) => updateDirectPair(pair.id, 'p2Name', v)} placeholder="Jugador 2" searchMine />
+                  {directPairs.length > 8 && (
+                    <button onClick={() => removeDirectPair(pair.id)} className="bg-surface border-0 text-muted px-3 py-2.5 cursor-pointer rounded-sm text-[12px] shrink-0">✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {directHasDupes && (
+              <p className="text-danger text-[11px] font-mono mt-2">Hay nombres duplicados.</p>
+            )}
+
+            {directPairs.length < 16 && (
+              <button onClick={addDirectPair} className="bg-transparent border border-dashed border-border-strong text-muted px-4 py-2 cursor-pointer font-condensed tracking-wide text-[13px] rounded-sm w-full mt-2">
+                + Agregar pareja
+              </button>
+            )}
+
+            <div className="bg-surface-alt border border-border-strong rounded-md px-3.5 py-2.5 text-[12px] text-soft font-mono leading-relaxed mt-4">
+              ✦ {directPairs.length} parejas — {directPairs.length * 2} jugadores.
+            </div>
+
+            {error && <p className="text-danger text-xs font-mono mt-2">El nombre de la jornada debe tener entre 2 y 30 caracteres</p>}
+            <button
+              onClick={() => tituloValido ? handleCreateDirect() : setError(true)}
+              className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-7 transition-opacity cursor-pointer ${directPairsValid ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
+            >
+              CREAR JORNADA
+            </button>
+          </>
+        )}
+
+        {/* ── STEP: pairs (liga con número par de jugadores) ── */}
         {step === "pairs" && (
           <>
             <div className="flex items-center gap-2.5 mb-1">
               <button onClick={() => setStep("players")} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[13px] cursor-pointer rounded-sm font-sans">← Volver</button>
-              <span className="text-muted text-[12px] font-mono">{name} · {filledNames.length} jugadores · {format === 'americano' ? 'AMERICANO' : 'LIGA'}</span>
+              <span className="text-muted text-[12px] font-mono">{name} · {filledNames.length} jugadores · LIGA</span>
             </div>
 
             <PairBuilder players={filledNames} pairs={pairs} onChange={setPairs} />
