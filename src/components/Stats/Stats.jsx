@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { calcStandings, adaptTournament } from "../../utils/helpers";
+import { calcStandings, adaptTournament, getTournamentWinnerLabel } from "../../utils/helpers";
 import { Bomb, CalendarDays, Clock, Crown, Flame, Handshake, Swords, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 
@@ -105,7 +105,14 @@ function CurrentStats({ tournament }) {
   let biggestWin = null, biggestDiff = -1;
   played.forEach((m) => {
     const d = Math.abs(+m.score1 - +m.score2);
-    if (d > biggestDiff) { biggestDiff = d; biggestWin = m; }
+    if (d > biggestDiff) {
+      biggestDiff = d; biggestWin = m;
+    } else if (d === biggestDiff && biggestWin) {
+      // Desempate: el partido más corto (con duración registrada tiene prioridad)
+      const mDur  = m.duration_seconds ?? 0;
+      const curDur = biggestWin.duration_seconds ?? 0;
+      if (mDur > 0 && (curDur === 0 || mDur < curDur)) biggestWin = m;
+    }
   });
 
   const longestMatch = played.reduce((max, m) => {
@@ -335,6 +342,24 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
   const bestPairIsTied = tiedPairs.length > 1;
   const bestPairRecord = !bestPairIsTied && tiedPairs[0] ? `${tiedPairs[0].pg}/${tiedPairs[0].pj}` : null;
 
+  // ── Más veces campeón ────────────────────────────────────────────────────
+  const champCount = {};
+  tournaments.forEach((t) => {
+    const label = getTournamentWinnerLabel(t);
+    if (!label) return;
+    // "A & B / C & D" → split por " / " (empates) y luego por " & " (miembros de pareja)
+    label.split(" / ").forEach((winner) => {
+      winner.split(" & ").forEach((name) => {
+        const n = name.trim();
+        if (n) champCount[n] = (champCount[n] ?? 0) + 1;
+      });
+    });
+  });
+  const champRows     = Object.entries(champCount).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  const topChampCount = champRows[0]?.count ?? 0;
+  const topChamps     = champRows.filter((c) => c.count === topChampCount);
+  const champLabel    = topChamps.map((c) => c.name).join(" / ");
+
   function bracketPlayedCount(t) {
     if (t.format !== 'americano' || !t.bracket) return 0;
     return [...(t.bracket.octavos ?? []), ...(t.bracket.cuartos ?? []),
@@ -366,6 +391,15 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
             <div className="text-[12px] text-muted font-sans">Mejor jugador histórico · {individualRows[0].pg}V</div>
           </div>
         )}
+        {champLabel && (
+          <div className="flex flex-col items-center gap-1 bg-surface border border-amber-500/27 rounded-lg p-4 text-center">
+            <Trophy size={30} className="mb-2 text-amber-500" />
+            <div className={`font-condensed font-bold text-amber-500 mb-1 leading-tight ${topChamps.length > 1 ? 'text-lg' : 'text-[26px]'}`}>{champLabel}</div>
+            <div className="text-[12px] text-muted font-sans">
+              {topChamps.length > 1 ? `Empatados · ` : "Más veces campeón · "}{topChampCount} {topChampCount === 1 ? "jornada" : "jornadas"}
+            </div>
+          </div>
+        )}
         {hasPairMode && bestPairLabel && (
           <div className="flex flex-col items-center gap-1 bg-surface border border-green/27 rounded-lg p-4 text-center">
             <Handshake size={30} className="mb-2 text-green" />
@@ -392,32 +426,7 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
         <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">JORNADAS</div>
         <div className="flex flex-col gap-1.5">
           {[...tournaments].reverse().map((t) => {
-            const standings = calcStandings(t.players, t.matches);
-            const isPairs   = t.mode === "pairs" && t.pairs?.length > 0;
-
-            let winnerLabel = null;
-            if (t.format === 'americano') {
-              if (t.bracket?.final?.winner_name) winnerLabel = t.bracket.final.winner_name;
-            } else if (isPairs) {
-              // Construir standings por pareja y detectar empate
-              const pairRows = t.pairs.map((pair) => {
-                const stats  = standings.find((r) => r.id === pair.p1) ?? standings.find((r) => r.id === pair.p2) ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
-                const p1Name = t.players.find((p) => p.id === pair.p1)?.name ?? "?";
-                const p2Name = t.players.find((p) => p.id === pair.p2)?.name ?? "?";
-                return { ...stats, id: pair.id, name: `${p1Name} & ${p2Name}` };
-              }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
-
-              const topPg   = pairRows[0]?.pg ?? 0;
-              const topDiff = pairRows[0] ? pairRows[0].sf - pairRows[0].sc : 0;
-              const top     = pairRows.filter((p) => p.pj > 0 && p.pg === topPg && (p.sf - p.sc) === topDiff);
-              if (top.length > 0) winnerLabel = top.map((p) => p.name).join(" / ");
-            } else {
-              // Modo libre: el o los mejores jugadores
-              const topPg   = standings[0]?.pg ?? 0;
-              const topDiff = standings[0] ? standings[0].sf - standings[0].sc : 0;
-              const top     = standings.filter((s) => s.pj > 0 && s.pg === topPg && (s.sf - s.sc) === topDiff);
-              if (top.length > 0) winnerLabel = top.map((s) => s.name).join(" / ");
-            }
+            const winnerLabel = getTournamentWinnerLabel(t);
 
             return (
               <div key={t.id} className="flex items-center gap-2 bg-base border border-border-mid rounded-md px-3 py-2 flex-col">

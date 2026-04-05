@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
-import { adaptTournament } from '../utils/helpers';
+import { adaptTournament, getTournamentWinnerLabel } from '../utils/helpers';
 import { useAuth } from '../context/useAuth';
 
 export function useTournament(groupId, tournamentId) {
@@ -144,7 +144,9 @@ export function useTournament(groupId, tournamentId) {
 
   async function handleToggleStatus() {
     const newStatus = tournament.status === 'active' ? 'finished' : 'active';
-    await api.tournaments.update(tournament.id, { status: newStatus });
+    const body = { status: newStatus };
+    if (newStatus === 'finished') body.winner_label = getTournamentWinnerLabel(tournament) ?? '';
+    await api.tournaments.update(tournament.id, body);
     await reload();
   }
 

@@ -82,6 +82,38 @@ export function adaptPair(p) {
  * Normaliza un torneo completo que viene de la API.
  * Convierte matches y pairs al formato interno.
  */
+/**
+ * Calcula el label del ganador de un torneo (igual lógica que se muestra en jornadas).
+ * Para americano: ganador de la final del bracket.
+ * Para parejas: pareja con más victorias.
+ * Para libre: jugador con más victorias.
+ */
+export function getTournamentWinnerLabel(t) {
+  const standings = calcStandings(t.players, t.matches);
+  const isPairs   = t.mode === 'pairs' && t.pairs?.length > 0;
+
+  if (t.format === 'americano') {
+    return t.bracket?.final?.winner_name ?? null;
+  } else if (isPairs) {
+    const pairRows = t.pairs.map((pair) => {
+      const stats  = standings.find((r) => r.id === pair.p1) ?? standings.find((r) => r.id === pair.p2) ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
+      const p1Name = t.players.find((p) => p.id === pair.p1)?.name ?? '?';
+      const p2Name = t.players.find((p) => p.id === pair.p2)?.name ?? '?';
+      return { ...stats, id: pair.id, name: `${p1Name} & ${p2Name}` };
+    }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+    const topPg   = pairRows[0]?.pg ?? 0;
+    const topDiff = pairRows[0] ? pairRows[0].sf - pairRows[0].sc : 0;
+    const top     = pairRows.filter((p) => p.pj > 0 && p.pg === topPg && (p.sf - p.sc) === topDiff);
+    return top.length > 0 ? top.map((p) => p.name).join(' / ') : null;
+  } else {
+    const byWins  = [...standings].sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+    const topPg   = byWins[0]?.pg ?? 0;
+    const topDiff = byWins[0] ? byWins[0].sf - byWins[0].sc : 0;
+    const top     = byWins.filter((s) => s.pj > 0 && s.pg === topPg && (s.sf - s.sc) === topDiff);
+    return top.length > 0 ? top.map((s) => s.name).join(' / ') : null;
+  }
+}
+
 export function adaptTournament(t) {
   return {
     ...t,
