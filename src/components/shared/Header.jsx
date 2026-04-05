@@ -99,6 +99,12 @@ export default function Header() {
                     </span>
                   )}
                 </button>
+                {/* <button
+                  onClick={() => go('/subscription')}
+                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans"
+                >
+                  Suscripción (test)
+                </button> */}
                 <div className="border-t border-border-mid" />
                 <button
                   onClick={() => { setOpen(false); logout(); navigate('/') }}

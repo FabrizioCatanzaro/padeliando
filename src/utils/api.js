@@ -93,4 +93,9 @@ export const api = {
     respond:(id, action)                 => req('PATCH',  `/invitations/${id}`, { action }),
     cancel: (id)                         => req('DELETE', `/invitations/${id}`),
   },
+  subscriptions: {
+    me:       ()                => req('GET',  '/subscriptions/me'),
+    checkout: (billing_period)  => req('POST', '/subscriptions/checkout', { billing_period }),
+    cancel:   ()                => req('POST', '/subscriptions/cancel'),
+  },
 }
