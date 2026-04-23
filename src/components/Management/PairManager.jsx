@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getPairLabel } from "../../utils/helpers";
 import Modal from "../shared/Modal";
 import { Check, Pencil, Trash2, X } from "lucide-react";
+import { PairAvatar } from "../shared/PlayerAvatar";
 export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDelete }) {
   const { players, pairs = [] } = tournament;
   const [showAdd, setShowAdd]       = useState(false);
@@ -12,8 +13,9 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
   const [editP2, setEditP2]         = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const assignedIds = pairs.flatMap((p) => [p.p1, p.p2]);
-  const freePlayers = players.filter((p) => !assignedIds.includes(p.id));
+  const assignedIds   = pairs.flatMap((p) => [p.p1, p.p2]);
+  const activePlayers = players.filter((p) => !p.removed);
+  const freePlayers   = activePlayers.filter((p) => !assignedIds.includes(p.id));
 
   function handleAdd() {
     if (!newP1 || !newP2) return;
@@ -47,7 +49,7 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
           <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
             value={newP1} onChange={(e) => setNewP1(e.target.value)}>
             <option value="">Jugador 1</option>
-            {players.map((p) => (
+            {activePlayers.map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === newP2}>
                 {p.name}{freePlayers.some(fp => fp.id === p.id) ? "" : " (en pareja)"}
               </option>
@@ -57,7 +59,7 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
           <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
             value={newP2} onChange={(e) => setNewP2(e.target.value)}>
             <option value="">Jugador 2</option>
-            {players.map((p) => (
+            {activePlayers.map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === newP1}>
                 {p.name}{freePlayers.some(fp => fp.id === p.id) ? "" : " (en pareja)"}
               </option>
@@ -77,7 +79,7 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
                 <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={editP1} onChange={(e) => setEditP1(e.target.value)}>
                   <option value="">Jugador 1</option>
-                  {players.map((p) => (
+                  {activePlayers.map((p) => (
                     <option key={p.id} value={p.id} disabled={p.id === editP2}>{p.name}</option>
                   ))}
                 </select>
@@ -85,7 +87,7 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
                 <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={editP2} onChange={(e) => setEditP2(e.target.value)}>
                   <option value="">Jugador 2</option>
-                  {players.map((p) => (
+                  {activePlayers.map((p) => (
                     <option key={p.id} value={p.id} disabled={p.id === editP1}>{p.name}</option>
                   ))}
                 </select>
@@ -98,6 +100,19 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
               </>
             ) : (
               <>
+                {(() => {
+                  const p1 = players.find((p) => p.id === pair.p1);
+                  const p2 = players.find((p) => p.id === pair.p2);
+                  return (
+                    <PairAvatar
+                      name1={p1?.name ?? "?"}
+                      name2={p2?.name ?? "?"}
+                      src1={p1?.linked_avatar_url ?? null}
+                      src2={p2?.linked_avatar_url ?? null}
+                      size={26}
+                    />
+                  );
+                })()}
                 <span className="flex-1 text-content font-sans">
                   {getPairLabel(pair.id, pairs, players)}
                 </span>
