@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { CircleStop, CirclePlay, Play, Trophy } from "lucide-react";
 import { PairAvatar } from "../shared/PlayerAvatar";
 
@@ -357,6 +357,16 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
 
   // Persist liveMatches + sync onSetLiveMatch
   const prevLiveRef = useRef(liveMatches);
+  const findBracketMatchWithPhase = useCallback((matchId) => {
+    if (!bracket) return null;
+    if (bracket.final?.id === matchId) return { match: bracket.final, phase: 'final' };
+    for (const phase of ['octavos', 'cuartos', 'semis']) {
+      const found = bracket[phase]?.find(m => m.id === matchId);
+      if (found) return { match: found, phase };
+    }
+    return null;
+  }, [bracket]);
+
   useEffect(() => {
     const key = getLiveKey(tournament.id);
     if (liveMatches.length > 0) localStorage.setItem(key, JSON.stringify(liveMatches));
@@ -376,17 +386,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
       onSetLiveMatch?.(labels.length > 0 ? labels : null);
     }
     prevLiveRef.current = liveMatches;
-  }, [liveMatches]);
-
-  function findBracketMatchWithPhase(matchId) {
-    if (!bracket) return null;
-    if (bracket.final?.id === matchId) return { match: bracket.final, phase: 'final' };
-    for (const phase of ['octavos', 'cuartos', 'semis']) {
-      const found = bracket[phase]?.find(m => m.id === matchId);
-      if (found) return { match: found, phase };
-    }
-    return null;
-  }
+  }, [liveMatches, tournament.id, findBracketMatchWithPhase, onSetLiveMatch]);
 
   function findBracketMatch(matchId) {
     return findBracketMatchWithPhase(matchId)?.match ?? null;
