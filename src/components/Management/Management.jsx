@@ -26,7 +26,7 @@ export default function Management({
         onDelete={onDeletePlayer}
       />
 
-      {(tournament.mode === "pairs" || tournament.players.length % 2 === 0) && (
+      {(tournament.mode === "pairs" || tournament.players.filter((p) => !p.removed).length % 2 === 0) && (
         <PairManager
           tournament={tournament}
           isOwner={isOwner}
