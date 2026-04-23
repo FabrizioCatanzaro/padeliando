@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import { useNavigate } from 'react-router-dom'
 import { useAuth }     from '../../context/useAuth'
-import { Globe, Lock, Plus, X } from 'lucide-react';
+import { Globe, Lock, Plus, X, Search } from 'lucide-react';
 import logoUrl from '../../assets/padeleando.ico'
 import FadeInCard from '../shared/FadeInCard'
 import Loader from '../Loader/Loader';
@@ -23,6 +23,10 @@ export default function HomeView() {
   const [searchUsers,    setSearchUsers]    = useState([]);
   const [searchGroups,   setSearchGroups]   = useState([]);
   const [searching,      setSearching]      = useState(false);
+  const [committedQ,     setCommittedQ]     = useState('');
+  const [committedUsers, setCommittedUsers] = useState([]);
+  const [committedGroups,setCommittedGroups]= useState([]);
+  const [committing,     setCommitting]     = useState(false);
   const [error,     setError]     = useState(null)
 
   const { isLoggedIn } = useAuth();
@@ -67,6 +71,35 @@ export default function HomeView() {
     )
   }
 
+  async function handleSearch() {
+    const q = searchQ.trim();
+    if (q.length < 2) return;
+    setCommitting(true);
+    try {
+      const [users, groups] = await Promise.all([
+        api.auth.search(q),
+        api.groups.search(q),
+      ]);
+      setCommittedQ(q);
+      setCommittedUsers(users);
+      setCommittedGroups(groups);
+      setSearchUsers([]);
+      setSearchGroups([]);
+    } catch {
+      setCommittedUsers([]);
+      setCommittedGroups([]);
+    } finally { setCommitting(false); }
+  }
+
+  function clearSearch() {
+    setSearchQ('');
+    setCommittedQ('');
+    setCommittedUsers([]);
+    setCommittedGroups([]);
+    setSearchUsers([]);
+    setSearchGroups([]);
+  }
+
   async function handleCreate() {
     try {
       if (!name.trim()) return;
@@ -84,13 +117,23 @@ export default function HomeView() {
       <div className="px-6 py-6">
         {/* Buscador de perfiles */}
         <div style={{ marginBottom: 28, position: 'relative' }}>
-          <input
-            className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-sans"
-            placeholder="🔍 Buscar perfiles o torneos..."
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
-          />
-          {searchQ.trim().length >= 2 && (
+          <div className="flex gap-2">
+            <input
+              className="flex-1 bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-sans"
+              placeholder="Buscar perfiles o torneos..."
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+            />
+            <button
+              onClick={handleSearch}
+              disabled={searchQ.trim().length < 2 || committing}
+              className="bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded cursor-pointer hover:border-border-strong transition-colors disabled:opacity-30"
+            >
+              <Search size={16} />
+            </button>
+          </div>
+          {searchQ.trim().length >= 2 && (searching || searchUsers.length > 0 || searchGroups.length > 0) && (
             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
                           background: '#111827', border: '1px solid #2a3040', borderTop: 'none',
                           borderRadius: '0 0 4px 4px', maxHeight: 300, overflowY: 'auto' }}>
@@ -187,8 +230,65 @@ export default function HomeView() {
           </div>
         )}
 
+        {/* Resultados de búsqueda */}
+        {committedQ && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">
+                RESULTADOS PARA &quot;{committedQ}&quot;
+              </div>
+              <button onClick={clearSearch} className="text-[#555] hover:text-white transition-colors cursor-pointer bg-transparent border-none">
+                <X size={16} />
+              </button>
+            </div>
+            {committing && <div className="font-mono text-xs text-gray-500 py-4">buscando...</div>}
+            {!committing && committedUsers.length === 0 && committedGroups.length === 0 && (
+              <div className="font-mono text-xs text-gray-500 py-4">Sin resultados.</div>
+            )}
+            {!committing && committedUsers.length > 0 && (
+              <>
+                <div className="font-mono text-[10px] text-gray-600 tracking-widest mb-2">PERFILES</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12, marginBottom: 24 }}>
+                  {committedUsers.map((u) => (
+                    <FadeInCard key={u.id}
+                      className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden p-4"
+                      style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
+                      onClick={() => navigate(`/u/${u.username}`)}>
+                      <div className="font-condensed font-bold text-xl text-white">{u.name}</div>
+                      <div className="font-mono text-xs text-gray-600 mt-1">@{u.username}</div>
+                    </FadeInCard>
+                  ))}
+                </div>
+              </>
+            )}
+            {!committing && committedGroups.length > 0 && (
+              <>
+                <div className="font-mono text-[10px] text-gray-600 tracking-widest mb-2">TORNEOS</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12, marginBottom: 24 }}>
+                  {committedGroups.map((g) => (
+                    <FadeInCard key={g.id}
+                      className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
+                      style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
+                      onClick={() => navigate(`/groups/${g.id}`)}>
+                      {g.emojis?.length > 0 && (
+                        <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
+                          {g.emojis.join(' ')}
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <div className="font-condensed font-bold text-xl text-white mb-1">{g.name}</div>
+                        <div className="font-mono text-xs text-gray-600">@{g.owner_username}</div>
+                      </div>
+                    </FadeInCard>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Lista de torneos */}
-        {isLoggedIn ? (
+        {!committedQ && isLoggedIn && (
           <>
             <div style={{ marginBottom: 16 }}>
               <div className="font-[Barlow_Condensed] font-bold text-sm tracking-[3px] text-[#555]">MIS TORNEOS</div>
@@ -283,7 +383,9 @@ export default function HomeView() {
               </>
             )}
           </>
-        ) : (
+        )}
+
+        {!isLoggedIn && (
           <div className="text-center text-[#444] py-10 px-5 leading-loose">
             <div className='flex flex-col items-center justify-center'>
               <img className='max-w-30 my-4 opacity-20' src={logoUrl}/>

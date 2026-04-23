@@ -207,7 +207,7 @@ function CurrentStats({ tournament }) {
               <div className="text-4xl mb-2 flex justify-center text-brand"><Trophy size={30} /></div>
               <div className="font-condensed font-bold text-3xl text-brand mb-1 leading-tight">{mvpLabel}</div>
               <div className="text-sm text-muted font-sans">
-                {leaders.length > 1 ? "Empate" : "MVP"} · {topPg} {topPg === 1 ? "victoria" : "victorias"}
+                {leaders.length > 1 ? "MVP Empatado" : "MVP"} · {topPg} {topPg === 1 ? "victoria" : "victorias"}
               </div>
             </div>
           )
@@ -273,7 +273,7 @@ function CurrentStats({ tournament }) {
         )}
       </div>
 
-      <PerPlayerTable standings={standings} />
+      {!isPairs && !isAmericano && <PerPlayerTable standings={standings} />}
       {!isPairs && <PartnershipsTable partnerships={partnerships} />}
       {isPairs && <PartnershipsTable partnerships={partnerships} titleOverride="RENDIMIENTO POR PAREJA" />}
     </>
@@ -396,7 +396,7 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
             <Trophy size={30} className="mb-2 text-amber-500" />
             <div className={`font-condensed font-bold text-amber-500 mb-1 leading-tight ${topChamps.length > 1 ? 'text-lg' : 'text-[26px]'}`}>{champLabel}</div>
             <div className="text-[12px] text-muted font-sans">
-              {topChamps.length > 1 ? `Empatados · ` : "Más veces campeón · "}{topChampCount} {topChampCount === 1 ? "jornada" : "jornadas"}
+              {topChamps.length > 1 ? `Empate · Más veces campeones · ` : "Más veces campeón · "}{topChampCount} {topChampCount === 1 ? "jornada" : "jornadas"}
             </div>
           </div>
         )}

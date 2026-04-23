@@ -11,6 +11,7 @@ const genId       = () => Math.random().toString(36).slice(2, 7);
 
 export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, onDeleteMatch, onSetLiveMatch }) {
   const isPairs = tournament.mode === "pairs";
+  const canEdit = isOwner && tournament.status !== 'finished';
 
   // Array de partidos en progreso: [{ id, form, timer }, ...]
   const [liveMatches, setLiveMatches] = useState(() => {
@@ -197,7 +198,7 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       )}
       <div className="flex justify-between items-center mb-4">
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">PARTIDOS</div>
-        {isOwner && (
+        {canEdit && (
           <button
             onClick={addNewMatch}
             className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap"
@@ -221,7 +222,7 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       )}
 
       {/* Formularios de partidos en progreso */}
-      {liveMatches.map((liveMatch) => (
+      {canEdit && liveMatches.map((liveMatch) => (
         <MatchForm
           key={liveMatch.id}
           form={liveMatch.form}
@@ -242,7 +243,7 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       ) : (
         <div className="flex flex-col gap-2.5">
           {sorted.map((m) => (
-            <MatchCard key={m.id} match={m} tournament={tournament} isOwner={isOwner}
+            <MatchCard key={m.id} match={m} tournament={tournament} isOwner={canEdit}
               onEdit={() => handleEdit(m)} onDelete={() => handleDelete(m.id)} />
           ))}
         </div>

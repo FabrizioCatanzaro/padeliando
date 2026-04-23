@@ -95,6 +95,7 @@ export function getTournamentWinnerLabel(t) {
   if (t.format === 'americano') {
     return t.bracket?.final?.winner_name ?? null;
   } else if (isPairs) {
+    if (t.status !== 'finished') return null;
     const pairRows = t.pairs.map((pair) => {
       const stats  = standings.find((r) => r.id === pair.p1) ?? standings.find((r) => r.id === pair.p2) ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
       const p1Name = t.players.find((p) => p.id === pair.p1)?.name ?? '?';
@@ -106,6 +107,7 @@ export function getTournamentWinnerLabel(t) {
     const top     = pairRows.filter((p) => p.pj > 0 && p.pg === topPg && (p.sf - p.sc) === topDiff);
     return top.length > 0 ? top.map((p) => p.name).join(' / ') : null;
   } else {
+    if (t.status !== 'finished') return null;
     const byWins  = [...standings].sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
     const topPg   = byWins[0]?.pg ?? 0;
     const topDiff = byWins[0] ? byWins[0].sf - byWins[0].sc : 0;

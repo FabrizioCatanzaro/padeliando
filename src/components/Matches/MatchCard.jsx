@@ -33,12 +33,14 @@ export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete
           {getLabel(team2)}
         </div>
       </div>
-      {match.duration_seconds > 0 && (
         <div className="flex flex-row gap-3 items-center justify-center text-xs text-muted font-mono mt-1 text-center">
           <Clock size={12} /> 
-          <span>{String(Math.floor(match.duration_seconds / 60)).padStart(2,"0")}:{String(match.duration_seconds % 60).padStart(2,"0")} min</span>
+          {match.duration_seconds != null ? (
+            <span>{String(Math.floor(match.duration_seconds / 60)).padStart(2,"0")}:{String(match.duration_seconds % 60).padStart(2,"0")} min</span>
+          ) : (
+            <span>--:-- min</span>
+          )}
         </div>
-      )}
       {isOwner && (
         <div className="flex gap-2 mt-2.5 pt-2.5 border-t border-border-mid">
           <div onClick={onEdit}   className="flex flex-row gap-2 items-center bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5">

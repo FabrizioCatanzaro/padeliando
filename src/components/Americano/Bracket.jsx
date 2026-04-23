@@ -1,5 +1,22 @@
-import { useState, useEffect, useRef } from "react";
-import { CircleStop, CirclePlay, Play } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { CircleStop, CirclePlay, Play, Trophy } from "lucide-react";
+import { PairAvatar } from "../shared/PlayerAvatar";
+
+// ── Chip de seed con color según posición ──────────────────────────────────────
+const SEED_TONE = {
+  1: "bg-amber-400 text-base",      // oro
+  2: "bg-slate-300 text-base",       // plata
+  3: "bg-[#cd7f32] text-white",      // bronce
+};
+function SeedChip({ seed }) {
+  if (seed == null) return null;
+  const tone = SEED_TONE[seed] ?? "bg-border-mid text-muted";
+  return (
+    <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-mono font-bold shrink-0 ${tone}`}>
+      {seed}
+    </span>
+  );
+}
 
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 const getLiveKey  = (id) => `bracket_live_${id}`;
@@ -128,7 +145,7 @@ function BracketMatchCard({
       {/* Pareja 1 */}
       <div className={`flex items-center justify-between py-1 px-1 rounded-sm ${isPlayed && match.winner_id === match.pair1_id ? "bg-brand/10" : ""}`}>
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          {seed1 && <span className="text-[10px] font-mono text-muted shrink-0">#{seed1}</span>}
+          <SeedChip seed={seed1} />
           <span className={`font-condensed font-semibold text-[14px] truncate ${
             isTBD1 ? "text-muted italic" :
             isPlayed && match.winner_id === match.pair1_id ? "text-brand" : "text-white"
@@ -148,7 +165,7 @@ function BracketMatchCard({
       {/* Pareja 2 */}
       <div className={`flex items-center justify-between py-1 px-1 rounded-sm ${isPlayed && match.winner_id === match.pair2_id ? "bg-brand/10" : ""}`}>
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          {seed2 && <span className="text-[10px] font-mono text-muted shrink-0">#{seed2}</span>}
+          <SeedChip seed={seed2} />
           <span className={`font-condensed font-semibold text-[14px] truncate ${
             isTBD2 ? "text-muted italic" :
             isPlayed && match.winner_id === match.pair2_id ? "text-brand" : "text-white"
@@ -178,6 +195,23 @@ function BracketMatchCard({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Tarjeta "BYE" para parejas que pasan directo a cuartos ────────────────────
+function BracketByeCard({ bye }) {
+  return (
+    <div className="bg-surface/40 border border-dashed border-border-mid rounded-lg p-3 opacity-75">
+      <div className="flex items-center gap-1.5 py-1 px-1 min-w-0">
+        <SeedChip seed={bye.seed} />
+        <span className="font-condensed font-semibold text-[14px] truncate text-soft">
+          {bye.pair_name ?? "—"}
+        </span>
+      </div>
+      <div className="mt-1.5 text-[9px] tracking-[2px] text-muted/60 font-mono text-center">
+        PASA DIRECTO
+      </div>
     </div>
   );
 }
@@ -323,6 +357,16 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
 
   // Persist liveMatches + sync onSetLiveMatch
   const prevLiveRef = useRef(liveMatches);
+  const findBracketMatchWithPhase = useCallback((matchId) => {
+    if (!bracket) return null;
+    if (bracket.final?.id === matchId) return { match: bracket.final, phase: 'final' };
+    for (const phase of ['octavos', 'cuartos', 'semis']) {
+      const found = bracket[phase]?.find(m => m.id === matchId);
+      if (found) return { match: found, phase };
+    }
+    return null;
+  }, [bracket]);
+
   useEffect(() => {
     const key = getLiveKey(tournament.id);
     if (liveMatches.length > 0) localStorage.setItem(key, JSON.stringify(liveMatches));
@@ -342,17 +386,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
       onSetLiveMatch?.(labels.length > 0 ? labels : null);
     }
     prevLiveRef.current = liveMatches;
-  }, [liveMatches]);
-
-  function findBracketMatchWithPhase(matchId) {
-    if (!bracket) return null;
-    if (bracket.final?.id === matchId) return { match: bracket.final, phase: 'final' };
-    for (const phase of ['octavos', 'cuartos', 'semis']) {
-      const found = bracket[phase]?.find(m => m.id === matchId);
-      if (found) return { match: found, phase };
-    }
-    return null;
-  }
+  }, [liveMatches, tournament.id, findBracketMatchWithPhase, onSetLiveMatch]);
 
   function findBracketMatch(matchId) {
     return findBracketMatchWithPhase(matchId)?.match ?? null;
@@ -482,19 +516,49 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                      bracket.semis?.some(m => m.winner_id)   ||
                      bracket.final?.winner_id;
 
+  // Construye los 8 slots de octavos: reales + "byes" (parejas que pasan directo)
+  // en el orden que dicta la pairing de cuartos, de modo que cada par de slots
+  // alimente al mismo cuarto y el árbol quede balanceado.
+  function buildOctavosSlots() {
+    if (!bracket.octavos?.length) return null;
+    const slots = [];
+    for (const qm of bracket.cuartos) {
+      for (const n of [1, 2]) {
+        const src = qm[`slot${n}_source`];
+        if (src) {
+          const octavo = bracket.octavos.find(m => m.id === src);
+          if (octavo) slots.push({ type: "match", data: octavo });
+        } else {
+          slots.push({
+            type: "bye",
+            data: {
+              pair_id:   qm[`pair${n}_id`],
+              pair_name: qm[`pair${n}_name`],
+              seed:      qm[`slot${n}_seed`],
+            },
+          });
+        }
+      }
+    }
+    return slots;
+  }
+
+  const wrapMatches = (arr) => arr.map(m => ({ type: "match", data: m }));
+  const octavosSlots = buildOctavosSlots();
+
   const phases = [
-    bracket.octavos?.length > 0
-      ? { key: "octavos", label: "OCTAVOS",         matches: bracket.octavos }
+    octavosSlots
+      ? { key: "octavos", label: "OCTAVOS",         items: octavosSlots }
       : null,
-    { key: "cuartos", label: "CUARTOS DE FINAL",     matches: bracket.cuartos },
-    { key: "semis",   label: "SEMIFINALES",           matches: bracket.semis   },
-    { key: "final",   label: "FINAL",                 matches: bracket.final ? [bracket.final] : [] },
+    { key: "cuartos", label: "CUARTOS DE FINAL", items: wrapMatches(bracket.cuartos) },
+    { key: "semis",   label: "SEMIFINALES",     items: wrapMatches(bracket.semis)   },
+    { key: "final",   label: "FINAL",           items: bracket.final ? wrapMatches([bracket.final]) : [] },
   ].filter(Boolean);
 
   // Partidos jugados del bracket (para mostrar como cards)
   const playedBracketMatches = phases
-    .flatMap(p => p.matches)
-    .filter(m => m.winner_id !== null && m.pair1_name && m.pair2_name);  
+    .flatMap(p => p.items.filter(it => it.type === "match").map(it => it.data))
+    .filter(m => m.winner_id !== null && m.pair1_name && m.pair2_name);
 
   return (
     <div>
@@ -527,33 +591,127 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
         </div>
       )}
 
-      {/* Bracket en columnas */}
-      <div className="overflow-x-auto">
-        <div className="flex gap-4 min-w-max pb-4 items-start">
-          {phases.map(phase => (
-            <div key={phase.key} className={`flex flex-col gap-3 ${editMode ? "w-56" : "w-52"}`}>
-              <div className="text-[10px] tracking-[2px] text-brand font-mono text-center mb-1">
-                {phase.label}
-              </div>
-              <div className="flex flex-col gap-3">
-                {phase.matches.map(match => (
-                  <BracketMatchCard
-                    key={match.id}
-                    match={match}
-                    phase={phase.key}
-                    isOwner={isOwner}
-                    standings={standings}
-                    editMode={editMode}
-                    draftMatch={getDraftMatch(phase.key, match.id)}
-                    allPairs={standings}
-                    onPairChange={updateDraftPair}
-                    isLive={liveMatches.some(lm => lm.matchId === match.id)}
-                    onToggleLive={() => handleToggleLive(match.id)}
-                  />
-                ))}
-              </div>
+      {/* Momento campeón — solo cuando la final está definida y no estamos editando */}
+      {!editMode && bracket.final?.winner_name && (() => {
+        const winnerPair = tournament.pairs?.find((p) => p.id === bracket.final.winner_id);
+        const wp1 = winnerPair ? tournament.players.find((p) => p.id === winnerPair.p1) : null;
+        const wp2 = winnerPair ? tournament.players.find((p) => p.id === winnerPair.p2) : null;
+        return (
+        <div className="relative mb-6 overflow-hidden rounded-lg border border-amber-400/40 bg-gradient-to-b from-amber-400/15 via-amber-400/5 to-transparent p-6 text-center">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
+          <Trophy size={36} className="mx-auto mb-2 text-amber-400" />
+          <div className="font-mono text-[10px] tracking-[4px] text-amber-400/70 mb-1.5">CAMPEONES</div>
+          {winnerPair && (
+            <div className="flex justify-center mb-2">
+              <PairAvatar
+                name1={wp1?.name ?? "?"}
+                name2={wp2?.name ?? "?"}
+                src1={wp1?.linked_avatar_url ?? null}
+                src2={wp2?.linked_avatar_url ?? null}
+                size={56}
+              />
             </div>
-          ))}
+          )}
+          <div className="font-condensed font-black text-[24px] text-white leading-tight">
+            {bracket.final.winner_name}
+          </div>
+          {bracket.final.score1 != null && bracket.final.score2 != null && (
+            <div className="mt-2 font-mono text-[11px] text-muted">
+              Final: {Math.max(bracket.final.score1, bracket.final.score2)}
+              <span className="text-border-strong mx-1.5">—</span>
+              {Math.min(bracket.final.score1, bracket.final.score2)}
+            </div>
+          )}
+        </div>
+        );
+      })()}
+
+      {/* Bracket en columnas — altura mínima compartida para que cada columna
+          distribuya sus cards con justify-around y se alineen como un árbol. */}
+      <div className="overflow-x-auto">
+        <div
+          className="flex gap-10 min-w-max pb-4 items-stretch"
+          style={{ minHeight: `${Math.max(...phases.map(p => p.items.length)) * 140}px` }}
+        >
+          {phases.map((phase, phaseIdx) => {
+            const isFirst    = phaseIdx === 0;
+            const isLast     = phaseIdx === phases.length - 1;
+            const nextLen    = phases[phaseIdx + 1]?.items.length ?? 0;
+            // shouldPair: el árbol es balanceado (esta columna dobla a la siguiente).
+            // Con los byes virtuales, octavos siempre tiene 8 items y cuartos 4.
+            const shouldPair = !isLast && phase.items.length === 2 * nextLen;
+
+            const renderItem = (item, idx) => {
+              const key = item.type === "match" ? item.data.id : `bye-${phase.key}-${idx}`;
+              return (
+                <div key={key} className="relative">
+                  {item.type === "match" ? (
+                    <BracketMatchCard
+                      match={item.data}
+                      phase={phase.key}
+                      isOwner={isOwner}
+                      standings={standings}
+                      editMode={editMode}
+                      draftMatch={getDraftMatch(phase.key, item.data.id)}
+                      allPairs={standings}
+                      onPairChange={updateDraftPair}
+                      isLive={liveMatches.some(lm => lm.matchId === item.data.id)}
+                      onToggleLive={() => handleToggleLive(item.data.id)}
+                    />
+                  ) : (
+                    <BracketByeCard bye={item.data} />
+                  )}
+                </div>
+              );
+            };
+
+            // Líneas fijas al 25%/75% del pair-group — independiente de la altura real
+            // de cada card, así mixing bye (más bajo) + match (más alto) no desalinea.
+            const connectorRight = !isLast && (
+              <>
+                <span className="absolute left-full top-1/4 -translate-y-1/2 w-5 h-px bg-border-mid pointer-events-none" />
+                <span className="absolute left-full top-3/4 -translate-y-1/2 w-5 h-px bg-border-mid pointer-events-none" />
+                <span className="absolute left-full top-1/4 bottom-1/4 ml-5 w-px bg-border-mid pointer-events-none" />
+              </>
+            );
+            const connectorLeft = !isFirst && (
+              <>
+                <span className="absolute right-full top-1/4 -translate-y-1/2 w-5 h-px bg-border-mid pointer-events-none" />
+                <span className="absolute right-full top-3/4 -translate-y-1/2 w-5 h-px bg-border-mid pointer-events-none" />
+              </>
+            );
+
+            return (
+              <div key={phase.key} className={`flex flex-col ${editMode ? "w-56" : "w-52"} shrink-0`}>
+                <div className="text-[10px] tracking-[2px] text-brand font-mono text-center mb-3">
+                  {phase.label}
+                </div>
+                {shouldPair ? (
+                  <div className="flex flex-col flex-1 justify-around">
+                    {Array.from({ length: phase.items.length / 2 }).map((_, gi) => (
+                      <div
+                        key={gi}
+                        className="relative flex flex-col justify-around flex-1"
+                      >
+                        {renderItem(phase.items[gi * 2], gi * 2)}
+                        {renderItem(phase.items[gi * 2 + 1], gi * 2 + 1)}
+                        {connectorRight}
+                        {connectorLeft}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={`relative flex flex-col flex-1 ${phase.items.length === 1 ? "justify-center" : "justify-around"}`}>
+                    {phase.items.map(renderItem)}
+                    {/* Final (1 ítem): tick al 50% del contenedor */}
+                    {!isFirst && phase.items.length === 1 && (
+                      <span className="absolute right-full top-1/2 -translate-y-1/2 w-5 h-px bg-border-mid pointer-events-none" />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

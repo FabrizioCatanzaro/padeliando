@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getPairLabel } from "../../utils/helpers";
 import { CirclePlay, CircleStop, CircleX, Play } from "lucide-react";
+import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 
@@ -96,9 +97,7 @@ function ScoreCounter({ value, onChange, color = "text-brand" }) {
 }
 
 // ── Scores + fecha ────────────────────────────────────────────────────────────
-function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, onTimerChange }) {
-  const timerDone = isEditing || (timerState.startedAt !== null && timerState.stoppedAt !== null);
-
+function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, onTimerChange, team1Avatar, team2Avatar }) {
   function handleTimerStop(seconds) {
     if (seconds === null) {
       setForm((f) => ({ ...f, duration_seconds: null }));
@@ -110,9 +109,9 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, 
   return (
     <div className="mt-4">
       <div className="flex justify-between items-center mb-2">
-        <div className="text-[11px] tracking-[2px] text-brand font-mono font-bold">🟡 P1</div>
+        <div className="flex items-center gap-2">{team1Avatar}</div>
         <div className="font-condensed font-black text-[32px] text-border-strong text-center mx-2">VS</div>
-        <div className="text-[11px] tracking-[2px] text-cyan font-mono font-bold">🔵 P2</div>
+        <div className="flex items-center gap-2">{team2Avatar}</div>
       </div>
       <div className="flex gap-4 justify-center items-center">
         <ScoreCounter value={form.score1} onChange={(v) => setForm((f) => ({ ...f, score1: v }))} color="text-brand" />
@@ -133,7 +132,7 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, 
       </div>
 
         <div className="flex gap-2.5 mt-4">
-          <button onClick={onSave} disabled={(form.score1 === form.score2) || (!timerDone)} className={`text-base border-0 flex-1 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm ${((form.score1 === form.score2) || (!timerDone))? "bg-border-mid text-muted cursor-not-allowed" : "bg-brand cursor-pointer"}`}>
+          <button onClick={onSave} disabled={form.score1 === form.score2} className={`text-base border-0 flex-1 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm ${form.score1 === form.score2 ? "bg-border-mid text-muted cursor-not-allowed" : "bg-brand cursor-pointer"}`}>
             {isEditing ? "GUARDAR CAMBIOS" : "REGISTRAR PARTIDO"}
           </button>
           <button onClick={onCancel} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans">
@@ -147,6 +146,25 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, 
 // ── Pairs mode ────────────────────────────────────────────────────────────────
 function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, timerState, onTimerChange }) {
   const { pairs, players } = tournament;
+  const removedIds    = new Set(players.filter((p) => p.removed).map((p) => p.id));
+  const selectablePairs = pairs.filter((p) => !removedIds.has(p.p1) && !removedIds.has(p.p2));
+
+  function pairAvatarFor(pairId) {
+    const pair = pairs.find((p) => p.id === pairId);
+    if (!pair) return null;
+    const p1 = players.find((pl) => pl.id === pair.p1);
+    const p2 = players.find((pl) => pl.id === pair.p2);
+    return (
+      <PairAvatar
+        name1={p1?.name ?? "?"}
+        name2={p2?.name ?? "?"}
+        src1={p1?.linked_avatar_url ?? null}
+        src2={p2?.linked_avatar_url ?? null}
+        size={26}
+      />
+    );
+  }
+
   return (
     <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
       <div className="flex flex-row items-center justify-between font-condensed font-bold text-[14px] tracking-[2px] text-muted mb-4">
@@ -159,28 +177,39 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, tim
           <select className="w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none mb-2"
             value={form.team1Pair || ""} onChange={(e) => setForm({ ...form, team1Pair: e.target.value })}>
             <option value="">Seleccionar pareja</option>
-            {pairs.map((p) => (
+            {selectablePairs.map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === form.team2Pair}>
                 {getPairLabel(p.id, pairs, players)}
               </option>
             ))}
           </select>
+          {/* {form.team1Pair && (
+            <div className="flex items-center gap-2 mt-1">{pairAvatarFor(form.team1Pair)}</div>
+          )} */}
         </div>
         <div className="flex-1 min-w-35">
           <div className="text-[11px] tracking-[2px] text-cyan font-mono mb-2 font-bold">🔵 PAREJA 2</div>
           <select className="w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none mb-2"
             value={form.team2Pair || ""} onChange={(e) => setForm({ ...form, team2Pair: e.target.value })}>
             <option value="">Seleccionar pareja</option>
-            {pairs.map((p) => (
+            {selectablePairs.map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === form.team1Pair}>
                 {getPairLabel(p.id, pairs, players)}
               </option>
             ))}
           </select>
+          {/* {form.team2Pair && (
+            <div className="flex items-center gap-2 mt-1">{pairAvatarFor(form.team2Pair)}</div>
+          )} */}
         </div>
       </div>
       {form.team1Pair && form.team2Pair && (
-        <ScoreSection form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel} timerState={timerState} onTimerChange={onTimerChange} />
+        <ScoreSection
+          form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel}
+          timerState={timerState} onTimerChange={onTimerChange}
+          team1Avatar={pairAvatarFor(form.team1Pair)}
+          team2Avatar={pairAvatarFor(form.team2Pair)}
+        />
       )}
     </div>
   );
@@ -189,6 +218,7 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, tim
 // ── Free mode ─────────────────────────────────────────────────────────────────
 function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, timerState, onTimerChange }) {
   const { players } = tournament;
+  const selectablePlayers = players.filter((p) => !p.removed);
   const allSelected = [...form.team1, ...form.team2].filter(Boolean);
 
   function updateTeam(side, index, value) {
@@ -199,6 +229,20 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, time
 
   const teamsComplete = form.team1[0] && form.team1[1] && form.team2[0] && form.team2[1];
 
+  function teamAvatars(ids) {
+    const p1 = players.find((p) => p.id === ids[0]);
+    const p2 = players.find((p) => p.id === ids[1]);
+    return (
+      <PairAvatar
+        name1={p1?.name ?? "?"}
+        name2={p2?.name ?? "?"}
+        src1={p1?.linked_avatar_url ?? null}
+        src2={p2?.linked_avatar_url ?? null}
+        size={26}
+      />
+    );
+  }
+
   return (
     <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
       <div className="font-condensed font-bold text-[14px] tracking-[2px] text-muted mb-4">
@@ -207,35 +251,56 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, time
       <div className="flex gap-3 flex-wrap">
         <div className="flex-1 min-w-35">
           <div className="text-[11px] tracking-[2px] text-brand font-mono mb-2 font-bold">🟡 EQUIPO 1</div>
-          {[0, 1].map((i) => (
-            <select key={i} className="w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none mb-2"
-              value={form.team1[i]} onChange={(e) => updateTeam("team1", i, e.target.value)}>
-              <option value="">Jugador {i + 1}</option>
-              {players.map((p) => (
-                <option key={p.id} value={p.id} disabled={allSelected.includes(p.id) && form.team1[i] !== p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          ))}
+          {[0, 1].map((i) => {
+            const selected = selectablePlayers.find((p) => p.id === form.team1[i]);
+            return (
+              <div key={i} className="flex items-center gap-2 mb-2">
+                {selected && (
+                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} />
+                )}
+                <select className="flex-1 w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+                  value={form.team1[i]} onChange={(e) => updateTeam("team1", i, e.target.value)}>
+                  <option value="">Jugador {i + 1}</option>
+                  {selectablePlayers.map((p) => (
+                    <option key={p.id} value={p.id} disabled={allSelected.includes(p.id) && form.team1[i] !== p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
         </div>
         <div className="flex-1 min-w-35">
           <div className="text-[11px] tracking-[2px] text-cyan font-mono mb-2 font-bold">🔵 EQUIPO 2</div>
-          {[0, 1].map((i) => (
-            <select key={i} className="w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none mb-2"
-              value={form.team2[i]} onChange={(e) => updateTeam("team2", i, e.target.value)}>
-              <option value="">Jugador {i + 1}</option>
-              {players.map((p) => (
-                <option key={p.id} value={p.id} disabled={allSelected.includes(p.id) && form.team2[i] !== p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          ))}
+          {[0, 1].map((i) => {
+            const selected = selectablePlayers.find((p) => p.id === form.team2[i]);
+            return (
+              <div key={i} className="flex items-center gap-2 mb-2">
+                {selected && (
+                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} />
+                )}
+                <select className="flex-1 w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+                  value={form.team2[i]} onChange={(e) => updateTeam("team2", i, e.target.value)}>
+                  <option value="">Jugador {i + 1}</option>
+                  {selectablePlayers.map((p) => (
+                    <option key={p.id} value={p.id} disabled={allSelected.includes(p.id) && form.team2[i] !== p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
         </div>
       </div>
       {teamsComplete && (
-        <ScoreSection form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel} timerState={timerState} onTimerChange={onTimerChange} />
+        <ScoreSection
+          form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel}
+          timerState={timerState} onTimerChange={onTimerChange}
+          team1Avatar={teamAvatars(form.team1)}
+          team2Avatar={teamAvatars(form.team2)}
+        />
       )}
     </div>
   );

@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fmt, calcStandings } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
+import { useAuth } from "../../context/useAuth";
 import Standings    from "../Standings/Standings";
 import Matches      from "../Matches/Matches";
 import Stats        from "../Stats/Stats";
 import Management   from "../Management/Management";
 import Previa       from "../Americano/Previa";
 import Bracket      from "../Americano/Bracket";
+import PhotoGallery from "../Photos/PhotoGallery";
 import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split } from "lucide-react";
 import Loader from "../Loader/Loader";
 
@@ -29,8 +31,11 @@ const AMERICANO_TABS = [
 export default function Main() {
   const { groupId, tournamentId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const isPremium = user?.subscription?.plan === 'premium';
   const {
-    tournament, loading, error, saved, isOwner,
+    tournament, groupName, groupEmojis, loading, error, saved, isOwner,
     handleAddMatch, handleEditMatch, handleDeleteMatch,
     handleAddPlayer, handleEditPlayer, handleDeletePlayer,
     handleAddPair, handleEditPair, handleDeletePair,
@@ -62,6 +67,7 @@ export default function Main() {
 
   const isAmericano = tournament.format === 'americano';
   const TABS = isAmericano ? AMERICANO_TABS : LIGA_TABS;
+  const canEditMatches = isOwner && tournament.status !== 'finished';
 
   const shareLink   = getShareLink();
   const bracketPlayed = isAmericano
@@ -116,50 +122,107 @@ export default function Main() {
 
   return (
     <div className="bg-base text-content font-sans pb-15">
-      <div className="px-6 pt-6 pb-5 flex justify-between items-start flex-wrap gap-3 border-b border-border">
-        <div>
-          <div onClick={() => navigate(`/groups/${groupId}`)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mb-2">
-            <ChevronLeft size={15} />
-            <span>Volver</span>
+      <div className="px-6 pt-5 pb-5 border-b border-border bg-gradient-to-b from-surface/25 to-transparent">
+        {/* Breadcrumbs + acciones principales */}
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div
+              onClick={() => navigate(`/groups/${groupId}`)}
+              className="flex flex-row gap-1.5 items-center text-muted border border-border-strong px-2.5 py-1 text-[11px] cursor-pointer rounded-sm font-sans hover:text-white transition-colors"
+            >
+              <ChevronLeft size={14} />
+              <span>Volver</span>
+            </div>
+            {groupName && (
+              <div
+                onClick={() => navigate(`/groups/${groupId}`)}
+                className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 cursor-pointer hover:border-border-strong transition-colors"
+              >
+                {groupEmojis?.length > 0 && (
+                  <span className="text-sm leading-none">{groupEmojis.join(' ')}</span>
+                )}
+                <span className="text-[11px] font-mono text-muted">{groupName}</span>
+              </div>
+            )}
           </div>
-          {editingName ? (
-            <div className="flex items-center gap-2">
-              <input
-                autoFocus
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && nameInput.trim()) { handleUpdateName(nameInput.trim()); setEditingName(false); }
-                  if (e.key === 'Escape') setEditingName(false);
-                }}
-                className="bg-surface border border-border-mid text-white px-2.5 py-1 font-condensed font-bold text-[24px] tracking-wide rounded-sm outline-none"
-              />
-              <div onClick={() => { if (nameInput.trim()) { handleUpdateName(nameInput.trim()); } setEditingName(false); }} className="bg-brand text-base border-0 px-2 py-2 font-condensed font-bold text-[12px] cursor-pointer rounded-sm">
-                <Check size={15} />
-              </div>
-              <div onClick={() => setEditingName(false)} className="bg-transparent text-muted border border-border-strong px-2 py-2 font-condensed text-[12px] cursor-pointer rounded-sm">
-                <X size={15} />
-              </div>
+          <div
+            onClick={copyLink}
+            className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold tracking-wide text-[13px] cursor-pointer rounded-sm inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+          >
+            {copied ? (
+              <>
+                <Check size={14} />
+                <span>COPIADO!</span>
+              </>
+            ) : (
+              <>
+                <Share2 size={14} />
+                <span>COMPARTIR</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Título + edit */}
+        {editingName ? (
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              autoFocus
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && nameInput.trim()) { handleUpdateName(nameInput.trim()); setEditingName(false); }
+                if (e.key === 'Escape') setEditingName(false);
+              }}
+              className="bg-surface border border-border-mid text-white px-2.5 py-1 font-condensed font-bold text-[28px] tracking-wide rounded-sm outline-none flex-1 min-w-0 max-w-md"
+            />
+            <div onClick={() => { if (nameInput.trim()) { handleUpdateName(nameInput.trim()); } setEditingName(false); }} className="bg-brand text-base border-0 px-2 py-2 font-condensed font-bold text-[12px] cursor-pointer rounded-sm">
+              <Check size={15} />
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="font-condensed font-bold text-[28px] text-white tracking-wide">{tournament.name}</div>
-              {isOwner && (
-                <div onClick={() => { setNameInput(tournament.name); setEditingName(true); }} className="bg-transparent text-muted border border-border-strong px-2 py-2 text-[11px] cursor-pointer rounded-sm font-sans">
-                  <Pencil size={13}/>
-                </div>
-              )}
+            <div onClick={() => setEditingName(false)} className="bg-transparent text-muted border border-border-strong px-2 py-2 font-condensed text-[12px] cursor-pointer rounded-sm">
+              <X size={15} />
             </div>
-          )}
-          <span className={`text-xs font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 mb-2">
+            <h1 className="font-condensed font-bold text-[32px] text-white tracking-wide leading-tight">
+              {tournament.name}
+            </h1>
+            {isOwner && (
+              <div
+                onClick={() => { setNameInput(tournament.name); setEditingName(true); }}
+                className="bg-transparent text-muted border border-border-strong px-1.5 py-1.5 text-[11px] cursor-pointer rounded-sm font-sans hover:text-white transition-colors"
+              >
+                <Pencil size={12} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Estado + ganador */}
+        <div className="flex items-center gap-3 flex-wrap mb-3">
+          <span className={`text-[11px] font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
             {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
           </span>
           {winnerLabel && (
-            <div className="flex items-center gap-2 text-[12px] text-brand font-mono mt-0.5"><Trophy size={14} /> {winnerLabel}</div>
+            <span className="inline-flex items-center gap-1.5 text-[13px] text-brand font-mono">
+              <Trophy size={13} /> {winnerLabel}
+            </span>
           )}
-          <div className="text-[11px] text-muted font-mono mt-1">
-            Creado el {fmt(tournament.createdAt)} · {isAmericano ? `${tournament.pairs.length} parejas` : `${tournament.players.length} jugadores`} ·{" "}
-            {playedCount} partidos ·{" "}
+        </div>
+
+        {/* Chips con datos de la jornada */}
+        <div className="flex gap-1.5 flex-wrap">
+          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
+            {fmt(tournament.createdAt)}
+          </span>
+          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
+            {isAmericano ? `${tournament.pairs.length} parejas` : `${tournament.players.filter((p) => !p.removed).length} jugadores`}
+          </span>
+          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
+            {playedCount} partidos
+          </span>
+          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono">
             {isAmericano ? (
               <span className="text-brand">americano</span>
             ) : (
@@ -167,20 +230,7 @@ export default function Main() {
                 {tournament.mode === "pairs" ? "parejas fijas" : "equipos libres"}
               </span>
             )}
-          </div>
-        </div>
-        <div onClick={copyLink} className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold tracking-wide text-sm cursor-pointer rounded-sm">
-          {copied ? (
-            <div className="flex flex-row items-center justify-between gap-2">
-              <Check size={15} />
-              <span>COPIADO!</span>
-            </div>
-          ) : (
-            <div className="flex flex-row items-center justify-between gap-2">
-              <Share2 size={15} />
-              <span>COMPARTIR</span>
-            </div>
-          )}
+          </span>
         </div>
       </div>
 
@@ -210,14 +260,14 @@ export default function Main() {
       <div className="p-6">
         {/* Liga tabs */}
         {activeTab === "standings"  && <Standings  tournament={tournament} />}
-        {activeTab === "matches"    && <Matches    tournament={tournament} isOwner={isOwner} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
+        {activeTab === "matches"    && <Matches    tournament={tournament} isOwner={canEditMatches} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
         {activeTab === "stats"      && <Stats      tournament={tournament} />}
 
         {/* Americano tabs */}
         {activeTab === "previa" && (
           <Previa
             tournament={tournament}
-            isOwner={isOwner}
+            isOwner={canEditMatches}
             onAddMatch={handleAddMatch}
             onEditMatch={handleEditMatch}
             onDeleteMatch={handleDeleteMatch}
@@ -229,7 +279,7 @@ export default function Main() {
         {activeTab === "bracket" && (
           <Bracket
             tournament={tournament}
-            isOwner={isOwner}
+            isOwner={canEditMatches}
             onGenerateBracket={handleGenerateBracket}
             onUpdateMatch={handleUpdateBracketMatch}
             onSetBracket={handleSetBracket}
@@ -253,6 +303,12 @@ export default function Main() {
             onToggleStatus={handleToggleStatus}
           />
         )}
+
+        <PhotoGallery
+          tournamentId={tournament.id}
+          isOwner={isOwner}
+          canUpload={isOwner && isPremium}
+        />
       </div>
     </div>
   );

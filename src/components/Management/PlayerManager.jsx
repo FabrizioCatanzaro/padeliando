@@ -1,6 +1,7 @@
 import { useState } from "react";
 import PlayerInput from "../Setup/PlayerInput";
 import Modal from "../shared/Modal";
+import PlayerAvatar from "../shared/PlayerAvatar";
 import { Pencil, Trash2, UserPlus, X, Clock, Check } from "lucide-react";
 import { api } from "../../utils/api";
 import { useAuth } from "../../context/useAuth";
@@ -93,7 +94,7 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
       )}
 
       <div className="flex flex-col gap-1.5">
-        {tournament.players.map((p) => (
+        {tournament.players.filter((p) => !p.removed).map((p) => (
           <div key={p.id} className="flex flex-col bg-base border border-border-mid rounded-md px-3 py-2 gap-1.5">
             {editId === p.id ? (
               <div className="flex items-center gap-2">
@@ -109,6 +110,7 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
               </div>
             ) : (
               <div className="flex items-center gap-2">
+                <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} />
                 <span className="flex-1 text-content font-sans">{p.name}</span>
 
                 {/* Badge de vinculación */}
@@ -199,6 +201,28 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
           </div>
         ))}
       </div>
+
+      {tournament.players.some((p) => p.removed) && (
+        <div className="mt-4">
+          <div className="font-condensed font-bold text-[11px] tracking-[3px] text-muted mb-2 opacity-70">ELIMINADOS DE LA JORNADA</div>
+          <div className="flex flex-col gap-1.5">
+            {tournament.players.filter((p) => p.removed).map((p) => (
+              <div key={p.id} className="flex items-center gap-2 bg-base border border-dashed border-border-mid rounded-md px-3 py-2 opacity-60">
+                <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={24} />
+                <span className="flex-1 text-muted font-sans line-through">{p.name}</span>
+                {hasMatches(p.id) && (
+                  <span className="text-[10px] text-muted font-mono">
+                    {tournament.matches.filter(m => [...m.team1, ...m.team2].includes(p.id)).length}P
+                  </span>
+                )}
+                <span className="text-[10px] font-mono text-muted border border-border-strong px-1.5 py-0.5 rounded">
+                  eliminado
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <Modal

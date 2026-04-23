@@ -2,6 +2,20 @@ import { clearUser } from './auth'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
+async function handleAuth401(method, path, retry, replay) {
+  if (!(retry && path !== '/auth/refresh' && path !== '/auth/login' && path !== '/auth/me')) return null
+  const refreshed = await fetch(`${BASE}/api/auth/refresh`, {
+    method: 'POST', credentials: 'include',
+  })
+  if (refreshed.ok) return replay()
+  clearUser()
+  const p = window.location.pathname
+  if (p !== '/login' && p !== '/register' && !p.startsWith('/reset-password/')) {
+    window.location.href = '/login?expired=1'
+  }
+  throw new Error('Sesión expirada')
+}
+
 async function req(method, path, body, retry = true) {
   const res = await fetch(`${BASE}/api${path}`, {
     method,
@@ -10,25 +24,40 @@ async function req(method, path, body, retry = true) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
-  if (res.status === 401 && retry && path !== '/auth/refresh' && path !== '/auth/login' && path !== '/auth/me') {
-    const refreshed = await fetch(`${BASE}/api/auth/refresh`, {
-      method: 'POST', credentials: 'include',
-    })
-    if (refreshed.ok) {
-      return req(method, path, body, false)
-    } else {
-      clearUser()
-      const p = window.location.pathname
-      if (p !== '/login' && p !== '/register' && !p.startsWith('/reset-password/')) {
-        window.location.href = '/login?expired=1'
-      }
-      throw new Error('Sesión expirada')
-    }
+  if (res.status === 401) {
+    const replayed = await handleAuth401(method, path, retry, () => req(method, path, body, false))
+    if (replayed !== null) return replayed
   }
 
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'Error desconocido')
   return data
+}
+
+async function reqMultipart(method, path, formData, retry = true) {
+  const res = await fetch(`${BASE}/api${path}`, {
+    method,
+    credentials: 'include',
+    body: formData,
+  })
+
+  if (res.status === 401) {
+    const replayed = await handleAuth401(method, path, retry, () => reqMultipart(method, path, formData, false))
+    if (replayed !== null) return replayed
+  }
+
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error ?? 'Error desconocido')
+  return data
+}
+
+function imageForm(file, extraFields = {}) {
+  const fd = new FormData()
+  fd.append('image', file)
+  for (const [k, v] of Object.entries(extraFields)) {
+    if (v !== undefined && v !== null && v !== '') fd.append(k, v)
+  }
+  return fd
 }
 
 export const api = {
@@ -42,6 +71,8 @@ export const api = {
     forgotPassword: (email)       => req('POST',  '/auth/forgot-password',  { email }),
     resetPassword:  (token, pass) => req('POST',  '/auth/reset-password',   { token, password: pass }),
     updateMe:       (body)        => req('PATCH', '/auth/me', body),
+    uploadAvatar:   (file)        => reqMultipart('POST',   '/auth/me/avatar', imageForm(file)),
+    deleteAvatar:   ()            => req('DELETE', '/auth/me/avatar'),
   },
   groups: {
     list:          ()         => req('GET',    '/groups'),
@@ -97,5 +128,11 @@ export const api = {
     me:       ()                => req('GET',  '/subscriptions/me'),
     checkout: (billing_period)  => req('POST', '/subscriptions/checkout', { billing_period }),
     cancel:   ()                => req('POST', '/subscriptions/cancel'),
+  },
+  photos: {
+    list:          (tournamentId)                       => req('GET',    `/tournaments/${tournamentId}/photos`),
+    upload:        (tournamentId, file, caption)        => reqMultipart('POST', `/tournaments/${tournamentId}/photos`, imageForm(file, { caption })),
+    updateCaption: (tournamentId, photoId, caption)     => req('PATCH',  `/tournaments/${tournamentId}/photos/${photoId}`, { caption }),
+    delete:        (tournamentId, photoId)              => req('DELETE', `/tournaments/${tournamentId}/photos/${photoId}`),
   },
 }
