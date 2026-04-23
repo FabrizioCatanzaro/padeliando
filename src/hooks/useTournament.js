@@ -7,6 +7,8 @@ export function useTournament(groupId, tournamentId) {
   const { user } = useAuth();
   const [tournament, setTournament] = useState(null);
   const [groupOwnerId, setGroupOwnerId] = useState(null);
+  const [groupName, setGroupName] = useState(null);
+  const [groupEmojis, setGroupEmojis] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [saved,      setSaved]      = useState(false);
@@ -22,6 +24,8 @@ export function useTournament(groupId, tournamentId) {
       if (gId) {
         const g = await api.groups.get(gId);
         setGroupOwnerId(g.user_id);
+        setGroupName(g.name);
+        setGroupEmojis(g.emojis ?? []);
       }
     } catch (e) {
       setError(e.message);
@@ -85,7 +89,7 @@ export function useTournament(groupId, tournamentId) {
   // ── Jugadores ───────────────────────────────────────────────────────
   async function syncMode() {
     const t = await api.tournaments.get(tournamentId);
-    const count = (t.players ?? []).length;
+    const count = (t.players ?? []).filter((p) => !p.removed).length;
     const expected = count % 2 !== 0 ? 'free' : 'pairs';
     if (expected !== t.mode) {
       await api.tournaments.update(t.id, { mode: expected });
@@ -188,7 +192,7 @@ export function useTournament(groupId, tournamentId) {
   const isOwner = !!user && !!tournament && groupOwnerId != null && String(groupOwnerId) === String(user.id);
 
   return {
-    tournament, loading, error, saved, isOwner,
+    tournament, groupName, groupEmojis, loading, error, saved, isOwner,
     handleCreate,
     handleAddMatch,    handleEditMatch,    handleDeleteMatch,
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
