@@ -12,6 +12,7 @@ import Setup        from './components/Setup/Setup'
 import MainView     from './components/Main/Main'
 import ReadonlyView    from './components/ReadonlyView/ReadonlyView'
 import InvitationsView    from './components/Invitations/InvitationsView'
+import TutorialView      from './components/Tutorial/TutorialView'
 //import SubscriptionTest    from './components/Subscription/SubscriptionTest'
 //import SubscriptionSuccess from './components/Subscription/SubscriptionSuccess'
 
@@ -21,9 +22,9 @@ function Layout() {
       <Header />
 
       {/* Banner superior — solo mobile/tablet */}
-      <div className="xl:hidden w-full flex justify-center py-1 border-b border-gray-100/10">
+      {/* <div className="xl:hidden w-full flex justify-center py-1 border-b border-gray-100/10">
         <AdBanner slot="mobile-top" />
-      </div>
+      </div> */}
 
       <div className="flex-1 flex justify-center">
         {/* Banner lateral izquierdo — solo desktop */}
@@ -45,9 +46,9 @@ function Layout() {
       <Footer />
 
       {/* Banner inferior fijo — solo mobile/tablet */}
-      <div className="xl:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100/10 flex items-center justify-center h-14">
+      {/* <div className="xl:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100/10 flex items-center justify-center h-14">
         <AdBanner slot="mobile-bottom" />
-      </div>
+      </div> */}
     </div>
   )
 }
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/groups/:groupId/tournament/new"            element={<PrivateRoute><Setup /></PrivateRoute>} />
         <Route path="/groups/:groupId/tournament/:tournamentId"  element={<MainView />} />
         <Route path="/invitations"                               element={<PrivateRoute><InvitationsView /></PrivateRoute>} />
+        <Route path="/tutorial"                                  element={<TutorialView />} />
         {/* <Route path="/subscription"                              element={<PrivateRoute><SubscriptionTest /></PrivateRoute>} /> */}
         {/* <Route path="/subscription/success"                      element={<PrivateRoute><SubscriptionSuccess /></PrivateRoute>} /> */}
         <Route path="*"                                          element={<Navigate to="/" replace />} />
