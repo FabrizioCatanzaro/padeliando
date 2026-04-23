@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2 } from 'lucide-react';
 import FadeInCard from '../shared/FadeInCard';
 import Loader from '../Loader/Loader';
+import PlayerAvatar from '../shared/PlayerAvatar';
+import AvatarCropper from '../shared/AvatarCropper';
+
+const MAX_AVATAR_BYTES  = 5 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function PasswordInput({ value, onChange, placeholder = '* * * * * * *' }) {
   const [show, setShow] = useState(false)
@@ -66,7 +71,6 @@ export default function ProfileView() {
   const { user, login } = useAuth();
 
   // edit state
-  const [editing,      setEditing]      = useState(false);
   const [editName,     setEditName]     = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [currentPass,  setCurrentPass]  = useState('');
@@ -75,6 +79,14 @@ export default function ProfileView() {
   const [saving,       setSaving]       = useState(false);
   const [saveError,    setSaveError]    = useState(null);
   const [saveOk,       setSaveOk]       = useState(false);
+  const [copied,       setCopied]       = useState(false);
+
+  // avatar state
+  const fileInputRef = useRef(null);
+  const [avatarUrl,      setAvatarUrl]      = useState(null);
+  const [avatarBusy,     setAvatarBusy]     = useState(false);
+  const [avatarError,    setAvatarError]    = useState(null);
+  const [cropFile,       setCropFile]       = useState(null);
 
   useEffect(() => {
     api.groups.byUsername(username)
@@ -82,6 +94,7 @@ export default function ProfileView() {
         setData(d);
         setEditName(d.owner.name);
         setEditUsername(d.owner.username);
+        setAvatarUrl(d.owner.avatar_url ?? null);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -92,6 +105,82 @@ export default function ProfileView() {
 
   const { owner, groups, stats } = data;
   const isOwnProfile = user?.username === owner.username;
+  const displayAvatar = avatarUrl ?? (isOwnProfile ? user?.avatar_url : null) ?? null;
+
+  const hasChanges =
+    editName.trim() !== owner.name ||
+    editUsername.trim() !== owner.username ||
+    newPass !== '' ||
+    currentPass !== '';
+
+  function handleCancel() {
+    setEditName(owner.name);
+    setEditUsername(owner.username);
+    setCurrentPass(''); setNewPass(''); setNewPass2('');
+    setSaveError(null); setSaveOk(false);
+  }
+
+  function handleCopyUsername() {
+    navigator.clipboard.writeText(editUsername);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  function pickAvatar() {
+    if (avatarBusy) return;
+    setAvatarError(null);
+    fileInputRef.current?.click();
+  }
+
+  function handleAvatarChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      setAvatarError('Formato no soportado. Usá jpeg, png o webp');
+      return;
+    }
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatarError('La imagen excede el tamaño máximo (5 MB)');
+      return;
+    }
+
+    setAvatarError(null);
+    setCropFile(file);
+  }
+
+  async function handleCropSave(blob) {
+    setAvatarBusy(true);
+    setAvatarError(null);
+    try {
+      const cropped = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      const updated = await api.auth.uploadAvatar(cropped);
+      setAvatarUrl(updated.avatar_url);
+      if (isOwnProfile) login({ ...user, avatar_url: updated.avatar_url });
+      setCropFile(null);
+    } catch (err) {
+      setAvatarError(err.message);
+      throw err;
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  async function handleAvatarDelete() {
+    if (avatarBusy) return;
+    setAvatarBusy(true);
+    setAvatarError(null);
+    try {
+      await api.auth.deleteAvatar();
+      setAvatarUrl(null);
+      if (isOwnProfile) login({ ...user, avatar_url: null });
+    } catch (err) {
+      setAvatarError(err.message);
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
 
   async function handleSave() {
     setSaveError(null); setSaveOk(false);
@@ -112,8 +201,6 @@ export default function ProfileView() {
       body.new_password = newPass;
     }
 
-    if (Object.keys(body).length === 0) { setEditing(false); return; }
-
     setSaving(true);
     try {
       const updated = await api.auth.updateMe(body);
@@ -128,7 +215,6 @@ export default function ProfileView() {
       setCurrentPass(''); setNewPass(''); setNewPass2('');
       setTimeout(() => {
         setSaveOk(false);
-        setEditing(false);
         if (newUsername !== username) navigate(`/u/${newUsername}`, { replace: true });
       }, 1200);
     } catch (e) {
@@ -147,10 +233,49 @@ export default function ProfileView() {
 
         {/* Cabecera de perfil */}
         <div className="mb-6 flex justify-between items-start gap-3 flex-wrap">
-          <div>
-            <div className="font-condensed font-bold text-[28px] text-white">{owner.name}</div>
-            <div className="text-[12px] text-muted font-mono mt-1">
-              @{owner.username} · desde {fmt(owner.created_at)}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <PlayerAvatar name={owner.name} src={displayAvatar} size={72} />
+              {isOwnProfile && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={pickAvatar}
+                    disabled={avatarBusy}
+                    title={displayAvatar ? 'Cambiar foto' : 'Subir foto'}
+                    className="absolute -bottom-1 -right-1 bg-brand text-base rounded-full w-7 h-7 flex items-center justify-center border-2 border-base cursor-pointer hover:brightness-110 transition disabled:opacity-50 disabled:cursor-wait"
+                  >
+                    <Camera size={13} />
+                  </button>
+                  {displayAvatar && (
+                    <button
+                      type="button"
+                      onClick={handleAvatarDelete}
+                      disabled={avatarBusy}
+                      title="Quitar foto"
+                      className="absolute -top-1 -right-1 bg-surface text-muted rounded-full w-6 h-6 flex items-center justify-center border border-border-strong cursor-pointer hover:text-danger hover:border-danger transition disabled:opacity-50 disabled:cursor-wait"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            <div>
+              <div className="font-condensed font-bold text-[28px] text-white">{owner.name}</div>
+              <div className="text-[12px] text-muted font-mono mt-1">
+                @{owner.username} · desde {fmt(owner.created_at)}
+              </div>
+              {avatarError && (
+                <div className="text-[11px] text-danger font-mono mt-1">{avatarError}</div>
+              )}
             </div>
           </div>
         </div>
@@ -171,18 +296,22 @@ export default function ProfileView() {
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#555] text-sm font-mono select-none">@</span>
               <input
-                className="w-full bg-surface border border-border-mid text-white pl-7 pr-3.5 py-2.5 rounded text-sm outline-none font-mono"
+                className="w-full bg-surface border border-border-mid text-white pl-7 pr-10 py-2.5 rounded text-sm outline-none font-mono"
                 value={editUsername}
                 onChange={e => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                 minLength={3} maxLength={20}
               />
+              <button type="button" onClick={handleCopyUsername}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-[#aaa] transition-colors bg-transparent border-0 cursor-pointer">
+                {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+              </button>
             </div>
             <label style={label}>MAIL</label>
             <div
               className="w-full bg-surface border border-border-mid text-muted px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]"
             >{user?.email}</div>
 
-            <div style={{ borderTop: '1px solid #1a2030', marginTop: 20, paddingTop: 4 }}>
+            <div style={{ borderTop: '1px solid #222222', marginTop: 20, paddingTop: 4 }}>
               <div style={{ fontSize: 11, color: '#444', fontFamily: "'Kode Mono',monospace", marginBottom: 4 }}>
                 Dejá en blanco si no querés cambiar la contraseña
               </div>
@@ -190,8 +319,8 @@ export default function ProfileView() {
               <PasswordInput value={currentPass} onChange={e => setCurrentPass(e.target.value)} />
 
               <label style={label}>NUEVA CONTRASEÑA</label>
-              <PasswordInput value={newPass} onChange={e => setNewPass(e.target.value)} />
-              {editing && <PasswordStrength password={newPass} />}
+              <PasswordInput value={newPass} onChange={e => setNewPass(e.target.value) }/>
+              {newPass && <PasswordStrength password={newPass} />}
 
               <label style={label}>REPETIR NUEVA CONTRASEÑA</label>
               <PasswordInput value={newPass2} onChange={e => setNewPass2(e.target.value)} />
@@ -214,13 +343,14 @@ export default function ProfileView() {
             )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-              <button onClick={handleSave} disabled={saving}
+              <button onClick={handleSave} disabled={saving || !hasChanges}
                 style={{ flex: 1, background: '#e8f04a', color: '#0a0e1a', border: 'none', padding: '10px',
                          fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 14,
-                         letterSpacing: 2, borderRadius: 4, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                         letterSpacing: 2, borderRadius: 4, cursor: saving || !hasChanges ? 'default' : 'pointer',
+                         opacity: saving || !hasChanges ? 0.4 : 1 }}>
                 {saving ? 'GUARDANDO...' : 'GUARDAR'}
               </button>
-              <button onClick={() => setEditing(false)}
+              <button onClick={handleCancel}
                 className="bg-transparent border border-border-strong text-[#555] px-4 py-2 text-xs rounded cursor-pointer hover:text-white transition-colors">
                 Cancelar
               </button>
@@ -291,6 +421,14 @@ export default function ProfileView() {
           ))}
         </div>
       </div>
+
+      {cropFile && (
+        <AvatarCropper
+          file={cropFile}
+          onCancel={() => { if (!avatarBusy) setCropFile(null); }}
+          onSave={handleCropSave}
+        />
+      )}
     </div>
   );
 }
