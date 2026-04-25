@@ -58,7 +58,7 @@ function Timer({ timerState = EMPTY_TIMER, onTimerChange, onStop }) {
 
   if (!running && !stopped) {
     return (
-      <div onClick={start} className="flex flex-row items-center justify-center gap-2 bg-brand text-base border-0 w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-3">
+      <div onClick={start} className="flex flex-row items-center justify-center gap-2 border-1 border-brand text-brand w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-3 hover:bg-brand/10 ">
         <Play size={13} /><span>INICIAR CRONÓMETRO</span>
       </div>
     );
@@ -83,14 +83,14 @@ function Timer({ timerState = EMPTY_TIMER, onTimerChange, onStop }) {
 function ScoreCounter({ value, onChange, color = "text-brand" }) {
   const num = Number(value);
   return (
-    <div className="flex items-center gap-2.5 justify-center">
+    <div className="flex items-center gap-1.5 sm:gap-2.5 justify-center min-w-0">
       <button
-        className="w-10 h-10 rounded-sm border border-border-strong bg-border-mid text-white text-[22px] cursor-pointer flex items-center justify-center"
+        className="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-sm border border-border-strong bg-border-mid text-white text-[18px] sm:text-[22px] cursor-pointer flex items-center justify-center"
         onClick={() => onChange(Math.max(0, num - 1))}
       >−</button>
-      <span className={`font-mono text-[34px] min-w-10 text-center font-bold ${color}`}>{num}</span>
+      <span className={`font-mono text-[26px] sm:text-[34px] min-w-7 sm:min-w-10 text-center font-bold ${color}`}>{num}</span>
       <button
-        className={`w-10 h-10 rounded-sm border bg-border-mid text-[22px] flex items-center justify-center ${color} border-current ${num >= 7 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
+        className={`shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-sm border bg-border-mid text-[18px] sm:text-[22px] flex items-center justify-center ${color} border-current ${num >= 7 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
         onClick={() => onChange(Math.min(7, num + 1))}
         disabled={num >= 7}
       >+</button>
@@ -99,9 +99,26 @@ function ScoreCounter({ value, onChange, color = "text-brand" }) {
 }
 
 // ── Tarjeta de partido del bracket (sólo display + toggle EN VIVO) ─────────────
+function pairAvatarFor(pairId, tournament, size = 20) {
+  if (!pairId) return null;
+  const pair = tournament?.pairs?.find(p => p.id === pairId);
+  if (!pair) return null;
+  const p1 = tournament.players?.find(pl => pl.id === pair.p1);
+  const p2 = tournament.players?.find(pl => pl.id === pair.p2);
+  return (
+    <PairAvatar
+      name1={p1?.name ?? "?"}
+      name2={p2?.name ?? "?"}
+      src1={p1?.linked_avatar_url ?? null}
+      src2={p2?.linked_avatar_url ?? null}
+      size={size}
+    />
+  );
+}
+
 function BracketMatchCard({
-  match, phase, isOwner, standings,
-  editMode, draftMatch, allPairs, onPairChange,
+  match, phase, isOwner, standings, tournament,
+  editMode, draftMatch, allPairs, onPairChange, usedPairIds,
   isLive, onToggleLive,
 }) {
   const isTBD1   = !match.pair1_name;
@@ -113,6 +130,10 @@ function BracketMatchCard({
 
   if (editMode) {
     const dm = draftMatch ?? match;
+    const isDisabled = (pairId, currentSlotValue) => {
+      if (pairId === currentSlotValue) return false;
+      return usedPairIds?.has(pairId) ?? false;
+    };
     return (
       <div className="bg-surface border border-brand/40 rounded-lg p-3">
         <select
@@ -122,7 +143,9 @@ function BracketMatchCard({
         >
           <option value="">— Seleccionar pareja —</option>
           {allPairs.map(p => (
-            <option key={p.pair_id} value={p.pair_id}>#{p.seed} {p.pair_name}</option>
+            <option key={p.pair_id} value={p.pair_id} disabled={isDisabled(p.pair_id, dm.pair1_id)}>
+              #{p.seed} {p.pair_name}
+            </option>
           ))}
         </select>
         <div className="border-t border-border my-1" />
@@ -133,7 +156,9 @@ function BracketMatchCard({
         >
           <option value="">— Seleccionar pareja —</option>
           {allPairs.map(p => (
-            <option key={p.pair_id} value={p.pair_id}>#{p.seed} {p.pair_name}</option>
+            <option key={p.pair_id} value={p.pair_id} disabled={isDisabled(p.pair_id, dm.pair2_id)}>
+              #{p.seed} {p.pair_name}
+            </option>
           ))}
         </select>
       </div>
@@ -146,7 +171,8 @@ function BracketMatchCard({
       <div className={`flex items-center justify-between py-1 px-1 rounded-sm ${isPlayed && match.winner_id === match.pair1_id ? "bg-brand/10" : ""}`}>
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <SeedChip seed={seed1} />
-          <span className={`font-condensed font-semibold text-[14px] truncate ${
+          {!isTBD1 && pairAvatarFor(match.pair1_id, tournament)}
+          <span className={`font-condensed font-semibold text-[14px] line-clamp-2 leading-tight ${
             isTBD1 ? "text-muted italic" :
             isPlayed && match.winner_id === match.pair1_id ? "text-brand" : "text-white"
           }`}>
@@ -166,7 +192,8 @@ function BracketMatchCard({
       <div className={`flex items-center justify-between py-1 px-1 rounded-sm ${isPlayed && match.winner_id === match.pair2_id ? "bg-brand/10" : ""}`}>
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <SeedChip seed={seed2} />
-          <span className={`font-condensed font-semibold text-[14px] truncate ${
+          {!isTBD2 && pairAvatarFor(match.pair2_id, tournament)}
+          <span className={`font-condensed font-semibold text-[14px] line-clamp-2 leading-tight ${
             isTBD2 ? "text-muted italic" :
             isPlayed && match.winner_id === match.pair2_id ? "text-brand" : "text-white"
           }`}>
@@ -200,12 +227,13 @@ function BracketMatchCard({
 }
 
 // ── Tarjeta "BYE" para parejas que pasan directo a cuartos ────────────────────
-function BracketByeCard({ bye }) {
+function BracketByeCard({ bye, tournament }) {
   return (
     <div className="bg-surface/40 border border-dashed border-border-mid rounded-lg p-3 opacity-75">
       <div className="flex items-center gap-1.5 py-1 px-1 min-w-0">
         <SeedChip seed={bye.seed} />
-        <span className="font-condensed font-semibold text-[14px] truncate text-soft">
+        {bye.pair_id && pairAvatarFor(bye.pair_id, tournament)}
+        <span className="font-condensed font-semibold text-[14px] line-clamp-2 leading-tight text-soft">
           {bye.pair_name ?? "—"}
         </span>
       </div>
@@ -217,7 +245,7 @@ function BracketByeCard({ bye }) {
 }
 
 // ── Card de partido EN VIVO (debajo del cuadro) ────────────────────────────────
-function BracketLiveCard({ liveMatch, bracketMatch, saving, onScoreChange, onSave, onCancel, onTimerChange }) {
+function BracketLiveCard({ liveMatch, bracketMatch, tournament, saving, onScoreChange, onSave, onCancel, onTimerChange }) {
   const timerDone = liveMatch.timer.startedAt !== null && liveMatch.timer.stoppedAt !== null;
   const { score1, score2 } = liveMatch.score;
 
@@ -233,13 +261,19 @@ function BracketLiveCard({ liveMatch, bracketMatch, saving, onScoreChange, onSav
         </button>
       </div>
 
-      <div className="flex justify-between items-center mb-4">
-        <span className="font-condensed font-bold text-[16px] text-brand flex-1">{bracketMatch.pair1_name}</span>
-        <span className="text-muted font-condensed font-bold text-[14px] px-3">VS</span>
-        <span className="font-condensed font-bold text-[16px] text-cyan flex-1 text-right">{bracketMatch.pair2_name}</span>
+      <div className="flex justify-between items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {pairAvatarFor(bracketMatch.pair1_id, tournament, 26)}
+          <span className="font-condensed font-bold text-[16px] text-brand line-clamp-2 leading-tight">{bracketMatch.pair1_name}</span>
+        </div>
+        <span className="text-muted font-condensed font-bold text-[14px] px-1 shrink-0">VS</span>
+        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end text-right">
+          <span className="font-condensed font-bold text-[16px] text-cyan line-clamp-2 leading-tight">{bracketMatch.pair2_name}</span>
+          {pairAvatarFor(bracketMatch.pair2_id, tournament, 26)}
+        </div>
       </div>
 
-      <div className="flex gap-4 justify-center items-center">
+      <div className="flex gap-2 sm:gap-4 justify-center items-center min-w-0">
         <ScoreCounter value={score1} onChange={v => onScoreChange('score1', v)} color="text-brand" />
         <span className="text-muted font-mono text-[20px]">—</span>
         <ScoreCounter value={score2} onChange={v => onScoreChange('score2', v)} color="text-cyan" />
@@ -302,7 +336,7 @@ function BracketPlayedCard({ match, isOwner, onEdit, matchNum }) {
 }
 
 // ── Formulario de edición de resultado jugado ──────────────────────────────────
-function BracketEditCard({ match, saving, editScore, onScoreChange, onSave, onCancel }) {
+function BracketEditCard({ match, tournament, saving, editScore, onScoreChange, onSave, onCancel }) {
   const s1 = Number(editScore.score1), s2 = Number(editScore.score2);
   return (
     <div className="bg-surface border border-brand/40 rounded-lg p-5 mb-4">
@@ -312,12 +346,18 @@ function BracketEditCard({ match, saving, editScore, onScoreChange, onSave, onCa
           ✕ Cancelar
         </button>
       </div>
-      <div className="flex justify-between items-center mb-4">
-        <span className="font-condensed font-bold text-[16px] text-brand flex-1">{match.pair1_name}</span>
-        <span className="text-muted font-condensed font-bold text-[14px] px-3">VS</span>
-        <span className="font-condensed font-bold text-[16px] text-cyan flex-1 text-right">{match.pair2_name}</span>
+      <div className="flex justify-between items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {pairAvatarFor(match.pair1_id, tournament, 26)}
+          <span className="font-condensed font-bold text-[16px] text-brand line-clamp-2 leading-tight">{match.pair1_name}</span>
+        </div>
+        <span className="text-muted font-condensed font-bold text-[14px] px-1 shrink-0">VS</span>
+        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end text-right">
+          <span className="font-condensed font-bold text-[16px] text-cyan line-clamp-2 leading-tight">{match.pair2_name}</span>
+          {pairAvatarFor(match.pair2_id, tournament, 26)}
+        </div>
       </div>
-      <div className="flex gap-4 justify-center items-center">
+      <div className="flex gap-2 sm:gap-4 justify-center items-center min-w-0">
         <ScoreCounter value={s1} onChange={v => onScoreChange('score1', v)} color="text-brand" />
         <span className="text-muted font-mono text-[20px]">—</span>
         <ScoreCounter value={s2} onChange={v => onScoreChange('score2', v)} color="text-cyan" />
@@ -340,6 +380,9 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
   const bracket = tournament.bracket;
 
   const [liveMatches,  setLiveMatches]  = useState(() => {
+    // En modo readOnly NUNCA se leen partidos en curso: el localStorage se
+    // comparte entre pestañas y muestra live matches del owner.
+    if (!isOwner) return [];
     try {
       const raw = localStorage.getItem(getLiveKey(tournament.id));
       return raw ? JSON.parse(raw) : [];
@@ -484,6 +527,22 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     if (phaseKey === 'final') return draftBracket.final;
     return draftBracket[phaseKey]?.find(m => m.id === matchId) ?? null;
   }
+
+  // Parejas ya asignadas en cualquier cruce del draft — se deshabilitan en el
+  // resto de los selects para evitar que la misma pareja aparezca en 2 slots.
+  function collectUsedPairIds() {
+    if (!draftBracket) return new Set();
+    const ids = new Set();
+    const add = (m) => {
+      if (!m) return;
+      if (m.pair1_id) ids.add(m.pair1_id);
+      if (m.pair2_id) ids.add(m.pair2_id);
+    };
+    ['octavos', 'cuartos', 'semis'].forEach(k => (draftBracket[k] ?? []).forEach(add));
+    add(draftBracket.final);
+    return ids;
+  }
+  const usedPairIds = editMode ? collectUsedPairIds() : null;
 
   // ── Sin bracket ──────────────────────────────────────────────────────────────
   if (!bracket) {
@@ -651,15 +710,17 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                       phase={phase.key}
                       isOwner={isOwner}
                       standings={standings}
+                      tournament={tournament}
                       editMode={editMode}
                       draftMatch={getDraftMatch(phase.key, item.data.id)}
                       allPairs={standings}
                       onPairChange={updateDraftPair}
-                      isLive={liveMatches.some(lm => lm.matchId === item.data.id)}
+                      usedPairIds={usedPairIds}
+                      isLive={isOwner && liveMatches.some(lm => lm.matchId === item.data.id)}
                       onToggleLive={() => handleToggleLive(item.data.id)}
                     />
                   ) : (
-                    <BracketByeCard bye={item.data} />
+                    <BracketByeCard bye={item.data} tournament={tournament} />
                   )}
                 </div>
               );
@@ -715,8 +776,8 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
         </div>
       </div>
 
-      {/* Cards EN VIVO (debajo del cuadro) */}
-      {liveMatches.length > 0 && (
+      {/* Cards EN VIVO (debajo del cuadro) — sólo para el owner */}
+      {isOwner && liveMatches.length > 0 && (
         <div className="mt-6">
           <div className="font-condensed font-bold text-[12px] tracking-[3px] text-muted mb-3">PARTIDOS EN CURSO</div>
           {liveMatches.map(lm => {
@@ -727,6 +788,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                 key={lm.matchId}
                 liveMatch={lm}
                 bracketMatch={bracketMatch}
+                tournament={tournament}
                 saving={saving === lm.matchId}
                 onScoreChange={(field, value) => handleScoreChange(lm.matchId, field, value)}
                 onSave={() => handleSaveResult(lm.matchId)}
@@ -740,7 +802,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
 
       {/* Partidos jugados del bracket */}
       
-      {playedBracketMatches.length > 0 && (
+      {isOwner && playedBracketMatches.length > 0 && (
         <div className="mt-6">
           <div className="font-condensed font-bold text-[12px] tracking-[3px] text-muted mb-3">RESULTADOS</div>
           <div className="flex flex-col gap-2.5">
