@@ -144,10 +144,23 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, 
 }
 
 // ── Pairs mode ────────────────────────────────────────────────────────────────
-function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, timerState, onTimerChange }) {
+function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, timerState, onTimerChange, pairMatchCounts, pairMatchLimit }) {
   const { pairs, players } = tournament;
   const removedIds    = new Set(players.filter((p) => p.removed).map((p) => p.id));
   const selectablePairs = pairs.filter((p) => !removedIds.has(p.p1) && !removedIds.has(p.p2));
+  const showCounts = !isEditing && pairMatchCounts && pairMatchLimit;
+
+  function pairOptionLabel(pairId) {
+    const base = getPairLabel(pairId, pairs, players);
+    if (!showCounts) return base;
+    const count = pairMatchCounts[pairId] ?? 0;
+    return `${base} · ${count}/${pairMatchLimit} PJ`;
+  }
+
+  function isAtLimit(pairId) {
+    if (!showCounts) return false;
+    return (pairMatchCounts[pairId] ?? 0) >= pairMatchLimit;
+  }
 
   function pairAvatarFor(pairId) {
     const pair = pairs.find((p) => p.id === pairId);
@@ -178,8 +191,12 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, tim
             value={form.team1Pair || ""} onChange={(e) => setForm({ ...form, team1Pair: e.target.value })}>
             <option value="">Seleccionar pareja</option>
             {selectablePairs.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.id === form.team2Pair}>
-                {getPairLabel(p.id, pairs, players)}
+              <option
+                key={p.id}
+                value={p.id}
+                disabled={p.id === form.team2Pair || (isAtLimit(p.id) && p.id !== form.team1Pair)}
+              >
+                {pairOptionLabel(p.id)}
               </option>
             ))}
           </select>
@@ -193,8 +210,12 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, tim
             value={form.team2Pair || ""} onChange={(e) => setForm({ ...form, team2Pair: e.target.value })}>
             <option value="">Seleccionar pareja</option>
             {selectablePairs.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.id === form.team1Pair}>
-                {getPairLabel(p.id, pairs, players)}
+              <option
+                key={p.id}
+                value={p.id}
+                disabled={p.id === form.team1Pair || (isAtLimit(p.id) && p.id !== form.team2Pair)}
+              >
+                {pairOptionLabel(p.id)}
               </option>
             ))}
           </select>

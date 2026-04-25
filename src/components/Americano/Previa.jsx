@@ -216,11 +216,7 @@ export default function Previa({
     }
   });
 
-  // Tournament con solo las parejas que todavía pueden jugar (< 2 PJ)
-  const tournamentForNewMatch = {
-    ...tournament,
-    pairs: tournament.pairs.filter(p => (pairMatchCounts[p.id] ?? 0) < 2),
-  };
+  const MAX_PREVIA_MATCHES = 2;
 
   return (
     <div>
@@ -336,7 +332,9 @@ export default function Previa({
           key={liveMatch.id}
           form={liveMatch.form}
           setForm={updater => handleFormChange(liveMatch.id, updater)}
-          tournament={tournamentForNewMatch}
+          tournament={tournament}
+          pairMatchCounts={pairMatchCounts}
+          pairMatchLimit={MAX_PREVIA_MATCHES}
           onSave={() => handleSaveMatch(liveMatch.id)}
           onCancel={() => handleCancelMatch(liveMatch.id)}
           isEditing={false}
