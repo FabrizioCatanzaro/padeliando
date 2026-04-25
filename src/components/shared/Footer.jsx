@@ -1,4 +1,5 @@
 import { Phone, UserRoundSearch } from 'lucide-react'
+import logoTxtUrl from '../../assets/padeleando-txt.png'
 
 export default function Footer() {
   const linkedinUrl = 'https://www.linkedin.com/in/luciano-fabrizio-catanzaro-pfahler/'
@@ -7,7 +8,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-border bg-base px-6 py-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between sm:items-center">
       <div className="flex flex-row gap-2 items-center font-condensed font-black text-lg tracking-widest text-gray-700">
-        <span>PADEL<span className="text-brand">EANDO</span></span>
+        <img src={logoTxtUrl} alt="Padeleando" className="max-h-10 grayscale" />
       </div>
       <div className="flex flex-row flex-wrap justify-center items-center gap-5 sm:justify-end">
         <a href={linkedinUrl} target="_blank" rel="noopener noreferrer"

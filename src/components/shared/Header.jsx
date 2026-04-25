@@ -5,6 +5,7 @@ import { useAuth } from '../../context/useAuth'
 //import { useTheme } from '../../context/ThemeContext'
 import { api } from '../../utils/api'
 import logoUrl from '../../assets/padeleando.ico'
+import logoTxtUrl from '../../assets/padeleando-txt.png'
 import PlayerAvatar from './PlayerAvatar'
 
 export default function Header() {
@@ -44,8 +45,8 @@ export default function Header() {
         className="flex flex-row gap-2 items-center font-condensed font-black text-xl tracking-widest text-white cursor-pointer"
         onClick={() => location.pathname === '/' ? navigate(0) : navigate('/')}
       >
-        <img className='max-w-8' src={logoUrl}/>
-        <span>PADEL<span className="text-brand">EANDO</span></span>
+        <img className='max-w-8 hidden md:block' src={logoUrl}/>
+        <img className='max-h-10' src={logoTxtUrl}/>
       </div>
 
       <div className="flex items-center gap-2">
