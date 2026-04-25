@@ -132,12 +132,14 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
     }
     setLiveMatches(remaining);
 
-    await onAddMatch(matchData);
-
+    // Sincronizar live_match en el servidor ANTES del reload para que el
+    // tournament recargado no traiga el partido en curso viejo.
     const labels = remaining
       .filter((m) => m.timer.startedAt !== null)
       .map((m) => resolveTeamLabels(m.form));
-    onSetLiveMatch?.(labels.length > 0 ? labels : null);
+    await onSetLiveMatch?.(labels.length > 0 ? labels : null);
+
+    await onAddMatch(matchData);
   }
 
   async function handleSaveEdit() {

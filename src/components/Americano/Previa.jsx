@@ -137,12 +137,14 @@ export default function Previa({
     else                        localStorage.setItem(getLiveKey(tournament.id), JSON.stringify(remaining));
     setLiveMatches(remaining);
 
-    await onAddMatch(matchData);
-
+    // Sincronizar live_match en el servidor ANTES del reload para que el
+    // tournament recargado no traiga el partido en curso viejo.
     const labels = remaining
       .filter(m => m.timer.startedAt !== null)
       .map(m => ({ ...resolveTeamLabels(m.form), phase: 'previa' }));
-    onSetLiveMatch?.(labels.length > 0 ? labels : null);
+    await onSetLiveMatch?.(labels.length > 0 ? labels : null);
+
+    await onAddMatch(matchData);
   }
 
   async function handleSaveEdit() {
