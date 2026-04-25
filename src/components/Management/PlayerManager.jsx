@@ -204,7 +204,7 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
 
       {tournament.players.some((p) => p.removed) && (
         <div className="mt-4">
-          <div className="font-condensed font-bold text-[11px] tracking-[3px] text-muted mb-2 opacity-70">ELIMINADOS DE LA JORNADA</div>
+          <div className="font-condensed font-bold text-[11px] tracking-[3px] text-muted mb-2 opacity-70">ELIMINADOS DEL TORNEO</div>
           <div className="flex flex-col gap-1.5">
             {tournament.players.filter((p) => p.removed).map((p) => (
               <div key={p.id} className="flex items-center gap-2 bg-base border border-dashed border-border-mid rounded-md px-3 py-2 opacity-60">

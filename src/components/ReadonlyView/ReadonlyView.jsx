@@ -42,8 +42,8 @@ export default function ReadonlyView() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: tournament?.name ?? 'Jornada',
-          text: `¡Te invito a ver "${tournament?.name ?? 'esta jornada'}"! Seguí los resultados en vivo acá:`,
+          title: tournament?.name ?? 'Torneo',
+          text: `¡Te invito a ver "${tournament?.name ?? 'este torneo'}"! Seguí los resultados en vivo acá:`,
           url,
         });
       } catch { /* usuario canceló */ }
@@ -141,7 +141,7 @@ export default function ReadonlyView() {
             )}
             {groupName && (
               <div
-                onClick={() => navigate(`/groups/${tournament.group_id}`)}
+                onClick={() => navigate(`/cat/${tournament.group_id}`)}
                 className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 cursor-pointer hover:border-border-strong transition-colors"
               >
                 {groupEmojis?.length > 0 && (
@@ -186,7 +186,7 @@ export default function ReadonlyView() {
           )}
         </div>
 
-        {/* Chips con datos de la jornada */}
+        {/* Chips con datos del torneo */}
         <div className="flex gap-1.5 flex-wrap">
           <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
             {fmt(tournament.createdAt)}

@@ -364,7 +364,7 @@ export default function ProfileView() {
             <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-4">ESTADÍSTICAS</div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'JORNADAS', value: stats.torneos },
+                { label: 'TORNEOS', value: stats.torneos },
                 { label: 'PARTIDOS', value: stats.partidos },
                 { label: 'VICTORIAS', value: stats.victorias },
               ].map(({ label: l, value }) => (
@@ -391,10 +391,10 @@ export default function ProfileView() {
         )}
 
         {/* Lista de torneos */}
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">TORNEOS PROPIOS</div>
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">CATEGORÍAS PROPIAS</div>
 
         {groups.length === 0 && (
-          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">Este usuario no tiene torneos públicos.</div>
+          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">Este usuario no tiene categorías públicas.</div>
         )}
 
         <div className="flex flex-col gap-2.5">
@@ -402,7 +402,7 @@ export default function ProfileView() {
             <FadeInCard key={g.id} delay={i * 60}
               className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
               style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
-              onClick={() => { navigate(`/groups/${g.id}`); }}>
+              onClick={() => { navigate(`/cat/${g.id}`); }}>
               {g.emojis?.length > 0 && (
                 <div className="inline-flex px-3 pt-2 pb-1.5 text-base border-b border-r bg-surface border-border-mid rounded-br-lg leading-none">
                   {g.emojis.join(' ')}
@@ -414,7 +414,7 @@ export default function ProfileView() {
                   <div className="text-[13px] text-[#666] mb-1.5">{g.description}</div>
                 )}
                 <div className="text-[11px] text-dim font-mono">
-                  {g.player_count} jugadores · {g.tournament_count} jornadas
+                  {g.player_count} jugadores · {g.tournament_count} torneos
                 </div>
               </div>
             </FadeInCard>

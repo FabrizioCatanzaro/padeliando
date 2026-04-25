@@ -58,7 +58,7 @@ export default function Setup() {
 
   async function onCreate(tournamentName, players, pairsInput, fmt) {
     const tId = await createTournament(tournamentName, players, pairsInput, fmt);
-    navigate(`/groups/${groupId}/tournament/${tId}`);
+    navigate(`/cat/${groupId}/torneo/${tId}`);
   }
 
   function handleNext() {
@@ -94,17 +94,17 @@ export default function Setup() {
     <div className="bg-base text-content font-sans pb-15">
       <div className="max-w-125 mx-auto px-7 py-10">
         <div className="flex items-center gap-3 mb-6">
-          <div onClick={() => navigate(`/groups/${groupId}`)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-2 text-[13px] cursor-pointer rounded-sm font-sans">
+          <div onClick={() => navigate(`/cat/${groupId}`)} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-2 text-[13px] cursor-pointer rounded-sm font-sans">
             <ChevronLeft size={15} />
             <span>Volver</span>
           </div>
         </div>
-        <p className="text-muted font-sans text-[14px] m-0">Creá tu jornada y empezá a crear los partidos</p>
+        <p className="text-muted font-sans text-[14px] m-0">Creá tu torneo y empezá a crear los partidos</p>
 
         {/* ── STEP: formato ── */}
         {step === "formato" && (
           <>
-            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-4 mt-5">FORMATO DE LA JORNADA</label>
+            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-4 mt-5">FORMATO DEL TORNEO</label>
             <div className="flex flex-col gap-3">
               <div
                 onClick={() => setFormat('liga')}
@@ -138,7 +138,7 @@ export default function Setup() {
               <span className="text-muted text-[12px] font-mono">LIGA</span>
             </div>
 
-            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">NOMBRE DE LA JORNADA</label>
+            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">NOMBRE DEL TORNEO</label>
             <input
               className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[14px] rounded-sm outline-none mb-2"
               placeholder="ej: Fecha 1 - 24/03"
@@ -177,12 +177,12 @@ export default function Setup() {
               </div>
             )}
 
-            {error && <p className="text-danger text-xs font-mono mt-2">El nombre de la jornada debe tener entre 2 y 30 caracteres</p>}
+            {error && <p className="text-danger text-xs font-mono mt-2">El nombre del torneo debe tener entre 2 y 30 caracteres</p>}
             <button
               onClick={() => tituloValido ? handleNext() : setError(true)}
               className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-7 transition-opacity cursor-pointer ${playersValid ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
             >
-              {isEven ? "SIGUIENTE → PAREJAS" : "CREAR JORNADA"}
+              {isEven ? "SIGUIENTE → PAREJAS" : "CREAR TORNEO"}
             </button>
           </>
         )}
@@ -195,7 +195,7 @@ export default function Setup() {
               <span className="text-muted text-[12px] font-mono">AMERICANO</span>
             </div>
 
-            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">NOMBRE DE LA JORNADA</label>
+            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">NOMBRE DEL TORNEO</label>
             <input
               className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[14px] rounded-sm outline-none mb-2"
               placeholder="ej: Fecha 1 - 24/03"
@@ -238,12 +238,12 @@ export default function Setup() {
               ✦ {directPairs.length} parejas — {directPairs.length * 2} jugadores.
             </div>
 
-            {error && <p className="text-danger text-xs font-mono mt-2">El nombre de la jornada debe tener entre 2 y 30 caracteres</p>}
+            {error && <p className="text-danger text-xs font-mono mt-2">El nombre del torneo debe tener entre 2 y 30 caracteres</p>}
             <button
               onClick={() => tituloValido ? handleCreateDirect() : setError(true)}
               className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-7 transition-opacity cursor-pointer ${directPairsValid ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
             >
-              CREAR JORNADA
+              CREAR TORNEO
             </button>
           </>
         )}
@@ -262,7 +262,7 @@ export default function Setup() {
               onClick={handleCreate}
               className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-6 transition-opacity cursor-pointer ${allPairsFilled ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
             >
-              CREAR JORNADA
+              CREAR TORNEO
             </button>
           </>
         )}

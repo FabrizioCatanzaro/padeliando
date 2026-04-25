@@ -104,7 +104,7 @@ export default function HomeView() {
     try {
       if (!name.trim()) return;
       const g = await api.groups.create({ name: name.trim(), description: desc, is_public: isPublic, emojis: selectedEmojis });
-      navigate(`/groups/${g.id}`);
+      navigate(`/cat/${g.id}`);
     } catch (e){
       setError(e.message)
     } 
@@ -120,7 +120,7 @@ export default function HomeView() {
           <div className="flex gap-2">
             <input
               className="flex-1 bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-sans"
-              placeholder="Buscar perfiles o torneos..."
+              placeholder="Buscar perfiles o categorías..."
               value={searchQ}
               onChange={(e) => setSearchQ(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
@@ -168,7 +168,7 @@ export default function HomeView() {
                   <div className='font-mono px-4 pt-2 pb-1 text-[10px] text-gray-600 tracking-widest'>TORNEOS</div>
                   {searchGroups.map((g) => (
                     <div key={g.id}
-                      onClick={() => { navigate(`/groups/${g.id}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); }}
+                      onClick={() => { navigate(`/cat/${g.id}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); }}
                       style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1a2030' }}
                       onMouseEnter={(e) => e.currentTarget.style.background = '#1a2030'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
@@ -190,7 +190,7 @@ export default function HomeView() {
         {/* Formulario nuevo torneo */}
         {isLoggedIn && showNew && (
           <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
-            <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>NOMBRE DEL TORNEO</label>
+            <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>NOMBRE DE LA CATEGORÍA</label>
             <input className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" placeholder="ej: C7/C8"
               value={name} onChange={(e) => setName(e.target.value)} maxLength={30} minLength={2}/>
             <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>DESCRIPCIÓN (opcional)</label>
@@ -207,8 +207,8 @@ export default function HomeView() {
             </div>
             <div style={{ fontSize: 11, color: '#444', fontFamily: "'Kode Mono',monospace", marginTop: 6 }}>
               {isPublic
-                ? 'Cualquiera puede ver este torneo en tu perfil.'
-                : 'Solo vos podés ver este torneo.'}
+                ? 'Cualquiera puede ver esta categoría en tu perfil.'
+                : 'Solo vos podés ver esta categoría.'}
             </div>
 
             <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>ÍCONOS (opcional · máx. 2)</label>
@@ -225,7 +225,7 @@ export default function HomeView() {
             {error && <p className="text-danger text-xs font-mono mt-2">{error}</p>}
             <button onClick={handleCreate}
               style={{ width: "100%", background: "#e8f04a", color: "#0a0e1a", border: "none", padding: "14px", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 16, letterSpacing: 2, borderRadius: 4, marginTop: 28, transition: "opacity 0.2s", cursor: "pointer", opacity: name.trim() ? 1 : 0.4 }}>
-              CREAR TORNEO
+              CREAR CATEGORÍA
             </button>
           </div>
         )}
@@ -269,7 +269,7 @@ export default function HomeView() {
                     <FadeInCard key={g.id}
                       className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
                       style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
-                      onClick={() => navigate(`/groups/${g.id}`)}>
+                      onClick={() => navigate(`/cat/${g.id}`)}>
                       {g.emojis?.length > 0 && (
                         <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
                           {g.emojis.join(' ')}
@@ -291,11 +291,8 @@ export default function HomeView() {
         {!committedQ && isLoggedIn && (
           <>
             <div style={{ marginBottom: 16 }}>
-              <div className="font-[Barlow_Condensed] font-bold text-sm tracking-[3px] text-[#555]">MIS TORNEOS</div>
+              <div className="font-[Barlow_Condensed] font-bold text-sm tracking-[3px] text-[#555]">MIS CATEGORÍAS</div>
             </div>
-            {groups.length === 0 && !showNew && (
-              <div className="text-center text-[#444] py-10 px-5 leading-loose">No hay torneos todavía.<br />Creá el primero.</div>
-            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
               {/* Botón Nuevo Torneo como primera card */}
               <div
@@ -306,14 +303,14 @@ export default function HomeView() {
                   {showNew ? <X size={28} /> : <Plus size={28} />}
                 </div>
                 <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 15, color: '#e8f04a', letterSpacing: 3, marginTop: 4 }}>
-                  {showNew ? 'CANCELAR' : 'NUEVO TORNEO'}
+                  {showNew ? 'CANCELAR' : 'NUEVA CATEGORÍA'}
                 </div>
               </div>
               {groups.map((g, i) => (
                 <FadeInCard key={g.id} delay={i * 60}
                   className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
                   style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
-                  onClick={() => { navigate(`/groups/${g.id}`); }}>
+                  onClick={() => { navigate(`/cat/${g.id}`); }}>
                   {g.emojis?.length > 0 && (
                     <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
                       {g.emojis.join(' ')}
@@ -332,25 +329,28 @@ export default function HomeView() {
                       <div className='font-sans text-sm text-gray-400 mb-2'>{g.description}</div>
                     )}
                     <div className='font-mono text-xs text-gray-600' >
-                      {g.player_count} jugadores · {g.tournament_count} {g.tournament_count > 1 ? 'jornadas' : 'jornada'}
+                      {g.player_count} jugadores · {g.tournament_count} {g.tournament_count > 1 ? 'torneos' : 'torneo'}
                     </div>
                   </div>
                 </FadeInCard>
               ))}
             </div>
+            {groups.length === 0 && !showNew && (
+              <div className="text-center text-[#444] py-10 px-5 leading-loose">No hay categorías todavía.<br />Creá el primero.</div>
+            )}
 
             {/* Grupos en los que participo (invitación aceptada, no soy dueño) */}
             {partGroups.length > 0 && (
               <>
                 <div style={{ marginTop: 36, marginBottom: 16 }}>
-                  <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">TORNEOS EN LOS QUE PARTICIPO</div>
+                  <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">CATEGORÍAS EN LAS QUE PARTICIPO</div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
                   {partGroups.map((g, i) => (
                     <FadeInCard key={g.id} delay={i * 60}
                       className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
                       style={{ background: 'linear-gradient(145deg, #111827 0%, #0d1120 100%)' }}
-                      onClick={() => { navigate(`/groups/${g.id}`); }}>
+                      onClick={() => { navigate(`/cat/${g.id}`); }}>
                       {g.emojis?.length > 0 && (
                         <div className="inline-flex px-3 pt-2 pb-1.5 text-base border-b border-r border-border-mid rounded-br-lg leading-none">
                           {g.emojis.join(' ')}
@@ -369,7 +369,7 @@ export default function HomeView() {
                           <div className='font-sans text-sm text-gray-400 mb-2' >{g.description}</div>
                         )}
                         <div className='font-mono text-xs text-gray-600'>
-                          {g.player_count} jugadores · {g.tournament_count} {g.tournament_count > 1 ? 'jornadas' : 'jornada'}
+                          {g.player_count} jugadores · {g.tournament_count} {g.tournament_count > 1 ? 'torneos' : 'torneo'}
                         </div>
                         {g.owner_username && (
                           <div className='font-mono text-xs text-gray-600 mt-2' >
@@ -391,7 +391,7 @@ export default function HomeView() {
               <img className='max-w-30 my-4 opacity-20' src={logoUrl}/>
             </div>
             <div style={{ color: '#aaa', marginBottom: 8 }}>
-              Registrate para guardar tus torneos y compartirlos.
+              Registrate para guardar tus categorías y compartirlas.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
               <button onClick={() => { navigate('/login'); }} className="bg-brand text-base font-[Barlow_Condensed] font-bold text-sm tracking-widest px-5 py-2.5 rounded cursor-pointer whitespace-nowrap">

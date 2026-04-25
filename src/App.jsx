@@ -82,9 +82,9 @@ export default function App() {
         <Route path="/verify-email/:token"                       element={<VerifyEmail />} />
         <Route path="/u/:username"                               element={<ProfileView />} />
         <Route path="/readonly/:id"                              element={<ReadonlyView />} />
-        <Route path="/groups/:groupId"                           element={<GroupView />} />
-        <Route path="/groups/:groupId/tournament/new"            element={<PrivateRoute><Setup /></PrivateRoute>} />
-        <Route path="/groups/:groupId/tournament/:tournamentId"  element={<MainView />} />
+        <Route path="/cat/:groupId"                           element={<GroupView />} />
+        <Route path="/cat/:groupId/torneo/new"            element={<PrivateRoute><Setup /></PrivateRoute>} />
+        <Route path="/cat/:groupId/torneo/:tournamentId"  element={<MainView />} />
         <Route path="/invitations"                               element={<PrivateRoute><InvitationsView /></PrivateRoute>} />
         <Route path="/tutorial"                                  element={<TutorialView />} />
         <Route path="/admin"                                     element={<AdminRoute><AdminDashboard /></AdminRoute>} />

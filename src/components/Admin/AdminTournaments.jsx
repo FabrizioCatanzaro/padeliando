@@ -110,7 +110,7 @@ export default function AdminTournaments() {
           type="text"
           value={q}
           onChange={e => setQ(e.target.value)}
-          placeholder="Buscar por torneo, grupo o owner"
+          placeholder="Buscar por torneo, categoría o owner"
           className="w-full bg-surface border border-border focus:border-brand outline-none text-white text-sm font-mono pl-9 pr-3 py-2 rounded transition-colors"
         />
       </div>
@@ -141,7 +141,7 @@ export default function AdminTournaments() {
                   <tr key={t.id} className="border-t border-border hover:bg-border-mid/20">
                     <td className="py-2 px-3">
                       <div className="text-white font-semibold truncate max-w-[200px]">{t.name}</div>
-                      <Link to={`/groups/${t.group_id}`} className="text-muted text-[11px] font-mono truncate hover:text-brand">
+                      <Link to={`/cat/${t.group_id}`} className="text-muted text-[11px] font-mono truncate hover:text-brand">
                         {t.group_name}
                       </Link>
                     </td>
@@ -164,7 +164,7 @@ export default function AdminTournaments() {
                     <td className="py-2 px-3 hidden lg:table-cell text-muted font-mono text-xs">{fmtDate(t.created_at)}</td>
                     <td className="py-2 px-3 text-right">
                       <Link
-                        to={`/groups/${t.group_id}/tournament/${t.id}`}
+                        to={`/cat/${t.group_id}/torneo/${t.id}`}
                         className="inline-flex items-center gap-1 text-[11px] font-condensed font-bold tracking-widest text-brand hover:bg-brand/10 px-2 py-1 rounded"
                       >
                         VER <ExternalLink size={11} />

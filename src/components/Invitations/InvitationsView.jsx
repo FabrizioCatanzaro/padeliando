@@ -34,7 +34,7 @@ export default function InvitationsView() {
       <div className="p-6">
         <div className="font-condensed font-bold text-[22px] text-white mb-1">Invitaciones</div>
         <div className="text-[12px] text-muted font-mono mb-6">
-          Cuando alguien te invita a un torneo como jugador, aparece aquí. Al aceptar, tus estadísticas en ese grupo se vinculan a tu cuenta.
+          Cuando alguien te invita a una categoría como jugador, aparece aquí. Al aceptar, tus estadísticas en esa categoría se vinculan a tu cuenta.
         </div>
 
         {loading && (

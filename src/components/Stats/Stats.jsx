@@ -29,7 +29,7 @@ export default function Stats({ tournament }) {
 
       <div className="flex mb-5 border-b border-border">
         {[
-          { id: "current", label: "Esta jornada" },
+          { id: "current", label: "Este torneo" },
           { id: "history", label: histLoaded ? `Históricas (${allTournaments.length})` : "Históricas" },
         ].map((t) => (
           <button key={t.id} onClick={() => handleTabChange(t.id)}
@@ -280,9 +280,9 @@ function CurrentStats({ tournament }) {
   );
 }
 
-export function HistoricalStats({ tournaments, showJornadas = true }) {
+export function HistoricalStats({ tournaments, showTorneos = true }) {
   if (tournaments.length === 0)
-    return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay jornadas anteriores registradas.</div>;
+    return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos anteriores registrados.</div>;
 
   const hasPairMode = tournaments.some((t) => t.mode === "pairs");
   const allPairMode = tournaments.every((t) => t.mode === "pairs");
@@ -306,7 +306,7 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
       return pctB - pctA || b.pg - a.pg;
     });
 
-  // ── Standings por pareja (solo jornadas en modo parejas) ───────────────
+  // ── Standings por pareja (solo torneos en modo parejas) ───────────────
   const pairMap = {};
   if (hasPairMode) {
     const nameById = {};
@@ -368,7 +368,7 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
   }
   const totalMatches = tournaments.reduce((acc, t) => acc + t.matches.length + bracketPlayedCount(t), 0);
 
-  // Si TODAS las jornadas son en parejas → tabla por pareja; sino → tabla individual
+  // Si TODAS las torneos son en parejas → tabla por pareja; sino → tabla individual
   const showPairTable = allPairMode && pairRows.length > 0;
 
   return (
@@ -377,7 +377,7 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
         <div className="flex flex-col items-center gap-1 bg-surface border border-cyan/27 rounded-lg p-4 text-center">
           <CalendarDays size={30} className="mb-2 text-cyan" />
           <div className="font-condensed font-bold text-[26px] text-white mb-1">{tournaments.length}</div>
-          <div className="text-[12px] text-muted font-sans">Jornadas jugadas</div>
+          <div className="text-[12px] text-muted font-sans">Torneos jugados</div>
         </div>
         <div className="flex flex-col items-center gap-1 bg-surface border border-border-mid rounded-lg p-4 text-center">
           <Swords size={30} className="text-secondary mb-2" />
@@ -396,7 +396,7 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
             <Trophy size={30} className="mb-2 text-amber-500" />
             <div className={`font-condensed font-bold text-amber-500 mb-1 leading-tight ${topChamps.length > 1 ? 'text-lg' : 'text-[26px]'}`}>{champLabel}</div>
             <div className="text-[12px] text-muted font-sans">
-              {topChamps.length > 1 ? `Empate · Más veces campeones · ` : "Más veces campeón · "}{topChampCount} {topChampCount === 1 ? "jornada" : "jornadas"}
+              {topChamps.length > 1 ? `Empate · Más veces campeones · ` : "Más veces campeón · "}{topChampCount} {topChampCount === 1 ? "torneo" : "torneos"}
             </div>
           </div>
         )}
@@ -421,9 +421,9 @@ export function HistoricalStats({ tournaments, showJornadas = true }) {
         }
       </div>
 
-      {showJornadas && 
+      {showTorneos && 
       <div className="mt-5">
-        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">JORNADAS</div>
+        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">TORNEOS</div>
         <div className="flex flex-col gap-1.5">
           {[...tournaments].reverse().map((t) => {
             const winnerLabel = getTournamentWinnerLabel(t);

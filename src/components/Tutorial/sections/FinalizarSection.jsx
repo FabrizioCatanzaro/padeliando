@@ -4,16 +4,16 @@ import TutorialMedia from '../TutorialMedia'
 export default function FinalizarSection() {
   return (
     <TutorialSection
-      title="Finalizar una jornada"
-      description="Finalizar una jornada cierra oficialmente esa fecha de juego y congela sus resultados en la tabla de posiciones. Una jornada finalizada no puede editarse."
+      title="Finalizar un torneo"
+      description="Finalizar un torneo cierra oficialmente esa fecha de juego y congela sus resultados en la tabla de posiciones. Un torneo finalizado no puede editarse."
       steps={[
         {
           label: 'Cargar todos los resultados',
-          text: 'Antes de finalizar, asegurate de que todos los partidos de la jornada tengan resultados cargados. Podés editar los marcadores haciendo clic en cada partido.',
+          text: 'Antes de finalizar, asegurate de que todos los partidos del torneo tengan resultados cargados. Podés editar los marcadores haciendo clic en cada partido.',
         },
         {
-          label: 'Buscar el botón "Finalizar jornada"',
-          text: 'Dentro de la vista de la jornada, encontrás el botón para finalizarla. Solo el organizador del torneo puede hacerlo.',
+          label: 'Buscar el botón "Finalizar torneo"',
+          text: 'Dentro de la vista del torneo, encontrás el botón para finalizarla. Solo el organizador del torneo puede hacerlo.',
         },
         {
           label: 'Confirmar',
@@ -21,7 +21,7 @@ export default function FinalizarSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Botón para finalizar una jornada y confirmación" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422825/finalizar-jornada_o7hvno.png'} aspect='aspect-auto'/>
+      <TutorialMedia caption="Botón para finalizar un torneo y confirmación" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422825/finalizar-torneo_o7hvno.png'} aspect='aspect-auto'/>
     </TutorialSection>
   )
 }

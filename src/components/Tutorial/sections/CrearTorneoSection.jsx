@@ -4,12 +4,12 @@ import TutorialMedia from '../TutorialMedia'
 export default function CrearTorneoSection() {
   return (
     <TutorialSection
-      title="Crear un torneo"
-      description='Un torneo en Padeleando agrupa todas las jornadas de un mismo grupo de jugadores. Podés personalizarlo con nombre, descripción, emojis y privacidad. Para crearlo necesitás estar registrado e iniciar sesión.'
+      title="Crear una categoría"
+      description='Una categoría en Padeleando agrupa todos los torneos de un mismo grupo de jugadores. Podés personalizarlo con nombre, descripción, emojis y privacidad. Para crearlo necesitás estar registrado e iniciar sesión.'
       steps={[
         {
           label: 'Ir al inicio',
-          text: 'Desde la pantalla principal, presioná el botón "NUEVO TORNEO" (el primero en la grilla de tus torneos).',
+          text: 'Desde la pantalla principal, presioná el botón "NUEVA CATEGORÍA" (el primero en la grilla de tus categorías).',
         },
         {
           label: 'Completar el nombre',
@@ -17,19 +17,19 @@ export default function CrearTorneoSection() {
         },
         {
           label: 'Elegir privacidad',
-          text: 'Público: cualquiera puede buscar y ver el torneo desde la página principal o desde tu perfil. Privado: solo vos podés verlo. Podés cambiarlo en cualquier momento.',
+          text: 'Público: cualquiera puede buscar y ver los torneos de esa categoría desde la página principal o desde tu perfil. Privado: solo vos podés verlo. Podés cambiarlo en cualquier momento.',
         },
         {
           label: 'Agregar íconos',
-          text: 'Podés seleccionar hasta 2 emojis de una lista predefinida para identificar visualmente el torneo en la grilla.',
+          text: 'Podés seleccionar hasta 2 emojis de una lista predefinida para identificar visualmente la categoría en la grilla.',
         },
         {
-          label: 'Crear jornadas',
-          text: 'Dentro de un TORNEO podés crear tantas JORNADAS como quieras. Cada jornada es una fecha del torneo, por ejemplo: El torneo se puede llamar CABALLEROS 8VA y las jornadas pueden ser: "Fecha 1", "18/12/2022", etc. Para entender más acerca de las jornadas y cómo crearlas, revisá la sección "Crear una jornada" de este tutorial.',
+          label: 'Crear torneos',
+          text: 'Dentro de una CATEGORÍA podés crear tantos TORNEOS como quieras. Cada torneo es una como una fecha de la categoría, por ejemplo: La categoría se puede llamar CABALLEROS 8VA y los torneos pueden ser: "Fecha 1", "18/12/2022", etc. Para entender más acerca de los torneos y cómo crearlos, revisá la sección "Crear un torneo" de este tutorial.',
         },
       ]}
     >
-      <TutorialMedia caption="Formulario de creación de torneo" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422829/crear-torneo_lseyop.png'} aspect='aspect-auto'/>
+      <TutorialMedia caption="Formulario de creación de categoría" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422829/crear-torneo_lseyop.png'} aspect='aspect-auto'/>
     </TutorialSection>
   )
 }

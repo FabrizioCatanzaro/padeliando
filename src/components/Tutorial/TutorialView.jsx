@@ -13,16 +13,16 @@ import CrearJornadaSection from './sections/CrearJornadaSection'
 import CrearPartidoSection from './sections/CrearPartidoSection'
 
 const SECTIONS = [
-  { id: 'registro',          icon: UserCheck,   title: '¿Para qué registrarme?',      component: RegistroSection },
-  { id: 'crear-torneo',      icon: Plus,        title: 'Crear un torneo',              component: CrearTorneoSection },
-  {id: 'crear-jornada',     icon: Plus,        title: 'Crear una jornada',            component: CrearJornadaSection },
-  {id: 'crear-partido',     icon: Plus,        title: 'Crear un partido',            component: CrearPartidoSection },
-  { id: 'formatos',          icon: Split,       title: 'Modo Liga vs Americano',       component: FormatosSection },
-  { id: 'finalizar-jornada', icon: CheckCheck,  title: 'Finalizar una jornada',        component: FinalizarSection },
-  { id: 'privacidad',        icon: Lock,        title: 'Privacidad del torneo',        component: PrivacidadSection },
-  { id: 'editar-torneo',     icon: Pencil,      title: 'Editar nombre y descripción',  component: EditarTorneoSection },
-  { id: 'jugadores',         icon: Users,       title: 'Jugadores y parejas',          component: JugadoresSection },
-  { id: 'perfil',            icon: UserCog,     title: 'Editar datos personales',      component: PerfilSection },
+  { id: 'registro',          icon: UserCheck,   title: '¿Para qué registrarme?',       component: RegistroSection },
+  { id: 'crear-categoria',   icon: Plus,        title: 'Crear una categoría',           component: CrearTorneoSection },
+  { id: 'crear-torneo',      icon: Plus,        title: 'Crear un torneo',               component: CrearJornadaSection },
+  { id: 'crear-partido',     icon: Plus,        title: 'Crear un partido',              component: CrearPartidoSection },
+  { id: 'formatos',          icon: Split,       title: 'Modo Liga vs Americano',        component: FormatosSection },
+  { id: 'finalizar-torneo',  icon: CheckCheck,  title: 'Finalizar un torneo',           component: FinalizarSection },
+  { id: 'privacidad',        icon: Lock,        title: 'Privacidad de la categoría',    component: PrivacidadSection },
+  { id: 'editar',            icon: Pencil,      title: 'Editar nombre y descripción',   component: EditarTorneoSection },
+  { id: 'jugadores',         icon: Users,       title: 'Jugadores y parejas',           component: JugadoresSection },
+  { id: 'perfil',            icon: UserCog,     title: 'Editar datos personales',       component: PerfilSection },
 ]
 
 export default function TutorialView() {

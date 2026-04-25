@@ -124,25 +124,25 @@ export default function GroupView() {
       </div>
 
       <div className="p-6">
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">JORNADAS</div>
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">TORNEOS</div>
         {(!group.tournaments || group.tournaments.length === 0) && !isOwner && (
-          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay jornadas todavía.<br/>¡Creá el primero!</div>
+          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
         )}
         <div className="flex flex-col gap-2.5 mb-10">
           {isOwner && (
             <div
-              onClick={() => navigate(`/groups/${groupId}/tournament/new`)}
+              onClick={() => navigate(`/cat/${groupId}/torneo/new`)}
               className={`border-dashed border-brand border-2 rounded-sm p-2 cursor-pointer flex flex-col items-center justify-center min-h-full transition-[background] duration-200 hover:border-solid hover:bg-surface`}
             >
               <Plus className='text-brand' size={20} />
-              <span className='font-condensed font-bold text-xl text-brand tracking-wide'>NUEVA JORNADA</span>
+              <span className='font-condensed font-bold text-xl text-brand tracking-wide'>NUEVO TORNEO</span>
             </div>
           )}
           {group.tournaments?.map((t, i) => (
             <FadeInCard key={t.id} delay={i * 60}
               className="border border-border-mid rounded-lg px-5 py-4.5 cursor-pointer hover:border-border-strong transition-colors"
               style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
-              onClick={() => { navigate(`/groups/${groupId}/tournament/${t.id}`); }}>
+              onClick={() => { navigate(`/cat/${groupId}/torneo/${t.id}`); }}>
               <div className="flex justify-between items-center">
                 <div className="font-condensed font-bold text-[18px] text-white">{t.name}</div>
                 <span className={`text-[11px] font-mono ${t.status === 'active' ? 'text-green' : 'text-muted'}`}>
@@ -161,13 +161,13 @@ export default function GroupView() {
           ))}
         </div>
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS HISTÓRICAS</div>
-        <HistoricalStats tournaments={allTournaments} showJornadas={false} />
+        <HistoricalStats tournaments={allTournaments} showTorneos={false} />
       </div>
 
       {deleteModal && (
         <Modal
           title={`¿Eliminar "${group.name}"?`}
-          message="Se eliminarán el torneo y todas sus jornadas. Los jugadores quedan en la base de datos."
+          message="Se eliminará la categoría y todos sus torneos. Los jugadores quedan en la base de datos."
           confirmText="Sí, eliminar"
           confirmDanger
           onConfirm={handleDelete}

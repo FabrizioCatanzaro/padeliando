@@ -99,7 +99,7 @@ export default function Header() {
                   onClick={() => go('/')}
                   className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans"
                 >
-                  Mis torneos
+                  Mis categorías
                 </button>
                 <button
                   onClick={() => go('/invitations')}

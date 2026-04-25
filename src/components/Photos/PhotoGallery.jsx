@@ -246,7 +246,7 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
 
       {total === 0 && canUpload && (
         <div className="text-center text-dim py-8 px-5 font-sans text-sm border border-dashed border-border-mid rounded-lg">
-          Todavía no hay fotos. Subí la primera para darle vida a la jornada.
+          Todavía no hay fotos. Subí la primera para darle vida al torneo.
         </div>
       )}
 
@@ -263,7 +263,7 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
                 >
                   <img
                     src={p.url}
-                    alt={p.caption || 'Foto de la jornada'}
+                    alt={p.caption || 'Foto del torneo'}
                     loading="lazy"
                     className="w-full h-48 object-cover"
                   />
@@ -389,7 +389,7 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
               value={captionDraft}
               onChange={(e) => setCaptionDraft(e.target.value)}
               maxLength={MAX_CAPTION_LEN}
-              placeholder="Ej: Final de la jornada"
+              placeholder="Ej: Final del torneo"
               className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]"
             />
             {uploadError && <div className="text-xs text-danger font-mono mt-3">{uploadError}</div>}

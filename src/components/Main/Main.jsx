@@ -77,7 +77,7 @@ export default function Main() {
     : 0;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
 
-  // Ganador(es) de la jornada — solo cuando está finalizada
+  // Ganador(es) de la torneo — solo cuando está finalizada
   let winnerLabel = null;
   if (tournament.status === 'finished') {
     if (isAmericano) {
@@ -127,7 +127,7 @@ export default function Main() {
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             <div
-              onClick={() => navigate(`/groups/${groupId}`)}
+              onClick={() => navigate(`/cat/${groupId}`)}
               className="flex flex-row gap-1.5 items-center text-muted border border-border-strong px-2.5 py-1 text-[11px] cursor-pointer rounded-sm font-sans hover:text-white transition-colors"
             >
               <ChevronLeft size={14} />
@@ -135,7 +135,7 @@ export default function Main() {
             </div>
             {groupName && (
               <div
-                onClick={() => navigate(`/groups/${groupId}`)}
+                onClick={() => navigate(`/cat/${groupId}`)}
                 className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 cursor-pointer hover:border-border-strong transition-colors"
               >
                 {groupEmojis?.length > 0 && (
@@ -211,7 +211,7 @@ export default function Main() {
           )}
         </div>
 
-        {/* Chips con datos de la jornada */}
+        {/* Chips con datos de la torneo */}
         <div className="flex gap-1.5 flex-wrap">
           <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
             {fmt(tournament.createdAt)}
@@ -238,12 +238,12 @@ export default function Main() {
 
       {isOwner && isAmericano && tournament.status === 'active' && tournament.bracket?.final?.winner_id && (
         <div className="px-6 py-3 border-b border-border bg-surface-alt flex items-center justify-between gap-3">
-          <span className="text-muted font-mono text-[12px]">La final fue jugada. ¿Querés cerrar la jornada?</span>
+          <span className="text-muted font-mono text-[12px]">La final fue jugada. ¿Querés cerrar la torneo?</span>
           <button
             onClick={handleToggleStatus}
             className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap"
           >
-            ■ FINALIZAR JORNADA
+            ■ FINALIZAR TORNEO
           </button>
         </div>
       )}
@@ -299,7 +299,7 @@ export default function Main() {
             onEditPair={handleEditPair}
             onDeletePair={handleDeletePair}
             onResetScores={handleResetScores}
-            onDeleteTournament={async () => { await handleDeleteTournament(); navigate(`/groups/${groupId}`); }}
+            onDeleteTournament={async () => { await handleDeleteTournament(); navigate(`/cat/${groupId}`); }}
             onToggleStatus={handleToggleStatus}
           />
         )}

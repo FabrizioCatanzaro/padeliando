@@ -83,7 +83,7 @@ export function adaptPair(p) {
  * Convierte matches y pairs al formato interno.
  */
 /**
- * Calcula el label del ganador de un torneo (igual lógica que se muestra en jornadas).
+ * Calcula el label del ganador de un torneo (igual lógica que se muestra en torneos).
  * Para americano: ganador de la final del bracket.
  * Para parejas: pareja con más victorias.
  * Para libre: jugador con más victorias.
