@@ -8,6 +8,7 @@ import GroupView    from './components/Group/GroupView'
 import AuthView     from './components/Auth/AuthView'
 import ProfileView  from './components/Auth/ProfileView'
 import ResetPassword from './components/Auth/ResetPassword'
+import VerifyEmail   from './components/Auth/VerifyEmail'
 import Setup        from './components/Setup/Setup'
 import MainView     from './components/Main/Main'
 import ReadonlyView    from './components/ReadonlyView/ReadonlyView'
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/login"                                     element={<AuthView mode="login" />} />
         <Route path="/register"                                  element={<AuthView mode="register" />} />
         <Route path="/reset-password/:token"                     element={<ResetPassword />} />
+        <Route path="/verify-email/:token"                       element={<VerifyEmail />} />
         <Route path="/u/:username"                               element={<ProfileView />} />
         <Route path="/readonly/:id"                              element={<ReadonlyView />} />
         <Route path="/groups/:groupId"                           element={<GroupView />} />

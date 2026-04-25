@@ -70,6 +70,9 @@ export default function AuthView({ mode: initialMode }) {
   const [forgotSent, setForgotSent] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
+  const [verificationSent, setVerificationSent] = useState(null) // email pendiente tras registro
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [resendStatus, setResendStatus] = useState(null) // 'sending' | 'sent'
 
   const { login } = useAuth()
   const navigate  = useNavigate()
@@ -117,19 +120,40 @@ export default function AuthView({ mode: initialMode }) {
 
   async function handleSubmit() {
     setError(null)
+    setNeedsVerification(false)
     const formErr = getFormError()
     if (formErr) { setError(formErr); return }
     setLoading(true)
     try {
-      const body = isRegister ? { name, email, password } : { email, password }
-      const fn   = isRegister ? api.auth.register : api.auth.login
-      const { user } = await fn(body)
-      login(user)
-      navigate('/')
+      if (isRegister) {
+        const res = await api.auth.register({ name, email, password })
+        if (res.pending_verification) {
+          setVerificationSent(res.email ?? email)
+        } else if (res.user) {
+          login(res.user)
+          navigate('/')
+        }
+      } else {
+        const { user } = await api.auth.login({ email, password })
+        login(user)
+        navigate('/')
+      }
     } catch (e) {
+      if (e.data?.needs_verification) setNeedsVerification(true)
       setError(e.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleResendVerification(target) {
+    if (!target) return
+    setResendStatus('sending')
+    try {
+      await api.auth.resendVerification(target)
+      setResendStatus('sent')
+    } catch {
+      setResendStatus(null)
     }
   }
 
@@ -148,9 +172,41 @@ export default function AuthView({ mode: initialMode }) {
 
   function switchMode(m) {
     setMode(m); setError(null); setPassword(''); setPassword2(''); setShowForgot(false)
+    setVerificationSent(null); setNeedsVerification(false); setResendStatus(null)
   }
 
   const label = 'block text-[11px] tracking-widest text-[#555] font-mono mb-1.5 mt-4'
+
+  // Vista de "confirmá tu email" (tras registrarse)
+  if (verificationSent) {
+    return (
+      <div className="bg-base flex items-start justify-center pt-10 px-4">
+        <div className="w-full max-w-sm mt-8 text-center">
+          <div className="text-green text-4xl mb-4">✓</div>
+          <p className="text-white font-semibold mb-2">Revisá tu email</p>
+          <p className="text-[#555] text-sm">
+            Te enviamos un enlace de confirmación a <span className="text-white">{verificationSent}</span>.
+            El enlace expira en 24 horas. Si no lo encontrás, mirá tu casilla de Spam.
+          </p>
+          <button
+            onClick={() => handleResendVerification(verificationSent)}
+            disabled={resendStatus === 'sending' || resendStatus === 'sent'}
+            className="mt-6 text-brand text-sm hover:underline disabled:opacity-50"
+          >
+            {resendStatus === 'sent' ? 'Enlace reenviado'
+              : resendStatus === 'sending' ? 'Enviando...'
+              : 'Reenviar enlace'}
+          </button>
+          <div>
+            <button onClick={() => switchMode('login')}
+              className="mt-3 text-[#555] text-sm hover:text-[#aaa] transition-colors">
+              Volver al login
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Vista de "olvidé mi contraseña"
   if (showForgot) {
@@ -247,6 +303,17 @@ export default function AuthView({ mode: initialMode }) {
         )}
 
         {error && <p className="text-danger text-xs font-mono mt-3">{error}</p>}
+        {needsVerification && !isRegister && (
+          <button
+            onClick={() => handleResendVerification(email)}
+            disabled={resendStatus === 'sending' || resendStatus === 'sent'}
+            className="mt-2 text-brand text-xs hover:underline disabled:opacity-50"
+          >
+            {resendStatus === 'sent' ? 'Enlace reenviado'
+              : resendStatus === 'sending' ? 'Enviando...'
+              : 'Reenviar enlace de confirmación'}
+          </button>
+        )}
 
         <button onClick={handleSubmit} disabled={loading}
           className="w-full mt-5 bg-brand text-base font-[Barlow_Condensed] font-black tracking-widest py-3 rounded text-sm disabled:opacity-50 transition-opacity">

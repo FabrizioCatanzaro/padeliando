@@ -30,7 +30,12 @@ async function req(method, path, body, retry = true) {
   }
 
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error ?? 'Error desconocido')
+  if (!res.ok) {
+    const err = new Error(data.error ?? 'Error desconocido')
+    err.data   = data
+    err.status = res.status
+    throw err
+  }
   return data
 }
 
@@ -70,6 +75,8 @@ export const api = {
     search:         (q)    => req('GET',  `/auth/search?q=${encodeURIComponent(q)}`),
     forgotPassword: (email)       => req('POST',  '/auth/forgot-password',  { email }),
     resetPassword:  (token, pass) => req('POST',  '/auth/reset-password',   { token, password: pass }),
+    verifyEmail:        (token) => req('POST', '/auth/verify-email',        { token }),
+    resendVerification: (email) => req('POST', '/auth/resend-verification', { email }),
     updateMe:       (body)        => req('PATCH', '/auth/me', body),
     uploadAvatar:   (file)        => reqMultipart('POST',   '/auth/me/avatar', imageForm(file)),
     deleteAvatar:   ()            => req('DELETE', '/auth/me/avatar'),
