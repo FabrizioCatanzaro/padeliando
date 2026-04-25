@@ -136,6 +136,16 @@ export const api = {
     checkout: (billing_period)  => req('POST', '/subscriptions/checkout', { billing_period }),
     cancel:   ()                => req('POST', '/subscriptions/cancel'),
   },
+  admin: {
+    stats:         ()                       => req('GET',  '/admin/stats'),
+    timeseries:    (days = 30)              => req('GET',  `/admin/timeseries?days=${days}`),
+    users:         ({ q = '', page = 1, limit = 25 } = {}) =>
+      req('GET', `/admin/users?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`),
+    tournaments:   ({ q = '', status = 'all', page = 1, limit = 25 } = {}) =>
+      req('GET', `/admin/tournaments?q=${encodeURIComponent(q)}&status=${status}&page=${page}&limit=${limit}`),
+    grantPremium:  (userId, duration_days)  => req('POST', `/admin/users/${userId}/grant-premium`, { duration_days }),
+    revokePremium: (userId)                 => req('POST', `/admin/users/${userId}/revoke-premium`),
+  },
   photos: {
     list:          (tournamentId)                       => req('GET',    `/tournaments/${tournamentId}/photos`),
     upload:        (tournamentId, file, caption)        => reqMultipart('POST', `/tournaments/${tournamentId}/photos`, imageForm(file, { caption })),

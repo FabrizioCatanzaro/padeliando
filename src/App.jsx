@@ -9,6 +9,9 @@ import AuthView     from './components/Auth/AuthView'
 import ProfileView  from './components/Auth/ProfileView'
 import ResetPassword from './components/Auth/ResetPassword'
 import VerifyEmail   from './components/Auth/VerifyEmail'
+import AdminDashboard from './components/Admin/AdminDashboard'
+import AdminUsers       from './components/Admin/AdminUsers'
+import AdminTournaments from './components/Admin/AdminTournaments'
 import Setup        from './components/Setup/Setup'
 import MainView     from './components/Main/Main'
 import ReadonlyView    from './components/ReadonlyView/ReadonlyView'
@@ -60,6 +63,14 @@ function PrivateRoute({ children }) {
   return isLoggedIn ? children : <Navigate to="/login" replace />
 }
 
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role !== 'admin') return <Navigate to="/" replace />
+  return children
+}
+
 export default function App() {
   return (
     <Routes>
@@ -76,6 +87,9 @@ export default function App() {
         <Route path="/groups/:groupId/tournament/:tournamentId"  element={<MainView />} />
         <Route path="/invitations"                               element={<PrivateRoute><InvitationsView /></PrivateRoute>} />
         <Route path="/tutorial"                                  element={<TutorialView />} />
+        <Route path="/admin"                                     element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/users"                               element={<AdminRoute><AdminUsers /></AdminRoute>} />
+        <Route path="/admin/tournaments"                         element={<AdminRoute><AdminTournaments /></AdminRoute>} />
         {/* <Route path="/subscription"                              element={<PrivateRoute><SubscriptionTest /></PrivateRoute>} /> */}
         {/* <Route path="/subscription/success"                      element={<PrivateRoute><SubscriptionSuccess /></PrivateRoute>} /> */}
         <Route path="*"                                          element={<Navigate to="/" replace />} />
