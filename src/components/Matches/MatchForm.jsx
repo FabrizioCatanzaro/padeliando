@@ -277,7 +277,7 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, time
             return (
               <div key={i} className="flex items-center gap-2 mb-2">
                 {selected && (
-                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} />
+                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} premium={selected.is_premium ?? false} />
                 )}
                 <select className="flex-1 w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={form.team1[i]} onChange={(e) => updateTeam("team1", i, e.target.value)}>
@@ -299,7 +299,7 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, time
             return (
               <div key={i} className="flex items-center gap-2 mb-2">
                 {selected && (
-                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} />
+                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} premium={selected.is_premium ?? false} />
                 )}
                 <select className="flex-1 w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={form.team2[i]} onChange={(e) => updateTeam("team2", i, e.target.value)}>

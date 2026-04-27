@@ -110,7 +110,7 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} />
+                <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} premium={p.is_premium ?? false} />
                 <span className="flex-1 text-content font-sans">{p.name}</span>
 
                 {/* Badge de vinculación */}
@@ -208,7 +208,7 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
           <div className="flex flex-col gap-1.5">
             {tournament.players.filter((p) => p.removed).map((p) => (
               <div key={p.id} className="flex items-center gap-2 bg-base border border-dashed border-border-mid rounded-md px-3 py-2 opacity-60">
-                <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={24} />
+                <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={24} premium={p.is_premium ?? false} />
                 <span className="flex-1 text-muted font-sans line-through">{p.name}</span>
                 {hasMatches(p.id) && (
                   <span className="text-[10px] text-muted font-mono">

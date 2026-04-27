@@ -73,7 +73,7 @@ export default function Header() {
           className={`relative bg-transparent rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong'}`}
         >
           {isLoggedIn
-            ? <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={30} />
+            ? <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={30} premium={user?.subscription?.plan === 'premium'} />
             : <User className='text-gray-200' size={18} />}
           {displayCount > 0 && (
             <span className="absolute -top-1 animate-pulse -right-1 bg-brand text-base text-[9px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">

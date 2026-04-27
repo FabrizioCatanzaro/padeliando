@@ -7,28 +7,30 @@ export default function Standings({ tournament }) {
   const isPairs        = tournament.mode === "pairs";
   const hasPairs       = isPairs && tournament.pairs?.length > 0;
 
-  const avatarById = Object.fromEntries(
-    tournament.players.map((p) => [p.id, p.linked_avatar_url ?? null])
-  );
+  const playerById = Object.fromEntries(tournament.players.map((p) => [String(p.id), p]));
 
   // ── Filas de la tabla: una por pareja (pairs) o una por jugador (free) ──
   let displayRows;
   if (hasPairs) {
     displayRows = tournament.pairs.map((pair) => {
-      // Ambos jugadores tienen stats idénticas; tomamos el primero disponible.
       const stats = individualRows.find((r) => r.id === pair.p1)
                  ?? individualRows.find((r) => r.id === pair.p2)
                  ?? { pj: 0, pg: 0, pp: 0, sf: 0, sc: 0 };
-      const p1Name = tournament.players.find((p) => p.id === pair.p1)?.name ?? "?";
-      const p2Name = tournament.players.find((p) => p.id === pair.p2)?.name ?? "?";
+      const p1 = playerById[String(pair.p1)];
+      const p2 = playerById[String(pair.p2)];
       return {
-        ...stats, id: pair.id, name: `${p1Name} & ${p2Name}`, p1Name, p2Name,
-        src1: avatarById[pair.p1] ?? null,
-        src2: avatarById[pair.p2] ?? null,
+        ...stats, id: pair.id,
+        name: `${p1?.name ?? "?"} & ${p2?.name ?? "?"}`,
+        p1Name: p1?.name ?? "?", p2Name: p2?.name ?? "?",
+        src1: p1?.linked_avatar_url ?? null,
+        src2: p2?.linked_avatar_url ?? null,
       };
     }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
   } else {
-    displayRows = individualRows.map((r) => ({ ...r, src: avatarById[r.id] ?? null }));
+    displayRows = individualRows.map((r) => {
+      const p = playerById[String(r.id)];
+      return { ...r, src: p?.linked_avatar_url ?? null, is_premium: p?.is_premium ?? false };
+    });
   }
 
   // ── Destacar la primera posición solo si no hay empate ─────────────────
@@ -39,7 +41,7 @@ export default function Standings({ tournament }) {
   ).length > 1;
   const isTop = (r) => !hasTie && topPg > 0 && r.id === displayRows[0]?.id;
 
-  const champions = tournament.status === 'finished' && topPg > 0
+  const champions = tournament.status === 'finished' && topPg > 0 && tournament.format !== 'americano'
     ? displayRows.filter((r) => r.pg === topPg && (r.sf - r.sc) === topDiff)
     : [];
   const championsCount = hasPairs ? champions.length * 2 : champions.length;
@@ -57,7 +59,7 @@ export default function Standings({ tournament }) {
               <div key={c.id} className="flex flex-col items-center gap-2">
                 {c.p1Name
                   ? <PairAvatar name1={c.p1Name} name2={c.p2Name} src1={c.src1} src2={c.src2} size={56} />
-                  : <PlayerAvatar name={c.name} src={c.src} size={56} />
+                  : <PlayerAvatar name={c.name} src={c.src} size={56} premium={!!(playerById[String(c.id)]?.is_premium)} />
                 }
                 <div className="font-condensed font-black text-[24px] text-white leading-tight">
                   {c.name}
@@ -98,7 +100,7 @@ export default function Standings({ tournament }) {
                     <div className="flex items-center gap-2">
                       {r.p1Name
                         ? <PairAvatar name1={r.p1Name} name2={r.p2Name} src1={r.src1} src2={r.src2} size={26} />
-                        : <PlayerAvatar name={r.name} src={r.src} size={26} />
+                        : <PlayerAvatar name={r.name} src={r.src} size={26} premium={!!(playerById[String(r.id)]?.is_premium)} />
                       }
                       {r.name}
                     </div>

@@ -26,44 +26,69 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-export default function PlayerAvatar({ name, src, size = 32, className = '', style = {} }) {
+export default function PlayerAvatar({ name, src, size = 32, premium = false, className = '', style = {} }) {
   const [erroredSrc, setErroredSrc] = useState(null);
 
   const showImage = !!src && erroredSrc !== src;
   const initials  = getInitials(name);
   const color     = getAvatarColor(name || '');
+  const inner = showImage ? (
+    <img
+      src={src}
+      alt={name || ''}
+      onError={() => setErroredSrc(src)}
+      style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+    />
+  ) : (
+    <div style={{
+      width: '100%', height: '100%', borderRadius: '50%',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: premium ? `${color}33` : `${color}1a`,
+      color: premium ? '#000' : color,
+      fontSize: Math.round(size * 0.38),
+      fontFamily: "'Barlow Condensed', sans-serif",
+      fontWeight: 700,
+      letterSpacing: 0.5,
+      userSelect: 'none',
+    }}>
+      {initials}
+    </div>
+  );
 
-  const baseStyle = {
-    width: size,
-    height: size,
-    ...style,
-  };
-
-  if (showImage) {
+  if (premium) {
+    const pad = Math.max(2, Math.round(size * 0.07));
     return (
-      <img
-        src={src}
-        alt={name || ''}
-        onError={() => setErroredSrc(src)}
-        className={`rounded-full object-cover select-none shrink-0 ${className}`}
-        style={{ ...baseStyle, border: `1.5px solid ${color}55` }}
-      />
+      <div
+        className={`shrink-0 ${className}`}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          padding: pad,
+          background: 'linear-gradient(135deg, #f59e0b, #fde68a, #f59e0b)',
+          boxShadow: `0 0 ${Math.round(size * 0.3)}px #f59e0b66`,
+          flexShrink: 0,
+          ...style,
+        }}
+      >
+        {inner}
+      </div>
     );
   }
 
   return (
     <div
-      className={`rounded-full flex items-center justify-center font-condensed font-bold select-none shrink-0 ${className}`}
+      className={`shrink-0 ${className}`}
       style={{
-        ...baseStyle,
-        backgroundColor: `${color}1a`,
+        width: size,
+        height: size,
+        borderRadius: '50%',
         border: `1.5px solid ${color}55`,
-        color: color,
-        fontSize: Math.round(size * 0.38),
-        letterSpacing: 0.5,
+        flexShrink: 0,
+        ...style,
       }}
     >
-      {initials}
+      {inner}
     </div>
   );
 }

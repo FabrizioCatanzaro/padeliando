@@ -308,7 +308,7 @@ function ReadonlyPlayers({ tournament }) {
               {players.map((p, i) => (
                 <div key={p.id} className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
                   <div className="min-w-6 text-muted font-mono font-bold text-[13px]">{i + 1}</div>
-                  <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} />
+                  <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} premium={p.is_premium ?? false} />
                   <div className="text-white font-semibold">{p.name}</div>
                 </div>
               ))}

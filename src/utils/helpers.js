@@ -116,12 +116,46 @@ export function getTournamentWinnerLabel(t) {
   }
 }
 
+function patchBracketNames(bracket, pairs, players) {
+  if (!bracket) return bracket;
+  const nameByPair = {};
+  for (const pair of pairs) {
+    const p1 = players.find(p => p.id === pair.p1);
+    const p2 = players.find(p => p.id === pair.p2);
+    nameByPair[pair.id] = `${p1?.name ?? '?'} & ${p2?.name ?? '?'}`;
+  }
+  function patchMatch(m) {
+    if (!m) return m;
+    return {
+      ...m,
+      pair1_name:  m.pair1_id  ? (nameByPair[m.pair1_id]  ?? m.pair1_name)  : m.pair1_name,
+      pair2_name:  m.pair2_id  ? (nameByPair[m.pair2_id]  ?? m.pair2_name)  : m.pair2_name,
+      winner_name: m.winner_id ? (nameByPair[m.winner_id] ?? m.winner_name) : m.winner_name,
+    };
+  }
+  return {
+    ...bracket,
+    standings: (bracket.standings ?? []).map(s => ({
+      ...s,
+      pair_name: s.pair_id ? (nameByPair[s.pair_id] ?? s.pair_name) : s.pair_name,
+    })),
+    octavos: (bracket.octavos ?? []).map(patchMatch),
+    cuartos: (bracket.cuartos ?? []).map(patchMatch),
+    semis:   (bracket.semis   ?? []).map(patchMatch),
+    final:   patchMatch(bracket.final),
+  };
+}
+
 export function adaptTournament(t) {
+  const players = (t.players ?? []).map(p => ({ ...p, name: p.linked_name ?? p.name }));
+  const pairs   = (t.pairs   ?? []).map(adaptPair);
   return {
     ...t,
     createdAt: t.created_at ?? t.createdAt,
-    matches:   (t.matches ?? []).map(adaptMatch),
-    pairs:     (t.pairs   ?? []).map(adaptPair),
+    players,
+    pairs,
+    matches: (t.matches ?? []).map(adaptMatch),
+    bracket: patchBracketNames(t.bracket, pairs, players),
   };
 }
 
