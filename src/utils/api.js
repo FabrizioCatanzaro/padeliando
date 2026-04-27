@@ -84,6 +84,7 @@ export const api = {
   groups: {
     list:          ()         => req('GET',    '/groups'),
     search:        (q)        => req('GET',    `/groups/search?q=${encodeURIComponent(q)}`),
+    nearby:        (lat, lon, radius = 20) => req('GET', `/groups/nearby?lat=${lat}&lon=${lon}&radius=${radius}`),
     participating: ()         => req('GET',    '/groups/participating'),
     get:           (id)       => req('GET',    `/groups/${id}`),
     history:       (id)       => req('GET',    `/groups/${id}/history`),

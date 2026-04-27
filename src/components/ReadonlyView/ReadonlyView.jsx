@@ -9,7 +9,7 @@ import PhotoGallery from "../Photos/PhotoGallery";
 import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
-import { ChartNoAxesCombined, Check, ChevronLeft, Eye, Flame, Share2, Split, List, Trophy, User, Zap } from "lucide-react";
+import { ChartNoAxesCombined, Check, ChevronLeft, Eye, Flame, Lock, Share2, Split, List, Trophy, User, Zap } from "lucide-react";
 import Loader from "../Loader/Loader";
 
 const LIGA_TABS = [
@@ -31,8 +31,10 @@ export default function ReadonlyView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [tournament, setTournament] = useState(null);
-  const [groupName, setGroupName]     = useState(null);
-  const [groupEmojis, setGroupEmojis] = useState([]);
+  const [groupName, setGroupName]         = useState(null);
+  const [groupEmojis, setGroupEmojis]     = useState([]);
+  const [groupIsPublic, setGroupIsPublic] = useState(true);
+  const [groupOwner, setGroupOwner]       = useState(null);
   const [error, setError]           = useState(false);
   const [tab, setTab]               = useState("standings");
   const [copied, setCopied]         = useState(false);
@@ -63,6 +65,8 @@ export default function ReadonlyView() {
           const g = await api.groups.get(t.group_id);
           setGroupName(g.name);
           setGroupEmojis(g.emojis ?? []);
+          setGroupIsPublic(g.is_public ?? true);
+          if (g.owner_username) setGroupOwner({ username: g.owner_username, name: g.owner_name });
         }
       } catch {
         setError(true);
@@ -140,15 +144,25 @@ export default function ReadonlyView() {
               </div>
             )}
             {groupName && (
-              <div
-                onClick={() => navigate(`/cat/${tournament.group_id}`)}
-                className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 cursor-pointer hover:border-border-strong transition-colors"
-              >
-                {groupEmojis?.length > 0 && (
-                  <span className="text-sm leading-none">{groupEmojis.join(' ')}</span>
-                )}
-                <span className="text-[11px] font-mono text-muted">{groupName}</span>
-              </div>
+              groupIsPublic ? (
+                <div
+                  onClick={() => navigate(`/cat/${tournament.group_id}`)}
+                  className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 cursor-pointer hover:border-border-strong transition-colors"
+                >
+                  {groupEmojis?.length > 0 && (
+                    <span className="text-sm leading-none">{groupEmojis.join(' ')}</span>
+                  )}
+                  <span className="text-[11px] font-mono text-muted">{groupName}</span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1">
+                  {groupEmojis?.length > 0 && (
+                    <span className="text-sm leading-none">{groupEmojis.join(' ')}</span>
+                  )}
+                  <span className="text-[11px] font-mono text-muted">{groupName}</span>
+                  <Lock size={10} className="text-yellow-400" />
+                </div>
+              )
             )}
           </div>
           <div
@@ -174,7 +188,7 @@ export default function ReadonlyView() {
           {tournament.name}
         </h1>
 
-        {/* Estado + ganador */}
+        {/* Estado + ganador + dueño */}
         <div className="flex items-center gap-3 flex-wrap mb-3">
           <span className={`text-[11px] font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
             {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
@@ -182,6 +196,15 @@ export default function ReadonlyView() {
           {winnerLabel && (
             <span className="inline-flex items-center gap-1.5 text-[13px] text-brand font-mono">
               <Trophy size={13} /> {winnerLabel}
+            </span>
+          )}
+          {groupOwner && (
+            <span
+              onClick={() => navigate(`/u/${groupOwner.username}`)}
+              className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444] hover:text-white cursor-pointer transition-colors"
+            >
+              <User size={11} />
+              @{groupOwner.username}
             </span>
           )}
         </div>
