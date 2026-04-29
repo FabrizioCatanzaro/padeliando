@@ -3,7 +3,11 @@ import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock } from 'lucide-react';
+import {
+  ResponsiveContainer, BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+} from 'recharts';
 import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
 import FadeInCard from '../shared/FadeInCard';
 import Loader from '../Loader/Loader';
@@ -204,6 +208,293 @@ function PasswordStrength({ password }) {
   );
 }
 
+// ── Tooltip personalizado para recharts ───────────────────────────────────────
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-[#1a1a1a] border border-border-strong rounded px-3 py-2 text-xs font-mono">
+      <div className="text-muted mb-1">{label}</div>
+      {payload.map((p) => (
+        <div key={p.dataKey} style={{ color: p.color }}>{p.name}: {p.value}{p.unit ?? ''}</div>
+      ))}
+    </div>
+  );
+}
+
+// ── Heatmap de actividad ──────────────────────────────────────────────────────
+const HEATMAP_COLORS = [
+  '#111',                    // 0 — sin actividad
+  'rgba(232,240,74,0.22)',   // 1
+  'rgba(232,240,74,0.45)',   // 2
+  'rgba(232,240,74,0.70)',   // 3
+  '#e8f04a',                 // 4+
+];
+
+function heatColor(n) {
+  if (n <= 0) return HEATMAP_COLORS[0];
+  if (n === 1) return HEATMAP_COLORS[1];
+  if (n === 2) return HEATMAP_COLORS[2];
+  if (n === 3) return HEATMAP_COLORS[3];
+  return HEATMAP_COLORS[4];
+}
+
+function ActivityHeatmap({ dailyActivity }) {
+  const activityMap = Object.fromEntries((dailyActivity ?? []).map(d => [d.day, d.partidos]));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Arrancar desde el lunes de hace 52 semanas
+  const start = new Date(today);
+  start.setDate(start.getDate() - 364);
+  const dow = start.getDay();
+  start.setDate(start.getDate() - (dow === 0 ? 6 : dow - 1));
+
+  const weeks = [];
+  const cur = new Date(start);
+  while (cur <= today) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      const dateStr = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+      const isFuture = cur > today;
+      week.push({
+        date: dateStr,
+        n: isFuture ? -1 : (activityMap[dateStr] ?? 0),
+        label: isFuture ? '' : cur.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short' }),
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  // Etiquetas de mes (primer semana visible de cada mes)
+  const monthLabels = [];
+  weeks.forEach((week, wi) => {
+    const d = new Date(week[0].date);
+    if (d.getDate() <= 7 && (!monthLabels.length || monthLabels[monthLabels.length - 1].wi !== wi - 1)) {
+      monthLabels.push({ wi, label: d.toLocaleDateString('es-AR', { month: 'short' }) });
+    }
+  });
+
+  const CELL = 11;
+  const GAP  = 2;
+  const STEP = CELL + GAP;
+  const DAY_LABELS = ['Lun', '', 'Mié', '', 'Vie', '', ''];
+
+  return (
+    <div>
+      <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">ACTIVIDAD (ÚLTIMOS 12 MESES)</div>
+      <div className="overflow-x-auto pb-2">
+        <div style={{ display: 'inline-flex', flexDirection: 'column', minWidth: 'max-content' }}>
+          {/* Etiquetas de mes */}
+          <div style={{ display: 'flex', marginLeft: 28, marginBottom: 3 }}>
+            {weeks.map((_, wi) => {
+              const lbl = monthLabels.find(m => m.wi === wi);
+              return (
+                <div key={wi} style={{ width: STEP, flexShrink: 0, fontSize: 9, color: '#555', fontFamily: 'monospace' }}>
+                  {lbl?.label ?? ''}
+                </div>
+              );
+            })}
+          </div>
+          {/* Filas (días) */}
+          {Array.from({ length: 7 }, (_, di) => (
+            <div key={di} style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: GAP }}>
+              <div style={{ width: 26, fontSize: 8, color: '#444', fontFamily: 'monospace', textAlign: 'right', paddingRight: 4, flexShrink: 0 }}>
+                {DAY_LABELS[di]}
+              </div>
+              {weeks.map((week, wi) => {
+                const cell = week[di];
+                if (!cell) return <div key={wi} style={{ width: CELL, height: CELL, marginRight: GAP }} />;
+                return (
+                  <div
+                    key={wi}
+                    title={cell.n > 0 ? `${cell.label}: ${cell.n} ${cell.n === 1 ? 'partido' : 'partidos'}` : cell.label || ''}
+                    style={{
+                      width: CELL, height: CELL,
+                      borderRadius: 2,
+                      background: cell.n < 0 ? 'transparent' : heatColor(cell.n),
+                      marginRight: GAP,
+                      flexShrink: 0,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          ))}
+          {/* Leyenda */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 6, marginLeft: 28 }}>
+            <span style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', marginRight: 2 }}>Menos</span>
+            {HEATMAP_COLORS.map((bg, i) => (
+              <div key={i} style={{ width: CELL, height: CELL, borderRadius: 2, background: bg, flexShrink: 0 }} />
+            ))}
+            <span style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', marginLeft: 2 }}>Más</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Estadísticas avanzadas (premium) ─────────────────────────────────────────
+function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
+  const gf   = stats.games_favor  ?? 0;
+  const gc   = stats.games_contra ?? 0;
+  const diff = gf - gc;
+
+  // Rellenar meses faltantes en los últimos 12
+  const filledMonths = (() => {
+    const map = Object.fromEntries((monthlyStats ?? []).map(m => [m.month, m]));
+    const result = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' });
+      const row = map[key];
+      result.push({
+        month: label,
+        partidos:  row?.partidos  ?? 0,
+        victorias: row?.victorias ?? 0,
+        winRate:   row?.partidos > 0 ? Math.round((row.victorias / row.partidos) * 100) : 0,
+      });
+    }
+    return result;
+  })();
+
+  const activeMonths = filledMonths.filter(m => m.partidos > 0).length;
+  const avgPerMonth  = activeMonths > 0 ? (stats.partidos / activeMonths).toFixed(1) : '—';
+
+  const bestMonth = (() => {
+    const active = (monthlyStats ?? []).filter(m => m.victorias > 0 || m.partidos > 0);
+    if (!active.length) return null;
+    const best = active.reduce((b, m) =>
+      m.victorias > b.victorias || (m.victorias === b.victorias && m.partidos > b.partidos) ? m : b,
+      active[0]
+    );
+    const [y, mo] = best.month.split('-');
+    const label = new Date(parseInt(y), parseInt(mo) - 1, 1)
+      .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    return { ...best, label: label.charAt(0).toUpperCase() + label.slice(1) };
+  })();
+
+  return (
+    <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-5">
+        <Lock size={13} className="text-brand" />
+        <span className="font-condensed font-bold text-sm tracking-[3px] text-brand">ESTADÍSTICAS AVANZADAS</span>
+      </div>
+
+      {/* Mejor racha + Mejor mes */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+          <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.racha_max ?? 0}</div>
+          <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>MEJOR RACHA</div>
+          <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+            {(stats.racha_max ?? 0) === 1 ? 'victoria consecutiva' : 'victorias consecutivas'}
+          </div>
+          <div className="h-0.5 rounded-full mt-2 bg-brand opacity-35" />
+        </div>
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+          {bestMonth ? (
+            <>
+              <div className="font-condensed font-black text-[22px] text-white leading-none">{bestMonth.partidos}PJ · {bestMonth.victorias}V</div>
+              <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>MEJOR MES</div>
+              <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: '#555' }}>{bestMonth.label}</div>
+            </>
+          ) : (
+            <>
+              <div className="font-condensed font-black text-[32px] text-[#333] leading-none">—</div>
+              <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>MEJOR MES</div>
+            </>
+          )}
+          <div className="h-0.5 rounded-full mt-2 opacity-35" style={{ background: '#a84af0' }} />
+        </div>
+      </div>
+
+      {/* Games GF / GC / DIF */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+          <div className="font-condensed font-black text-[28px] text-white leading-none">{gf}</div>
+          <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>GAMES A FAVOR</div>
+          <div className="h-0.5 rounded-full mt-2 bg-green opacity-40" />
+        </div>
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+          <div className="font-condensed font-black text-[28px] text-white leading-none">{gc}</div>
+          <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>GAMES EN CONTRA</div>
+          <div className="h-0.5 rounded-full mt-2 bg-danger opacity-40" />
+        </div>
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+          <div className={`font-condensed font-black text-[28px] leading-none ${diff > 0 ? 'text-green' : diff < 0 ? 'text-danger' : 'text-white'}`}>
+            {diff > 0 ? '+' : ''}{diff}
+          </div>
+          <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>DIFERENCIA</div>
+          <div className="h-0.5 rounded-full mt-2 opacity-40" style={{ background: diff >= 0 ? '#4af07a' : '#f07a4a' }} />
+        </div>
+      </div>
+
+      {/* Meses activos + Promedio */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+          <div className="font-condensed font-black text-[28px] text-white leading-none">{activeMonths}</div>
+          <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>MESES ACTIVOS</div>
+          <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>últimos 12 meses</div>
+        </div>
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+          <div className="font-condensed font-black text-[28px] text-white leading-none">{avgPerMonth}</div>
+          <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>PROM. PARTIDOS/MES</div>
+          <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>en meses activos</div>
+        </div>
+      </div>
+
+      {/* Gráfico de barras — partidos + victorias por mes */}
+      <div className="mb-6">
+        <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">PARTIDOS POR MES</div>
+        <ResponsiveContainer width="100%" height={140}>
+          <BarChart data={filledMonths} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={10} barCategoryGap="30%">
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+            <XAxis dataKey="month" tick={{ fill: '#444', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: '#ffffff06' }} />
+            <Legend wrapperStyle={{ fontSize: 9, fontFamily: 'monospace', color: '#555', paddingTop: 4 }} />
+            <Bar dataKey="partidos" name="Partidos" fill="#4ab8f0" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="victorias" name="Victorias" fill="#4af07a" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Gráfico de líneas — win rate por mes */}
+      <div className="mb-6">
+        <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">WIN RATE % POR MES</div>
+        <ResponsiveContainer width="100%" height={120}>
+          <LineChart data={filledMonths} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+            <XAxis dataKey="month" tick={{ fill: '#444', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, 100]} tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} unit="%" />
+            <Tooltip content={<ChartTooltip />} cursor={{ stroke: '#ffffff15' }} />
+            <Line
+              type="monotone"
+              dataKey="winRate"
+              name="Win Rate"
+              unit="%"
+              stroke="#e8f04a"
+              strokeWidth={2}
+              dot={{ fill: '#e8f04a', r: 3, strokeWidth: 0 }}
+              activeDot={{ r: 5, strokeWidth: 0 }}
+              connectNulls={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Heatmap de actividad */}
+      <ActivityHeatmap dailyActivity={dailyActivity} />
+    </div>
+  );
+}
+
 export default function ProfileView() {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
@@ -211,6 +502,15 @@ export default function ProfileView() {
   const { username } = useParams();
   const navigate = useNavigate();
   const { user, login } = useAuth();
+
+  const [isFollowing,      setIsFollowing]      = useState(false);
+  const [followBusy,       setFollowBusy]       = useState(false);
+  const [followHover,      setFollowHover]       = useState(false);
+  const [followersCount,   setFollowersCount]    = useState(0);
+  const [followingCount,   setFollowingCount]    = useState(0);
+  const [followModal,      setFollowModal]       = useState(null); // 'followers' | 'following' | null
+  const [followList,       setFollowList]        = useState([]);
+  const [followListLoading, setFollowListLoading] = useState(false);
 
   const [editOpen,     setEditOpen]     = useState(false);
   const [editName,     setEditName]     = useState('');
@@ -239,6 +539,9 @@ export default function ProfileView() {
         const existing = Array.isArray(d.owner.social_links) ? d.owner.social_links : [];
         setSocialLinks(ensureTrailingEmpty(existing));
         setAvatarUrl(d.owner.avatar_url ?? null);
+        setIsFollowing(d.is_following ?? false);
+        setFollowersCount(d.owner.followers_count ?? 0);
+        setFollowingCount(d.owner.following_count ?? 0);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -247,7 +550,7 @@ export default function ProfileView() {
   if (loading) return <Loader />;
   if (error)   return <div className="text-danger p-10">{error}</div>;
 
-  const { owner, groups, stats, recent_matches, frequent_partners } = data;
+  const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats } = data;
   const isOwnProfile  = user?.username === owner.username;
   const displayAvatar = avatarUrl ?? (isOwnProfile ? user?.avatar_url : null) ?? null;
 
@@ -380,6 +683,36 @@ export default function ProfileView() {
     }
   }
 
+  async function handleFollowToggle() {
+    if (followBusy) return;
+    setFollowBusy(true);
+    try {
+      if (isFollowing) {
+        await api.follows.unfollow(owner.username);
+        setIsFollowing(false);
+        setFollowersCount(c => c - 1);
+      } else {
+        await api.follows.follow(owner.username);
+        setIsFollowing(true);
+        setFollowersCount(c => c + 1);
+      }
+    } catch { /* ignore */ }
+    finally { setFollowBusy(false); }
+  }
+
+  async function openFollowModal(type) {
+    setFollowModal(type);
+    setFollowList([]);
+    setFollowListLoading(true);
+    try {
+      const list = type === 'followers'
+        ? await api.follows.followers(owner.username)
+        : await api.follows.following(owner.username);
+      setFollowList(list);
+    } catch { /* ignore */ }
+    finally { setFollowListLoading(false); }
+  }
+
   const label = { display: 'block', fontSize: 11, letterSpacing: 2, color: '#555',
                   fontFamily: "'Kode Mono',monospace", marginBottom: 6, marginTop: 16 };
 
@@ -391,6 +724,7 @@ export default function ProfileView() {
         <div className="mb-6 flex justify-between items-start gap-3 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="relative">
+
               <PlayerAvatar
                 name={owner.name}
                 src={displayAvatar}
@@ -420,10 +754,52 @@ export default function ProfileView() {
               <div className="text-[12px] text-muted font-mono mt-1">
                 @{owner.username} · desde {fmt(owner.created_at)}
               </div>
+              {/* Seguidores / Seguidos */}
+              <div className="flex items-center gap-3 mt-2">
+                <button
+                  onClick={() => openFollowModal('followers')}
+                  className="text-[12px] font-mono hover:text-white transition-colors cursor-pointer bg-transparent border-none p-0"
+                  style={{ color: '#888' }}
+                >
+                  <span className="text-white font-semibold">{followersCount}</span> seguidores
+                </button>
+                <span className="text-[#333]">·</span>
+                <button
+                  onClick={() => openFollowModal('following')}
+                  className="text-[12px] font-mono hover:text-white transition-colors cursor-pointer bg-transparent border-none p-0"
+                  style={{ color: '#888' }}
+                >
+                  <span className="text-white font-semibold">{followingCount}</span> seguidos
+                </button>
+              </div>
               {avatarError && <div className="text-[11px] text-danger font-mono mt-1">{avatarError}</div>}
               <SocialLinksDisplay links={savedLinks} />
             </div>
           </div>
+
+          {/* Botón Seguir / Siguiendo (solo si no es el propio perfil y está logueado) */}
+          {!isOwnProfile && user && (
+            <button
+              onClick={handleFollowToggle}
+              onMouseEnter={() => setFollowHover(true)}
+              onMouseLeave={() => setFollowHover(false)}
+              disabled={followBusy}
+              className={`flex items-center gap-2 px-4 py-2 rounded font-condensed font-bold text-[13px] tracking-widest border transition-colors cursor-pointer disabled:opacity-40 ${
+                isFollowing
+                  ? followHover
+                    ? 'border-danger text-danger bg-transparent'
+                    : 'border-border-strong text-muted bg-transparent'
+                  : 'bg-brand text-base border-brand hover:brightness-110'
+              }`}
+            >
+              {isFollowing
+                ? followHover
+                  ? <><UserPlus size={14} /> DEJAR DE SEGUIR</>
+                  : <><UserCheck size={14} /> SIGUIENDO</>
+                : <><UserPlus size={14} /> SEGUIR</>
+              }
+            </button>
+          )}
         </div>
 
         {/* Editar perfil (colapsable) */}
@@ -526,18 +902,30 @@ export default function ProfileView() {
             <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
               <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-4">ESTADÍSTICAS PERSONALES</div>
 
-              {/* Main counters */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                {[
-                  { label: 'TORNEOS JUGADOS', value: stats.torneos, color: '#4ab8f0' },
-                  { label: 'PARTIDOS', value: stats.partidos, color: '#4af07a' },
-                ].map(({ label: l, value, color }) => (
-                  <div key={l} className="bg-base rounded-lg px-4 py-3 border border-border-strong">
-                    <div className="font-condensed font-black text-[32px] text-white leading-none">{value}</div>
-                    <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>{l}</div>
-                    <div className="h-0.5 rounded-full mt-2" style={{ background: color, opacity: 0.35 }} />
+              {/* Torneos · Partidos · Racha actual — misma fila */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+                  <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos}</div>
+                  <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>TORNEOS</div>
+                  <div className="h-0.5 rounded-full mt-2" style={{ background: '#4ab8f0', opacity: 0.35 }} />
+                </div>
+                <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+                  <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.partidos}</div>
+                  <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>PARTIDOS</div>
+                  <div className="h-0.5 rounded-full mt-2" style={{ background: '#4af07a', opacity: 0.35 }} />
+                </div>
+                <div className="rounded-lg px-4 py-3 border flex flex-col justify-between"
+                  style={{ background: stats.racha > 0 ? '#e8f04a08' : undefined, borderColor: stats.racha > 0 ? '#e8f04a33' : '#1e1e1e' }}>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-condensed font-black text-[32px] leading-none" style={{ color: stats.racha > 0 ? '#e8f04a' : '#333' }}>
+                        {stats.racha}
+                      </div>
+                      <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>RACHA ACTUAL</div>
+                    </div>
+                    <Flame size={16} style={{ color: stats.racha > 0 ? '#e8f04a' : '#2a2a2a', marginTop: 2 }} />
                   </div>
-                ))}
+                </div>
               </div>
 
               {/* Win percentage */}
@@ -552,32 +940,6 @@ export default function ProfileView() {
                   </div>
                   <div className="text-[10px] font-mono mt-1.5" style={{ color: '#444' }}>
                     {stats.victorias} {stats.victorias === 1 ? 'victoria' : 'victorias'} de {stats.partidos} partidos
-                  </div>
-                </div>
-              )}
-
-              {/* Win streak */}
-              {(stats.racha > 0 || stats.racha_max > 0) && (
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="rounded-lg px-4 py-3 border flex items-center justify-between"
-                    style={{ background: stats.racha > 0 ? '#e8f04a0a' : undefined, borderColor: stats.racha > 0 ? '#e8f04a33' : undefined }}>
-                    <div>
-                      <div className="text-[10px] font-mono tracking-widest mb-1" style={{ color: '#888' }}>RACHA ACTUAL</div>
-                      <div className="font-condensed font-black text-[28px] leading-none" style={{ color: stats.racha > 0 ? '#e8f04a' : '#333' }}>
-                        {stats.racha}
-                      </div>
-                      <div className="text-[10px] font-mono mt-1" style={{ color: '#555' }}>
-                        {stats.racha === 1 ? 'victoria' : 'victorias'}
-                      </div>
-                    </div>
-                    <Flame size={22} style={{ color: stats.racha > 0 ? '#e8f04a' : '#333' }} className="shrink-0" />
-                  </div>
-                  <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
-                    <div className="text-[10px] font-mono tracking-widest mb-1" style={{ color: '#888' }}>RACHA MÁXIMA</div>
-                    <div className="font-condensed font-black text-[28px] text-white leading-none">{stats.racha_max ?? 0}</div>
-                    <div className="text-[10px] font-mono mt-1" style={{ color: '#555' }}>
-                      {(stats.racha_max ?? 0) === 1 ? 'victoria' : 'victorias'}
-                    </div>
                   </div>
                 </div>
               )}
@@ -609,6 +971,11 @@ export default function ProfileView() {
             </div>
           );
         })()}
+
+        {/* Estadísticas avanzadas — solo premium viendo su propio perfil */}
+        {isOwnProfile && owner.is_premium && stats?.partidos > 0 && (
+          <AdvancedStats stats={stats} monthlyStats={monthly_stats ?? []} dailyActivity={data.daily_activity ?? []} />
+        )}
 
         {/* Últimos partidos */}
         {recent_matches?.length > 0 && (
@@ -719,6 +1086,49 @@ export default function ProfileView() {
           onCancel={() => { if (!avatarBusy) setCropFile(null); }}
           onSave={handleCropSave}
         />
+      )}
+
+      {followModal && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-5">
+          <div className="bg-surface border border-border-strong rounded-lg w-full max-w-sm">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-mid">
+              <span className="font-condensed font-bold text-sm tracking-[3px] text-muted">
+                {followModal === 'followers' ? 'SEGUIDORES' : 'SEGUIDOS'}
+              </span>
+              <button
+                onClick={() => setFollowModal(null)}
+                className="text-muted hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="max-h-80 overflow-y-auto px-4 py-3">
+              {followListLoading ? (
+                <div className="py-8 text-center text-dim text-xs font-mono">Cargando...</div>
+              ) : followList.length === 0 ? (
+                <div className="py-8 text-center text-dim text-xs font-mono">
+                  {followModal === 'followers' ? 'Nadie sigue a este usuario todavía.' : 'Este usuario no sigue a nadie todavía.'}
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  {followList.map(u => (
+                    <div
+                      key={u.id}
+                      onClick={() => { setFollowModal(null); navigate(`/u/${u.username}`); }}
+                      className="flex items-center gap-3 py-2.5 border-b border-border-strong last:border-b-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    >
+                      <PlayerAvatar name={u.name} src={u.avatar_url} size={36} premium={u.is_premium} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-semibold text-white truncate">{u.name}</div>
+                        <div className="text-[11px] font-mono text-dim">@{u.username}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

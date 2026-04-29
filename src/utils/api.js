@@ -132,6 +132,18 @@ export const api = {
     respond:(id, action)                 => req('PATCH',  `/invitations/${id}`, { action }),
     cancel: (id)                         => req('DELETE', `/invitations/${id}`),
   },
+  follows: {
+    follow:    (username) => req('POST',   `/follows/${username}`),
+    unfollow:  (username) => req('DELETE', `/follows/${username}`),
+    followers: (username) => req('GET',    `/follows/${username}/followers`),
+    following: (username) => req('GET',    `/follows/${username}/following`),
+  },
+  notifications: {
+    list:        (limit = 30, offset = 0) => req('GET',   `/notifications?limit=${limit}&offset=${offset}`),
+    count:       ()                        => req('GET',   '/notifications/count'),
+    markAllRead: ()                        => req('PATCH', '/notifications/read-all'),
+    markRead:    (id)                      => req('PATCH', `/notifications/${id}/read`),
+  },
   subscriptions: {
     me:       ()                => req('GET',  '/subscriptions/me'),
     checkout: (billing_period)  => req('POST', '/subscriptions/checkout', { billing_period }),
