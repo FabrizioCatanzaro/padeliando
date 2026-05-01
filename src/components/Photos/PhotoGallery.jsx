@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Image as ImageIcon, Trash2, X, Plus, Lock, Pencil, Check } from 'lucide-react';
+import { Camera, Image as ImageIcon, Trash2, X, Plus, Gem, Pencil, Check, Star } from 'lucide-react';
 import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import Modal from '../shared/Modal';
+import PremiumModal from '../shared/PremiumModal';
 
 const MAX_PHOTO_BYTES    = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -11,7 +12,7 @@ const MAX_CAPTION_LEN    = 200;
 const INITIAL_VISIBLE    = 1;
 const LOAD_STEP          = 3;
 
-export default function PhotoGallery({ tournamentId, isOwner = false, canUpload = false }) {
+export default function PhotoGallery({ tournamentId, isOwner = false, isPremium = false }) {
   const fileInputRef = useRef(null);
   const [photos,     setPhotos]     = useState([]);
   const [visible,    setVisible]    = useState(INITIAL_VISIBLE);
@@ -32,8 +33,9 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
   const [editDraft,  setEditDraft]  = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  const [lightbox,     setLightbox]     = useState(null);
-  const [confirmDel,   setConfirmDel]   = useState(null);
+  const [lightbox,       setLightbox]       = useState(null);
+  const [confirmDel,     setConfirmDel]     = useState(null);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -47,6 +49,7 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
   }, [tournamentId]);
 
   function openFilePicker() {
+    if (!isPremium) { setShowPremiumModal(true); return; }
     if (uploading || batch) return;
     setUploadError(null);
     fileInputRef.current?.click();
@@ -143,6 +146,22 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
     setUploadError(null);
   }
 
+  async function handleSetCover(photoId) {
+    try {
+      await api.photos.setCover(tournamentId, photoId);
+      setPhotos((prev) => {
+        const updated = prev.map((p) => ({ ...p, is_cover: p.id === photoId }));
+        return updated.sort((a, b) => {
+          if (a.is_cover && !b.is_cover) return -1;
+          if (!a.is_cover && b.is_cover) return 1;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+      });
+    } catch (err) {
+      setUploadError(err.message);
+    }
+  }
+
   async function handleDelete(photoId) {
     try {
       await api.photos.delete(tournamentId, photoId);
@@ -206,7 +225,7 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
           <ImageIcon size={14} /> FOTOS {total > 0 && <span className="text-dim font-mono">({total}/{MAX_PHOTOS})</span>}
         </div>
 
-        {canUpload && !reachedLimit && (
+        {isOwner && (
           <>
             <input
               ref={fileInputRef}
@@ -219,21 +238,18 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
             <button
               type="button"
               onClick={openFilePicker}
-              disabled={busy}
-              className="flex items-center gap-1.5 bg-brand text-base border-0 px-3 py-1.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded disabled:opacity-50 disabled:cursor-wait"
+              disabled={(busy && isPremium) || reachedLimit}
+              className="relative flex items-center gap-1.5 bg-brand text-base border-0 px-3 py-1.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded disabled:opacity-50 disabled:cursor-wait"
             >
               <Camera size={13} />
-              {batch
+              {batch && isPremium
                 ? `SUBIENDO ${batch.done}/${batch.total}...`
                 : 'SUBIR FOTOS'}
+              <span className="absolute -top-2 -right-2 bg-[#7c3aed] text-white rounded-full w-4 h-4 flex items-center justify-center shadow-sm">
+                <Gem size={9} />
+              </span>
             </button>
           </>
-        )}
-
-        {isOwner && !canUpload && (
-          <div className="flex items-center gap-1.5 text-[11px] text-dim font-mono border border-border-strong rounded px-2 py-1">
-            <Lock size={11} /> Solo Premium
-          </div>
         )}
       </div>
 
@@ -244,7 +260,7 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
         <div className="text-xs text-danger font-mono mb-3">{uploadError}</div>
       )}
 
-      {total === 0 && canUpload && (
+      {total === 0 && isOwner && (
         <div className="text-center text-dim py-8 px-5 font-sans text-sm border border-dashed border-border-mid rounded-lg">
           Todavía no hay fotos. Subí la primera para darle vida al torneo.
         </div>
@@ -322,6 +338,25 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
                       <span className="text-dim whitespace-nowrap">{fmt(p.created_at)}</span>
                     </div>
                   </div>
+                )}
+
+                {/* Badge portada */}
+                {p.is_cover && (
+                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-brand text-base px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-widest">
+                    <Star size={9} fill="currentColor" /> PORTADA
+                  </div>
+                )}
+
+                {/* Botón: establecer como portada (owners, no-cover, no editando) */}
+                {isOwner && !isEditing && !p.is_cover && (
+                  <button
+                    type="button"
+                    onClick={() => handleSetCover(p.id)}
+                    title="Establecer como portada"
+                    className="absolute top-2 left-2 bg-base/80 text-muted border border-border-strong rounded-full w-7 h-7 flex items-center justify-center cursor-pointer hover:text-brand hover:border-brand transition opacity-0 group-hover:opacity-100"
+                  >
+                    <Star size={12} />
+                  </button>
                 )}
 
                 {isOwner && !isEditing && (
@@ -424,6 +459,8 @@ export default function PhotoGallery({ tournamentId, isOwner = false, canUpload 
           onConfirm={() => handleDelete(confirmDel.id)}
         />
       )}
+
+      {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
     </div>
   );
 }
