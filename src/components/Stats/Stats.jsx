@@ -1,9 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { calcStandings, adaptTournament, getTournamentWinnerLabel } from "../../utils/helpers";
-import { Bomb, CalendarDays, Clock, Crown, Flame, Handshake, Swords, Trophy } from "lucide-react";
+import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Swords, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+} from "recharts";
+import PremiumModal from "../shared/PremiumModal";
+import groupStatsPreview from "../../assets/group-advanced-stats-preview.svg";
 
-export default function Stats({ tournament }) {
+export default function Stats({ tournament, ownerIsPremium = false }) {
   const [allTournaments, setAllTournaments] = useState([]);
   const [histTab,    setHistTab]    = useState("current");
   const [histLoaded, setHistLoaded] = useState(false);
@@ -43,7 +49,7 @@ export default function Stats({ tournament }) {
         ? <CurrentStats tournament={tournament} />
         : histLoading
           ? <div className="text-center text-dim py-10 font-mono text-sm">Cargando historial...</div>
-          : <HistoricalStats tournaments={allTournaments} />
+          : <HistoricalStats tournaments={allTournaments} ownerIsPremium={ownerIsPremium} />
       }
     </div>
   );
@@ -76,6 +82,7 @@ function getAllMatches(tournament) {
 }
 
 function CurrentStats({ tournament }) {
+  const navigate = useNavigate();
   const { players, mode, pairs: tournamentPairs } = tournament;
   const isPairs = mode === "pairs";
 
@@ -205,7 +212,12 @@ function CurrentStats({ tournament }) {
           leaders.length > 0 && (
             <div className="bg-surface border border-brand/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
               <div className="text-4xl mb-2 flex justify-center text-brand"><Trophy size={30} /></div>
-              <div className="font-condensed font-bold text-3xl text-brand mb-1 leading-tight">{mvpLabel}</div>
+              <div
+                className={`font-condensed font-bold text-3xl text-brand mb-1 leading-tight ${leaders.length === 1 && leaders[0].linked_username ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
+                onClick={() => leaders.length === 1 && leaders[0].linked_username && navigate(`/u/${leaders[0].linked_username}`)}
+              >
+                {mvpLabel}
+              </div>
               <div className="text-sm text-muted font-sans">
                 {leaders.length > 1 ? "MVP Empatado" : "MVP"} · {topPg} {topPg === 1 ? "victoria" : "victorias"}
               </div>
@@ -280,18 +292,22 @@ function CurrentStats({ tournament }) {
   );
 }
 
-export function HistoricalStats({ tournaments, showTorneos = true }) {
+export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false }) {
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const navigate = useNavigate();
+
   if (tournaments.length === 0)
     return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos anteriores registrados.</div>;
 
   const hasPairMode = tournaments.some((t) => t.mode === "pairs");
   const allPairMode = tournaments.every((t) => t.mode === "pairs");
 
-  // ── Standings individuales (agrega por nombre de jugador) ──────────────
+  // ── Standings individuales ──────────────────────────────────────────────
   const playerMap = {};
   tournaments.forEach((t) => {
     calcStandings(t.players, getAllMatches(t)).forEach((s) => {
-      if (!playerMap[s.name]) playerMap[s.name] = { name: s.name, pj: 0, pg: 0, pp: 0, torneos: 0 };
+      if (!playerMap[s.name]) playerMap[s.name] = { name: s.name, linked_username: s.linked_username ?? null, pj: 0, pg: 0, pp: 0, torneos: 0 };
+      if (s.linked_username && !playerMap[s.name].linked_username) playerMap[s.name].linked_username = s.linked_username;
       playerMap[s.name].pj += s.pj;
       playerMap[s.name].pg += s.pg;
       playerMap[s.name].pp += s.pp;
@@ -306,12 +322,11 @@ export function HistoricalStats({ tournaments, showTorneos = true }) {
       return pctB - pctA || b.pg - a.pg;
     });
 
-  // ── Standings por pareja (solo torneos en modo parejas) ───────────────
+  // ── Standings por pareja ────────────────────────────────────────────────
   const pairMap = {};
   if (hasPairMode) {
     const nameById = {};
     tournaments.forEach((t) => t.players.forEach((p) => { nameById[p.id] = p.name; }));
-
     tournaments.filter((t) => t.mode === "pairs").forEach((t) => {
       getAllMatches(t).forEach((m) => {
         const s1 = +m.score1, s2 = +m.score2;
@@ -335,19 +350,18 @@ export function HistoricalStats({ tournaments, showTorneos = true }) {
       return pctB - pctA || b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc);
     });
 
-  // ── Mejor pareja histórica (con detección de empate) ──────────────────
+  // ── Mejor pareja histórica ──────────────────────────────────────────────
   const topPct    = pairRows[0]?.pj > 0 ? pairRows[0].pg / pairRows[0].pj : 0;
   const tiedPairs = pairRows.filter((p) => p.pj > 0 && (p.pg / p.pj) === topPct && p.pg === pairRows[0]?.pg);
   const bestPairLabel  = tiedPairs.length > 1 ? tiedPairs.map((p) => p.label).join(" / ") : tiedPairs[0]?.label ?? null;
   const bestPairIsTied = tiedPairs.length > 1;
   const bestPairRecord = !bestPairIsTied && tiedPairs[0] ? `${tiedPairs[0].pg}/${tiedPairs[0].pj}` : null;
 
-  // ── Más veces campeón ────────────────────────────────────────────────────
+  // ── Más veces campeón ──────────────────────────────────────────────────
   const champCount = {};
   tournaments.forEach((t) => {
     const label = getTournamentWinnerLabel(t);
     if (!label) return;
-    // "A & B / C & D" → split por " / " (empates) y luego por " & " (miembros de pareja)
     label.split(" / ").forEach((winner) => {
       winner.split(" & ").forEach((name) => {
         const n = name.trim();
@@ -367,13 +381,24 @@ export function HistoricalStats({ tournaments, showTorneos = true }) {
       .filter(m => m.winner_id != null).length;
   }
   const totalMatches = tournaments.reduce((acc, t) => acc + t.matches.length + bracketPlayedCount(t), 0);
-
-  // Si TODAS las torneos son en parejas → tabla por pareja; sino → tabla individual
   const showPairTable = allPairMode && pairRows.length > 0;
+
+  // ── Datos para gráficos avanzados ──────────────────────────────────────
+  const champChartData = champRows.slice(0, 5).map((c) => ({ name: c.name.split(' ')[0], torneos: c.count }));
+
+  const winRateChartData = individualRows
+    .filter((r) => r.pj >= 3)
+    .slice(0, 5)
+    .map((r) => ({ name: r.name.split(' ')[0], winRate: Math.round((r.pg / r.pj) * 100) }));
+
+  const activityChartData = [...tournaments]
+    .reverse()
+    .map((t) => ({ name: t.name.length > 10 ? t.name.slice(0, 10) + '…' : t.name, partidos: t.matches.length + bracketPlayedCount(t) }));
 
   return (
     <>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-2">
+      {/* ── BÁSICAS (siempre visibles) ── */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
         <div className="flex flex-col items-center gap-1 bg-surface border border-cyan/27 rounded-lg p-4 text-center">
           <CalendarDays size={30} className="mb-2 text-cyan" />
           <div className="font-condensed font-bold text-[26px] text-white mb-1">{tournaments.length}</div>
@@ -384,92 +409,200 @@ export function HistoricalStats({ tournaments, showTorneos = true }) {
           <div className="font-condensed font-bold text-[26px] text-white mb-1">{totalMatches}</div>
           <div className="text-[12px] text-muted font-sans">Partidos en total</div>
         </div>
-        {individualRows[0] && (
-          <div className="flex flex-col items-center gap-1 bg-surface border border-brand/27 rounded-lg p-4 text-center">
-            <Crown size={30} className="mb-2 text-brand" />
-            <div className="font-condensed font-bold text-[26px] text-brand mb-1">{individualRows[0].name}</div>
-            <div className="text-[12px] text-muted font-sans">Mejor jugador histórico · {individualRows[0].pg}V</div>
-          </div>
-        )}
         {champLabel && (
           <div className="flex flex-col items-center gap-1 bg-surface border border-amber-500/27 rounded-lg p-4 text-center">
             <Trophy size={30} className="mb-2 text-amber-500" />
             <div className={`font-condensed font-bold text-amber-500 mb-1 leading-tight ${topChamps.length > 1 ? 'text-lg' : 'text-[26px]'}`}>{champLabel}</div>
             <div className="text-[12px] text-muted font-sans">
-              {topChamps.length > 1 ? `Empate · Más veces campeones · ` : "Más veces campeón · "}{topChampCount} {topChampCount === 1 ? "torneo" : "torneos"}
-            </div>
-          </div>
-        )}
-        {hasPairMode && bestPairLabel && (
-          <div className="flex flex-col items-center gap-1 bg-surface border border-green/27 rounded-lg p-4 text-center">
-            <Handshake size={30} className="mb-2 text-green" />
-            <div className="font-condensed font-bold text-xl text-green mb-1 leading-tight">{bestPairLabel}</div>
-            <div className="text-[12px] text-muted font-sans">
-              {bestPairIsTied ? "Empate · Mejor pareja histórica" : `Mejor pareja histórica${bestPairRecord ? ` · ${bestPairRecord}` : ""}`}
+              {topChamps.length > 1 ? "Empate · Más veces campeones · " : "Más veces campeón · "}{topChampCount} {topChampCount === 1 ? "torneo" : "torneos"}
             </div>
           </div>
         )}
       </div>
 
-      <div className="mt-5">
-        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">
-          {showPairTable ? "RANKING HISTÓRICO POR PAREJAS" : "RANKING HISTÓRICO"}
-        </div>
-        {showPairTable
-          ? <PerPlayerTable standings={pairRows} useLabelKey />
-          : <PerPlayerTable standings={individualRows} showTourneys />
-        }
-      </div>
-
-      {showTorneos && 
-      <div className="mt-5">
-        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">TORNEOS</div>
-        <div className="flex flex-col gap-1.5">
-          {[...tournaments].reverse().map((t) => {
-            const winnerLabel = getTournamentWinnerLabel(t);
-
-            return (
-              <div key={t.id} className="flex items-center gap-2 bg-base border border-border-mid rounded-md px-3 py-2 flex-col">
-                <div className="flex justify-between w-full">
-                  <span className="text-white font-condensed font-bold text-[16px]">{t.name}</span>
-                  {winnerLabel && <span className="text-brand text-[13px] flex items-center gap-2 justify-center"><Trophy size={13} /> {winnerLabel}</span>}
+      {/* ── AVANZADAS (solo si el dueño tiene premium) ── */}
+      {ownerIsPremium ? (
+        <>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
+            {individualRows[0] && (() => {
+              const best = individualRows[0];
+              return (
+                <div className="flex flex-col items-center gap-1 bg-surface border border-brand/27 rounded-lg p-4 text-center">
+                  <Crown size={30} className="mb-2 text-brand" />
+                  <div
+                    className={`font-condensed font-bold text-[26px] text-brand mb-1 ${best.linked_username ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
+                    onClick={() => best.linked_username && navigate(`/u/${best.linked_username}`)}
+                  >
+                    {best.name}
+                  </div>
+                  <div className="text-[12px] text-muted font-sans">Mejor jugador histórico · {best.pg}V</div>
                 </div>
-                <span className="text-muted text-[11px] font-mono">
-                  {new Date(t.createdAt).toLocaleDateString("es-AR")} · {t.format === 'americano' ? `${t.pairs?.length ?? 0} parejas` : `${t.players.length} jugadores`} · {t.matches.length + bracketPlayedCount(t)} partidos
-                </span>
+              );
+            })()}
+            {hasPairMode && bestPairLabel && (
+              <div className="flex flex-col items-center gap-1 bg-surface border border-green/27 rounded-lg p-4 text-center">
+                <Handshake size={30} className="mb-2 text-green" />
+                <div className="font-condensed font-bold text-xl text-green mb-1 leading-tight">{bestPairLabel}</div>
+                <div className="text-[12px] text-muted font-sans">
+                  {bestPairIsTied ? "Empate · Mejor pareja histórica" : `Mejor pareja histórica${bestPairRecord ? ` · ${bestPairRecord}` : ""}`}
+                </div>
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          <div className="mb-6">
+            <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">
+              {showPairTable ? "RANKING HISTÓRICO POR PAREJAS" : "RANKING HISTÓRICO"}
+            </div>
+            {showPairTable
+              ? <PerPlayerTable standings={pairRows} useLabelKey />
+              : <PerPlayerTable standings={individualRows} showTourneys />
+            }
+          </div>
+
+          {/* Gráficos avanzados */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            {champChartData.length > 0 && (
+              <div className="bg-surface border border-border-mid rounded-lg p-4">
+                <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">CAMPEONES POR TORNEO</div>
+                <ResponsiveContainer width="100%" height={150}>
+                  <BarChart data={champChartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" horizontal={false} />
+                    <XAxis type="number" tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#888', fontSize: 10 }} axisLine={false} tickLine={false} width={60} />
+                    <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }} cursor={{ fill: '#ffffff06' }} />
+                    <Bar dataKey="torneos" name="Torneos ganados" fill="#e8f04a" radius={[0, 3, 3, 0]} barSize={12} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {winRateChartData.length > 0 && (
+              <div className="bg-surface border border-border-mid rounded-lg p-4">
+                <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">WIN RATE POR JUGADOR (mín. 3PJ)</div>
+                <ResponsiveContainer width="100%" height={150}>
+                  <BarChart data={winRateChartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#888', fontSize: 10 }} axisLine={false} tickLine={false} width={60} />
+                    <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }} cursor={{ fill: '#ffffff06' }} formatter={(v) => [`${v}%`, 'Win rate']} />
+                    <Bar dataKey="winRate" name="Win rate" fill="#4af07a" radius={[0, 3, 3, 0]} barSize={12} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {activityChartData.length > 1 && (
+            <div className="bg-surface border border-border-mid rounded-lg p-4 mb-6">
+              <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">PARTIDOS POR TORNEO</div>
+              <ResponsiveContainer width="100%" height={130}>
+                <BarChart data={activityChartData} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={16}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fill: '#444', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }} cursor={{ fill: '#ffffff06' }} />
+                  <Bar dataKey="partidos" name="Partidos" fill="#4ab8f0" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="relative rounded-lg overflow-hidden select-none mb-6 border border-border-mid">
+          <img
+            src={groupStatsPreview}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+            className="w-full rounded-lg"
+            style={{ filter: 'blur(5px)', transform: 'scale(1.03)' }}
+          />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-base/55 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Gem size={18} className="text-brand" />
+              <span className="font-condensed font-bold text-base text-white tracking-wide">ESTADÍSTICAS AVANZADAS</span>
+            </div>
+            <p className="text-xs font-sans text-secondary text-center px-6 max-w-xs">
+              El dueño de esta categoría necesita Premium para desbloquear estas estadísticas.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowPremiumModal(true)}
+              className="flex items-center gap-2 bg-brand text-base border-0 px-4 py-2 font-condensed font-bold text-sm tracking-wide cursor-pointer rounded-lg"
+            >
+              <Gem size={13} /> CONOCER PREMIUM
+            </button>
+          </div>
         </div>
-      </div>
-      }
+      )}
+
+      {showTorneos && (
+        <div className="mt-2">
+          <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">TORNEOS</div>
+          <div className="flex flex-col gap-1.5">
+            {[...tournaments].reverse().map((t) => {
+              const winnerLabel = getTournamentWinnerLabel(t);
+              return (
+                <div key={t.id} className="flex items-center gap-2 bg-base border border-border-mid rounded-md px-3 py-2 flex-col">
+                  <div className="flex justify-between w-full">
+                    <span className="text-white font-condensed font-bold text-[16px]">{t.name}</span>
+                    {winnerLabel && <span className="text-brand text-[13px] flex items-center gap-2 justify-center"><Trophy size={13} /> {winnerLabel}</span>}
+                  </div>
+                  <span className="text-muted text-[11px] font-mono">
+                    {new Date(t.createdAt).toLocaleDateString("es-AR")} · {t.format === 'americano' ? `${t.pairs?.length ?? 0} parejas` : `${t.players.length} jugadores`} · {t.matches.length + bracketPlayedCount(t)} partidos
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
     </>
   );
 }
 
 function PerPlayerTable({ standings, showTourneys, useLabelKey }) {
+  const navigate = useNavigate();
   return (
     <div className="mt-4">
       {!showTourneys && !useLabelKey && (
         <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">RENDIMIENTO POR JUGADOR</div>
       )}
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3.5 mb-1">
+        <div className="shrink-0 w-5" />
+        <div className="flex-1 min-w-0 text-[10px] font-mono tracking-[2px] text-dim">NOMBRE</div>
+        {showTourneys && <div className="shrink-0 text-[10px] font-mono tracking-[2px] text-dim">TORNEOS</div>}
+        <div className="shrink-0 w-20 text-[10px] font-mono tracking-[2px] text-dim text-center">W/L</div>
+        <div className="shrink-0 text-right text-[10px] font-mono tracking-[2px] text-dim">G · P · %</div>
+      </div>
+
       <div className="flex flex-col gap-2">
         {standings.map((p, i) => {
           const pct = p.pj > 0 ? Math.round((p.pg / p.pj) * 100) : 0;
+          const username = p.linked_username ?? null;
+          const displayName = useLabelKey ? p.label : p.name;
           return (
-            <div key={p.id ?? p.name} className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
-              <div className="min-w-6 text-[#666] font-mono font-bold">{i + 1}</div>
-              <div className="flex-1 font-semibold text-white">{useLabelKey ? p.label : p.name}</div>
+            <div key={p.id ?? p.name} className="flex items-center gap-2 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
+              <div className="shrink-0 w-5 text-[#666] font-mono font-bold">{i + 1}</div>
+              <div
+                className={`flex-1 min-w-0 truncate font-semibold text-white ${username ? 'cursor-pointer hover:text-brand transition-colors' : ''}`}
+                onClick={() => username && navigate(`/u/${username}`)}
+              >
+                {displayName}
+              </div>
               {showTourneys && (
-                <div className="min-w-12.5 text-muted text-[11px] font-mono">{p.torneos}J</div>
+                <div className="shrink-0 text-muted text-[11px] font-mono">{p.torneos}J</div>
               )}
-              <div className="flex-2">
+              <div className="shrink-0 w-16">
                 <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-[width] duration-500 ${pct > 60 ? 'bg-brand' : pct > 40 ? 'bg-cyan' : 'bg-danger'}`}
                     style={{ width: `${pct}%` }} />
                 </div>
               </div>
-              <div className="min-w-20 text-right font-mono text-soft text-[13px]">
+              <div className="shrink-0 text-right font-mono text-soft text-[13px]">
                 {p.pg}G {p.pp}P <span className={pct >= 50 ? "text-brand" : "text-danger"}>({pct}%)</span>
               </div>
             </div>

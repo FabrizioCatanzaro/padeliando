@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="420" viewBox="0 0 600 420" font-family="monospace, sans-serif">
+  <rect width="600" height="420" rx="8" fill="#111"/>
+  <rect width="600" height="420" rx="8" fill="none" stroke="#222" stroke-width="1"/>
+
+  <!-- Header: Mejor jugador + Mejor pareja -->
+  <rect x="14" y="14" width="275" height="80" rx="6" fill="#0d0d0d" stroke="#1e2a1e" stroke-width="1"/>
+  <text x="30" y="42" font-size="9" fill="#444" letter-spacing="3">MEJOR JUGADOR HISTÓRICO</text>
+  <text x="30" y="68" font-size="22" fill="#e8f04a" font-weight="900" font-family="sans-serif">R. Gómez</text>
+  <text x="30" y="84" font-size="9" fill="#555">42 victorias históricas</text>
+
+  <rect x="311" y="14" width="275" height="80" rx="6" fill="#0d0d0d" stroke="#1a2a1a" stroke-width="1"/>
+  <text x="327" y="42" font-size="9" fill="#444" letter-spacing="3">MEJOR PAREJA HISTÓRICA</text>
+  <text x="327" y="68" font-size="18" fill="#4af07a" font-weight="900" font-family="sans-serif">R. Gómez &amp; P. Díaz</text>
+  <text x="327" y="84" font-size="9" fill="#555">34/40 partidos · 85% win rate</text>
+
+  <!-- Ranking label -->
+  <text x="14" y="116" font-size="9" fill="#555" letter-spacing="2">RANKING HISTÓRICO</text>
+
+  <!-- Ranking rows -->
+  <rect x="14" y="122" width="572" height="32" rx="4" fill="#0d0d0d" stroke="#222" stroke-width="1"/>
+  <text x="28" y="143" font-size="11" fill="#e8f04a" font-weight="bold">1</text>
+  <text x="50" y="143" font-size="11" fill="white">R. Gómez</text>
+  <text x="420" y="143" font-size="10" fill="#555">42PJ</text>
+  <text x="470" y="143" font-size="10" fill="#555">30V</text>
+  <text x="522" y="143" font-size="10" fill="#4af07a">71%</text>
+
+  <rect x="14" y="158" width="572" height="32" rx="4" fill="#0d0d0d" stroke="#222" stroke-width="1"/>
+  <text x="28" y="179" font-size="11" fill="#aaa">2</text>
+  <text x="50" y="179" font-size="11" fill="white">P. Díaz</text>
+  <text x="420" y="179" font-size="10" fill="#555">38PJ</text>
+  <text x="470" y="179" font-size="10" fill="#555">26V</text>
+  <text x="522" y="179" font-size="10" fill="#4af07a">68%</text>
+
+  <rect x="14" y="194" width="572" height="32" rx="4" fill="#0d0d0d" stroke="#222" stroke-width="1"/>
+  <text x="28" y="215" font-size="11" fill="#aaa">3</text>
+  <text x="50" y="215" font-size="11" fill="white">M. Torres</text>
+  <text x="420" y="215" font-size="10" fill="#555">35PJ</text>
+  <text x="470" y="215" font-size="10" fill="#555">20V</text>
+  <text x="522" y="215" font-size="10" fill="#e8f04a">57%</text>
+
+  <rect x="14" y="230" width="572" height="32" rx="4" fill="#0d0d0d" stroke="#222" stroke-width="1"/>
+  <text x="28" y="251" font-size="11" fill="#aaa">4</text>
+  <text x="50" y="251" font-size="11" fill="white">L. Fernández</text>
+  <text x="420" y="251" font-size="10" fill="#555">30PJ</text>
+  <text x="470" y="251" font-size="10" fill="#555">14V</text>
+  <text x="522" y="251" font-size="10" fill="#888">46%</text>
+
+  <!-- Charts row labels -->
+  <text x="14" y="284" font-size="9" fill="#555" letter-spacing="2">CAMPEONES POR TORNEO</text>
+  <text x="314" y="284" font-size="9" fill="#555" letter-spacing="2">WIN RATE TOP JUGADORES</text>
+
+  <!-- Bar chart: campeones -->
+  <g transform="translate(14, 294)">
+    <rect x="0"  y="0"  width="180" height="10" rx="2" fill="#e8f04a" opacity="0.85"/>
+    <text x="186" y="9" font-size="9" fill="#888">R. Gómez · 5</text>
+    <rect x="0"  y="16" width="140" height="10" rx="2" fill="#e8f04a" opacity="0.6"/>
+    <text x="186" y="25" font-size="9" fill="#888">P. Díaz · 4</text>
+    <rect x="0"  y="32" width="100" height="10" rx="2" fill="#e8f04a" opacity="0.4"/>
+    <text x="186" y="41" font-size="9" fill="#888">M. Torres · 3</text>
+    <rect x="0"  y="48" width="70"  height="10" rx="2" fill="#e8f04a" opacity="0.25"/>
+    <text x="186" y="57" font-size="9" fill="#888">L. Fernández · 2</text>
+    <rect x="0"  y="64" width="35"  height="10" rx="2" fill="#e8f04a" opacity="0.15"/>
+    <text x="186" y="73" font-size="9" fill="#888">C. López · 1</text>
+  </g>
+
+  <!-- Bar chart: win rate -->
+  <g transform="translate(314, 294)">
+    <rect x="0"  y="0"  width="165" height="10" rx="2" fill="#4af07a" opacity="0.85"/>
+    <text x="171" y="9" font-size="9" fill="#888">R. Gómez · 71%</text>
+    <rect x="0"  y="16" width="153" height="10" rx="2" fill="#4af07a" opacity="0.65"/>
+    <text x="171" y="25" font-size="9" fill="#888">P. Díaz · 68%</text>
+    <rect x="0"  y="32" width="130" height="10" rx="2" fill="#4af07a" opacity="0.5"/>
+    <text x="171" y="41" font-size="9" fill="#888">M. Torres · 57%</text>
+    <rect x="0"  y="48" width="104" height="10" rx="2" fill="#4af07a" opacity="0.35"/>
+    <text x="171" y="57" font-size="9" fill="#888">L. Fernández · 46%</text>
+    <rect x="0"  y="64" width="90"  height="10" rx="2" fill="#4af07a" opacity="0.2"/>
+    <text x="171" y="73" font-size="9" fill="#888">C. López · 40%</text>
+  </g>
+
+  <!-- Activity label -->
+  <text x="14" y="390" font-size="9" fill="#555" letter-spacing="2">PARTIDOS POR TORNEO</text>
+
+  <!-- Activity line -->
+  <g transform="translate(14, 398)">
+    <polyline
+      points="0,12 70,8 140,16 210,4 280,10 350,6 420,14 490,2 560,8"
+      fill="none" stroke="#4ab8f0" stroke-width="2"
+    />
+    <circle cx="0"   cy="12" r="3" fill="#4ab8f0"/>
+    <circle cx="70"  cy="8"  r="3" fill="#4ab8f0"/>
+    <circle cx="140" cy="16" r="3" fill="#4ab8f0"/>
+    <circle cx="210" cy="4"  r="3" fill="#4ab8f0"/>
+    <circle cx="280" cy="10" r="3" fill="#4ab8f0"/>
+    <circle cx="350" cy="6"  r="3" fill="#4ab8f0"/>
+    <circle cx="420" cy="14" r="3" fill="#4ab8f0"/>
+    <circle cx="490" cy="2"  r="3" fill="#4ab8f0"/>
+    <circle cx="560" cy="8"  r="3" fill="#4ab8f0"/>
+  </g>
+</svg>

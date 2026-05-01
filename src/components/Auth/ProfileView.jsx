@@ -3,13 +3,15 @@ import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
 import FadeInCard from '../shared/FadeInCard';
+import PremiumModal from '../shared/PremiumModal';
+import statsPreview from '../../assets/advanced-stats-preview.svg';
 import Loader from '../Loader/Loader';
 import PlayerAvatar from '../shared/PlayerAvatar';
 import AvatarCropper from '../shared/AvatarCropper';
@@ -529,6 +531,7 @@ export default function ProfileView() {
   const [avatarBusy,  setAvatarBusy]  = useState(false);
   const [avatarError, setAvatarError] = useState(null);
   const [cropFile,    setCropFile]    = useState(null);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   useEffect(() => {
     api.groups.byUsername(username)
@@ -728,7 +731,7 @@ export default function ProfileView() {
               <PlayerAvatar
                 name={owner.name}
                 src={displayAvatar}
-                size={72}
+                size={130}
                 premium={isOwnProfile ? user?.subscription?.plan === 'premium' : owner.is_premium}
               />
               {isOwnProfile && (
@@ -752,8 +755,33 @@ export default function ProfileView() {
             <div>
               <div className="font-condensed font-bold text-[28px] text-white">{owner.name}</div>
               <div className="text-[12px] text-muted font-mono mt-1">
-                @{owner.username} · desde {fmt(owner.created_at)}
+                @{owner.username} · Padeleando desde {fmt(owner.created_at)}
               </div>
+              {isOwnProfile && (
+                <div className="mt-1">
+                  {user?.subscription?.plan === 'premium' ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-brand border border-brand rounded px-1.5 py-0.5">
+                      <BadgeCheck size={11} />
+                      PREMIUM
+                      {user.subscription.starts_at && (
+                        <> · desde {new Date(user.subscription.starts_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}</>
+                      )}
+                      {user.subscription.ends_at && (
+                        <> al {new Date(user.subscription.ends_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}</>
+                      )}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowPremiumModal(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-mono text-muted hover:text-brand transition-colors bg-transparent p-0 cursor-pointer group border border-muted rounded px-1.5 py-0.5"
+                    >
+                      <Badge size={11} className="text-muted group-hover:text-brand transition-colors" />
+                      Plan FREE
+                    </button>
+                  )}
+                </div>
+              )}
               {/* Seguidores / Seguidos */}
               <div className="flex items-center gap-3 mt-2">
                 <button
@@ -972,9 +1000,38 @@ export default function ProfileView() {
           );
         })()}
 
-        {/* Estadísticas avanzadas — solo premium viendo su propio perfil */}
-        {isOwnProfile && owner.is_premium && stats?.partidos > 0 && (
-          <AdvancedStats stats={stats} monthlyStats={monthly_stats ?? []} dailyActivity={data.daily_activity ?? []} />
+        {/* Estadísticas avanzadas — premium: datos reales; free: imagen placeholder con blur */}
+        {isOwnProfile && stats?.partidos > 0 && (
+          owner.is_premium ? (
+            <AdvancedStats stats={stats} monthlyStats={monthly_stats ?? []} dailyActivity={data.daily_activity ?? []} />
+          ) : (
+            <div className="relative mb-6 rounded-lg overflow-hidden select-none mx-auto border border-border-mid">
+              <img
+                src={statsPreview}
+                alt=""
+                aria-hidden="true"
+                draggable="false"
+                className="w-full rounded-lg"
+                style={{ filter: 'blur(5px)', transform: 'scale(1.03)' }}
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-base/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Gem size={20} className="text-brand" />
+                  <span className="font-condensed font-bold text-lg text-white tracking-wide">ESTADÍSTICAS AVANZADAS</span>
+                </div>
+                <p className="text-sm font-sans text-secondary text-center px-6">
+                  Desbloqueá todas las estadísticas con Premium.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowPremiumModal(true)}
+                  className="flex items-center gap-2 bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-sm tracking-wide cursor-pointer rounded-lg"
+                >
+                  <Gem size={14} /> VER PLANES
+                </button>
+              </div>
+            </div>
+          )
         )}
 
         {/* Últimos partidos */}
@@ -1004,13 +1061,17 @@ export default function ProfileView() {
                     <div className="flex-1 min-w-0">
                       <div className="text-[12px] text-white font-mono truncate">
                         <span className="text-muted">con </span>{firstName(m.partner_name)}
-                        <span className="text-[#444]"> vs </span>
+                      </div>
+                      <div className="text-[12px] font-mono truncate" style={{ color: '#888' }}>
+                        <span className="text-[#444]">vs </span>
                         {firstName(m.opp1_name)} & {firstName(m.opp2_name)}
                       </div>
                       <div className="text-[10px] text-dim font-mono mt-0.5 truncate">{m.tournament_name}</div>
                     </div>
                     {/* Date */}
-                    <div className="shrink-0 text-[10px] text-dim font-mono">{m.played_at?.slice(0, 10)}</div>
+                    <div className="shrink-0 text-[10px] text-dim font-mono">
+                      {m.played_at ? `${m.played_at.slice(8, 10)}/${m.played_at.slice(5, 7)}` : ''}
+                    </div>
                   </div>
                 );
               })}
@@ -1087,6 +1148,8 @@ export default function ProfileView() {
           onSave={handleCropSave}
         />
       )}
+
+      {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
 
       {followModal && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-5">
