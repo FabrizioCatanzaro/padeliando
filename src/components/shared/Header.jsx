@@ -20,11 +20,21 @@ function timeAgo(dateStr) {
 }
 
 function NotifItemText({ n }) {
+  if (n.type === 'admin_message') return (
+    <div>
+      <div className="font-semibold text-white text-[12px]">{n.title}</div>
+      <div className="text-dim text-[11px] mt-0.5 line-clamp-2">{n.body}</div>
+    </div>
+  );
   const actor = <span className="font-semibold text-white">@{n.actor_username ?? n.actor_name}</span>;
   if (n.type === 'follow') return <>{actor} te empezó a seguir</>;
   if (n.type === 'invitation') return (
     <>{actor} te invitó a <span className="text-white font-semibold">{n.group_name ?? 'un grupo'}</span>
       {n.player_name ? <> como <span className="text-brand">{n.player_name}</span></> : null}</>
+  );
+  if (n.type === 'join_request') return (
+    <>{actor} solicitó unirse al torneo{' '}
+      <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span></>
   );
   return null;
 }
@@ -97,6 +107,17 @@ export default function Header() {
     } catch { /* ignore */ }
   }
 
+  async function handleJoinRequest(n, action, playerId) {
+    try {
+      if (action === 'accept') {
+        await api.joinRequests.accept(n.entity_id, playerId);
+      } else {
+        await api.joinRequests.reject(n.entity_id);
+      }
+      updateNotif(n.id, { request_status: action === 'accept' ? 'accepted' : 'rejected' });
+    } catch { /* ignore */ }
+  }
+
   function go(path) {
     setMenuOpen(false);
     navigate(path);
@@ -164,6 +185,7 @@ export default function Header() {
                         onNavigate={(path) => { setNotifOpen(false); navigate(path); }}
                         onFollow={() => handleFollow(n)}
                         onInvitation={(action) => handleInvitation(n, action)}
+                        onJoinRequest={(action, playerId) => handleJoinRequest(n, action, playerId)}
                       />
                     ))
                   )}
@@ -187,10 +209,10 @@ export default function Header() {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => { setNotifOpen(false); setMenuOpen(o => !o); }}
-            className={`relative bg-transparent rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong'}`}
+            className={`relative flex items-center bg-transparent rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong'}`}
           >
             {isLoggedIn
-              ? <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={30} premium={user?.subscription?.plan === 'premium'} />
+              ? <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={40} premium={user?.subscription?.plan === 'premium'} />
               : <User className='text-gray-200' size={18} />}
           </button>
 
@@ -209,6 +231,12 @@ export default function Header() {
                     className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
                     Mis categorías
                   </button>
+                  {user?.role === 'admin' && (
+                    <button onClick={() => go('/admin')}
+                      className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:brightness-110 transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                      Admin
+                    </button>
+                  )}
                   <div className="border-t border-border-mid" />
                   <button
                     onClick={() => { setMenuOpen(false); logout(); navigate('/'); }}
@@ -231,8 +259,9 @@ export default function Header() {
   )
 }
 
-function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation }) {
+function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation, onJoinRequest }) {
   const [busy, setBusy] = useState(false);
+  const [acceptModal, setAcceptModal] = useState(null); // { players: [], selectedId: '' } | null
   const unread = !n.read;
 
   async function wrap(fn) {
@@ -241,14 +270,38 @@ function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation }) {
     try { await fn(); } finally { setBusy(false); }
   }
 
+  async function openAcceptModal() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const data = await api.joinRequests.get(n.entity_id);
+      setAcceptModal({ players: data.unlinked_players ?? [], selectedId: data.unlinked_players?.[0]?.id ?? '' });
+    } catch { /* ignore */ } finally { setBusy(false); }
+  }
+
+  async function confirmAccept() {
+    if (!acceptModal?.selectedId) return;
+    await wrap(() => onJoinRequest('accept', acceptModal.selectedId));
+    setAcceptModal(null);
+  }
+
   return (
-    <div className={`flex items-start gap-3 px-4 py-3 border-b border-border-mid last:border-b-0 transition-colors ${unread ? 'bg-brand/5' : ''}`}>
+    <div
+      className={`flex items-start gap-3 px-4 py-3 border-b border-border-mid last:border-b-0 transition-colors ${unread ? 'bg-brand/5' : ''} ${n.type === 'admin_message' ? 'cursor-pointer hover:bg-white/5' : ''}`}
+      onClick={n.type === 'admin_message' ? () => onNavigate('/notifications') : undefined}
+    >
       {unread && <div className="shrink-0 mt-2.5 w-1.5 h-1.5 rounded-full bg-brand flex-none" />}
-      <div
-        className={`shrink-0 cursor-pointer ${unread ? '' : 'ml-[18px]'}`}
-        onClick={() => n.actor_username && onNavigate(`/u/${n.actor_username}`)}
-      >
-        <PlayerAvatar name={n.actor_name} src={n.actor_avatar_url} size={32} premium={n.actor_is_premium} />
+      <div className={`shrink-0 ${unread ? '' : 'ml-[18px]'}`}>
+        {n.type === 'admin_message' ? (
+          <div className="w-8 h-8 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-[14px]">📢</div>
+        ) : (
+          <div
+            className="cursor-pointer"
+            onClick={() => n.actor_username && onNavigate(`/u/${n.actor_username}`)}
+          >
+            <PlayerAvatar name={n.actor_name} src={n.actor_avatar_url} size={32} premium={n.actor_is_premium} />
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[12px] text-secondary leading-snug">
@@ -287,6 +340,53 @@ function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation }) {
                 Rechazar
               </button>
             </div>
+          ) : null
+        )}
+
+        {n.type === 'join_request' && (
+          n.request_status === 'accepted' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-green">✓ Aceptada</div>
+          ) : n.request_status === 'rejected' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-dim">Rechazada</div>
+          ) : n.request_status === 'pending' ? (
+            acceptModal ? (
+              <div className="mt-1.5 flex flex-col gap-1.5">
+                {acceptModal.players.length === 0 ? (
+                  <div className="text-[10px] font-mono text-dim">Sin jugadores sin vincular.</div>
+                ) : (
+                  <select
+                    value={acceptModal.selectedId}
+                    onChange={(e) => setAcceptModal(m => ({ ...m, selectedId: e.target.value }))}
+                    className="bg-surface border border-border-strong text-white text-[11px] font-mono rounded px-1.5 py-1 cursor-pointer w-full"
+                  >
+                    {acceptModal.players.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
+                <div className="flex gap-1.5">
+                  <button onClick={confirmAccept} disabled={busy || !acceptModal.selectedId}
+                    className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-brand/60 text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+                    {busy ? '...' : 'Confirmar'}
+                  </button>
+                  <button onClick={() => setAcceptModal(null)} disabled={busy}
+                    className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-border-strong text-dim hover:text-white cursor-pointer transition-colors disabled:opacity-40">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-1.5 flex gap-1.5">
+                <button onClick={openAcceptModal} disabled={busy}
+                  className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-brand/60 text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+                  {busy ? '...' : 'Aceptar'}
+                </button>
+                <button onClick={() => wrap(() => onJoinRequest('reject'))} disabled={busy}
+                  className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-border-strong text-dim hover:border-danger hover:text-danger cursor-pointer transition-colors disabled:opacity-40">
+                  Rechazar
+                </button>
+              </div>
+            )
           ) : null
         )}
       </div>

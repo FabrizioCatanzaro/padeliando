@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fmt, calcStandings } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
@@ -9,6 +9,7 @@ import PhotoGallery from "../Photos/PhotoGallery";
 import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
+import { AuthContext } from '../../context/useAuth';
 import { ChartNoAxesCombined, Check, ChevronLeft, Eye, Flame, Lock, Share2, Split, List, Trophy, User, Zap } from "lucide-react";
 import Loader from "../Loader/Loader";
 
@@ -30,14 +31,18 @@ const AMERICANO_TABS = [
 export default function ReadonlyView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
   const [tournament, setTournament] = useState(null);
   const [groupName, setGroupName]         = useState(null);
   const [groupEmojis, setGroupEmojis]     = useState([]);
-  const [groupIsPublic, setGroupIsPublic] = useState(true);
-  const [groupOwner, setGroupOwner]       = useState(null);
+  const [groupIsPublic, setGroupIsPublic]       = useState(true);
+  const [groupOwner, setGroupOwner]             = useState(null);
+  const [groupOwnerIsPremium, setGroupOwnerIsPremium] = useState(false);
   const [error, setError]           = useState(false);
   const [tab, setTab]               = useState("standings");
   const [copied, setCopied]         = useState(false);
+  const [joinStatus, setJoinStatus] = useState(null); // { is_player, request }
+  const [joinBusy, setJoinBusy]     = useState(false);
 
   async function copyLink() {
     const url = window.location.href;
@@ -66,6 +71,7 @@ export default function ReadonlyView() {
           setGroupName(g.name);
           setGroupEmojis(g.emojis ?? []);
           setGroupIsPublic(g.is_public ?? true);
+          setGroupOwnerIsPremium(g.owner_is_premium ?? false);
           if (g.owner_username) setGroupOwner({ username: g.owner_username, name: g.owner_name });
         }
       } catch {
@@ -77,6 +83,27 @@ export default function ReadonlyView() {
     const interval = setInterval(load, 30_000);
     return () => clearInterval(interval);
   }, [id]);
+
+  useEffect(() => {
+    const tid = tournament?.id;
+    if (!user || !tid) return;
+    api.joinRequests.myStatus(tid)
+      .then(setJoinStatus)
+      .catch(() => {});
+  }, [user, tournament?.id]);
+
+  async function handleJoinRequest() {
+    if (joinBusy) return;
+    setJoinBusy(true);
+    try {
+      const result = await api.joinRequests.send(tournament.id);
+      setJoinStatus({ is_player: false, request: result });
+    } catch {
+      //
+    } finally {
+      setJoinBusy(false);
+    }
+  }
 
   if (error) {
     return (
@@ -240,6 +267,35 @@ export default function ReadonlyView() {
         <span className="text-[11px] font-mono text-cyan/50">actualiza cada 30s</span>
       </div>
 
+      {/* Banner de solicitud de unión */}
+      {user && tournament?.status === 'active' && joinStatus && !joinStatus.is_player && (() => {
+        const req = joinStatus.request;
+        if (!req || req.status === 'rejected') {
+          return (
+            <div className="px-6 py-2.5 bg-brand/8 border-b border-brand/20 flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-[12px] font-mono text-brand/80">
+                {req?.status === 'rejected' ? 'Tu solicitud fue rechazada.' : '¿Jugás en este torneo?'}
+              </span>
+              <button
+                onClick={handleJoinRequest}
+                disabled={joinBusy}
+                className="text-[11px] font-mono px-3 py-1.5 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40"
+              >
+                {joinBusy ? 'Enviando...' : req?.status === 'rejected' ? 'Volver a solicitar' : 'Solicitar unirse'}
+              </button>
+            </div>
+          );
+        }
+        if (req.status === 'pending') {
+          return (
+            <div className="px-6 py-2.5 bg-surface border-b border-border-mid flex items-center gap-2">
+              <span className="text-[11px] font-mono text-muted">⏳ Solicitud pendiente de aprobación</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       {Array.isArray(tournament.live_match) && tournament.live_match.length > 0 && (
         <div className="border-b border-brand/30">
           {tournament.live_match.map((m, i) => (
@@ -270,7 +326,7 @@ export default function ReadonlyView() {
 
       <div className="p-6">
         {tab === "standings" && <Standings tournament={tournament} />}
-        {tab === "stats"     && <Stats     tournament={tournament} />}
+        {tab === "stats"     && <Stats     tournament={tournament} ownerIsPremium={groupOwnerIsPremium} />}
         {tab === "matches"   && <ReadonlyMatches tournament={tournament} />}
         {tab === "players"   && <ReadonlyPlayers tournament={tournament} />}
         {tab === "bracket"   && <Bracket tournament={tournament} isOwner={false} />}
@@ -295,6 +351,7 @@ function ReadonlyMatches({ tournament }) {
 }
 
 function ReadonlyPlayers({ tournament }) {
+  const navigate = useNavigate();
   const { players, pairs, mode } = tournament;
 
   return (
@@ -305,13 +362,21 @@ function ReadonlyPlayers({ tournament }) {
           ? <div className="text-dim font-sans text-sm">No hay jugadores registrados.</div>
           : (
             <div className="flex flex-col gap-2">
-              {players.map((p, i) => (
-                <div key={p.id} className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
-                  <div className="min-w-6 text-muted font-mono font-bold text-[13px]">{i + 1}</div>
-                  <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} premium={p.is_premium ?? false} />
-                  <div className="text-white font-semibold">{p.name}</div>
-                </div>
-              ))}
+              {players.map((p, i) => {
+                const username = p.linked_username ?? null;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5 ${username ? 'cursor-pointer hover:border-border-strong transition-colors' : ''}`}
+                    onClick={() => username && navigate(`/u/${username}`)}
+                  >
+                    <div className="min-w-6 text-muted font-mono font-bold text-[13px]">{i + 1}</div>
+                    <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} premium={p.is_premium ?? false} />
+                    <div className={`font-semibold ${username ? 'text-white' : 'text-white'}`}>{p.name}</div>
+                    {username && <div className="ml-auto text-[11px] font-mono text-dim">@{username}</div>}
+                  </div>
+                );
+              })}
             </div>
           )
         }

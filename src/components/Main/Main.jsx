@@ -35,7 +35,7 @@ export default function Main() {
   
   const isPremium = user?.subscription?.plan === 'premium';
   const {
-    tournament, groupName, groupEmojis, loading, error, saved, isOwner,
+    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, saved, isOwner,
     handleAddMatch, handleEditMatch, handleDeleteMatch,
     handleAddPlayer, handleEditPlayer, handleDeletePlayer,
     handleAddPair, handleEditPair, handleDeletePair,
@@ -261,7 +261,7 @@ export default function Main() {
         {/* Liga tabs */}
         {activeTab === "standings"  && <Standings  tournament={tournament} />}
         {activeTab === "matches"    && <Matches    tournament={tournament} isOwner={canEditMatches} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
-        {activeTab === "stats"      && <Stats      tournament={tournament} />}
+        {activeTab === "stats"      && <Stats      tournament={tournament} ownerIsPremium={groupOwnerIsPremium} />}
 
         {/* Americano tabs */}
         {activeTab === "previa" && (
@@ -307,7 +307,7 @@ export default function Main() {
         <PhotoGallery
           tournamentId={tournament.id}
           isOwner={isOwner}
-          canUpload={isOwner && isPremium}
+          isPremium={isPremium}
         />
       </div>
     </div>

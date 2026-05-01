@@ -3,15 +3,18 @@ import { clearUser } from './auth'
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
 async function handleAuth401(method, path, retry, replay) {
-  if (!(retry && path !== '/auth/refresh' && path !== '/auth/login' && path !== '/auth/me')) return null
+  if (!(retry && path !== '/auth/refresh' && path !== '/auth/login')) return null
   const refreshed = await fetch(`${BASE}/api/auth/refresh`, {
     method: 'POST', credentials: 'include',
   })
   if (refreshed.ok) return replay()
   clearUser()
-  const p = window.location.pathname
-  if (p !== '/login' && p !== '/register' && !p.startsWith('/reset-password/')) {
-    window.location.href = '/login?expired=1'
+  // En el chequeo de inicio (/auth/me) limpiar sin redirigir
+  if (path !== '/auth/me') {
+    const p = window.location.pathname
+    if (p !== '/login' && p !== '/register' && !p.startsWith('/reset-password/')) {
+      window.location.href = '/login?expired=1'
+    }
   }
   throw new Error('Sesión expirada')
 }
@@ -158,11 +161,22 @@ export const api = {
       req('GET', `/admin/tournaments?q=${encodeURIComponent(q)}&status=${status}&page=${page}&limit=${limit}`),
     grantPremium:  (userId, duration_days)  => req('POST', `/admin/users/${userId}/grant-premium`, { duration_days }),
     revokePremium: (userId)                 => req('POST', `/admin/users/${userId}/revoke-premium`),
+    broadcast:     (body)                   => req('POST', '/admin/broadcast', body),
+    broadcasts:    ({ page = 1, limit = 20 } = {}) =>
+      req('GET', `/admin/broadcasts?page=${page}&limit=${limit}`),
+  },
+  joinRequests: {
+    send:     (tournamentId)          => req('POST',  '/join-requests', { tournamentId }),
+    myStatus: (tournamentId)          => req('GET',   `/join-requests/my-status/${tournamentId}`),
+    get:      (id)                    => req('GET',   `/join-requests/${id}`),
+    accept:   (id, playerId)          => req('PATCH', `/join-requests/${id}`, { action: 'accept', playerId }),
+    reject:   (id)                    => req('PATCH', `/join-requests/${id}`, { action: 'reject' }),
   },
   photos: {
     list:          (tournamentId)                       => req('GET',    `/tournaments/${tournamentId}/photos`),
     upload:        (tournamentId, file, caption)        => reqMultipart('POST', `/tournaments/${tournamentId}/photos`, imageForm(file, { caption })),
     updateCaption: (tournamentId, photoId, caption)     => req('PATCH',  `/tournaments/${tournamentId}/photos/${photoId}`, { caption }),
+    setCover:      (tournamentId, photoId)              => req('PATCH',  `/tournaments/${tournamentId}/photos/${photoId}/cover`),
     delete:        (tournamentId, photoId)              => req('DELETE', `/tournaments/${tournamentId}/photos/${photoId}`),
   },
 }

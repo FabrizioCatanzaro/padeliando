@@ -5,6 +5,8 @@ import { Eye, EyeOff } from 'lucide-react'
 import { api } from '../../utils/api'
 import { useAuth } from '../../context/useAuth'
 
+let googleInitialized = false
+
 function validatePassword(p) {
   if (p.length < 8)       return 'Mínimo 8 caracteres'
   if (!/[A-Z]/.test(p))   return 'Al menos una mayúscula'
@@ -84,25 +86,28 @@ export default function AuthView({ mode: initialMode }) {
   useEffect(() => {
     function initGoogle() {
       if (!googleDivRef.current) return
-      window.google.accounts.id.initialize({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        callback: async ({ credential }) => {
-          try {
-            const { user } = await api.auth.google(credential)
-            login(user)
-            navigate('/')
-          } catch (e) {
-            setError(e.message)
-          }
-        },
-      })
+      if (!googleInitialized) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          callback: async ({ credential }) => {
+            try {
+              const { user } = await api.auth.google(credential)
+              login(user)
+              navigate('/')
+            } catch (e) {
+              setError(e.message)
+            }
+          },
+        })
+        googleInitialized = true
+      }
       window.google.accounts.id.renderButton(googleDivRef.current, {
         type: 'standard',
         theme: 'outline',
         size: 'large',
         width: googleDivRef.current.offsetWidth,
         text: 'continue_with',
-        locale: 'es_AR',
+        locale: 'es',
       })
     }
 
@@ -296,7 +301,7 @@ export default function AuthView({ mode: initialMode }) {
         {!isRegister && (
           <div className="text-right mt-1">
             <button onClick={() => setShowForgot(true)}
-              className="text-[#555] text-xs hover:text-[#aaa] font-mono transition-colors">
+              className="text-[#555] text-xs hover:text-[#aaa] font-mono transition-colors cursor-pointer">
               ¿Olvidaste tu contraseña?
             </button>
           </div>
@@ -316,7 +321,7 @@ export default function AuthView({ mode: initialMode }) {
         )}
 
         <button onClick={handleSubmit} disabled={loading}
-          className="w-full mt-5 bg-brand text-base font-[Barlow_Condensed] font-black tracking-widest py-3 rounded text-sm disabled:opacity-50 transition-opacity">
+          className="w-full mt-5 bg-brand text-base font-[Barlow_Condensed] font-black tracking-widest py-3 rounded text-sm disabled:opacity-50 transition-opacity cursor-pointer">
           {loading ? 'CARGANDO...' : isRegister ? 'REGISTRARSE' : 'INGRESAR'}
         </button>
 
@@ -327,11 +332,11 @@ export default function AuthView({ mode: initialMode }) {
         <p className="text-center mt-5 text-sm text-[#555]">
           {isRegister ? (
             <>¿Ya tenés cuenta?{' '}
-              <button onClick={() => switchMode('login')} className="text-brand hover:underline">Ingresá</button>
+              <button onClick={() => switchMode('login')} className="text-brand hover:underline cursor-pointer">Ingresá</button>
             </>
           ) : (
             <>¿No tenés cuenta?{' '}
-              <button onClick={() => switchMode('register')} className="text-brand hover:underline">Registrate</button>
+              <button onClick={() => switchMode('register')} className="text-brand hover:underline cursor-pointer">Registrate</button>
             </>
           )}
         </p>

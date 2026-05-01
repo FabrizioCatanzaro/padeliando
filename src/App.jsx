@@ -9,17 +9,22 @@ import AuthView     from './components/Auth/AuthView'
 import ProfileView  from './components/Auth/ProfileView'
 import ResetPassword from './components/Auth/ResetPassword'
 import VerifyEmail   from './components/Auth/VerifyEmail'
-import AdminDashboard from './components/Admin/AdminDashboard'
-import AdminUsers       from './components/Admin/AdminUsers'
-import AdminTournaments from './components/Admin/AdminTournaments'
+import AdminDashboard      from './components/Admin/AdminDashboard'
+import AdminUsers          from './components/Admin/AdminUsers'
+import AdminTournaments    from './components/Admin/AdminTournaments'
+import AdminNotifications  from './components/Admin/AdminNotifications'
 import Setup        from './components/Setup/Setup'
 import MainView     from './components/Main/Main'
 import ReadonlyView    from './components/ReadonlyView/ReadonlyView'
 import InvitationsView    from './components/Invitations/InvitationsView'
 import NotificationsView  from './components/Notifications/NotificationsView'
 import TutorialView      from './components/Tutorial/TutorialView'
-//import SubscriptionTest    from './components/Subscription/SubscriptionTest'
-//import SubscriptionSuccess from './components/Subscription/SubscriptionSuccess'
+import SubscriptionSuccess from './components/Subscription/SubscriptionSuccess'
+import FAQView      from './components/Legal/FAQView'
+import AboutView    from './components/Legal/AboutView'
+import ContactView  from './components/Legal/ContactView'
+import TermsView    from './components/Legal/TermsView'
+import PrivacyView  from './components/Legal/PrivacyView'
 
 function Layout() {
   return (
@@ -89,11 +94,16 @@ export default function App() {
         <Route path="/invitations"                               element={<Navigate to="/notifications" replace />} />
         <Route path="/notifications"                             element={<PrivateRoute><NotificationsView /></PrivateRoute>} />
         <Route path="/tutorial"                                  element={<TutorialView />} />
+        <Route path="/faq"                                       element={<FAQView />} />
+        <Route path="/sobre-nosotros"                            element={<AboutView />} />
+        <Route path="/contacto"                                  element={<ContactView />} />
+        <Route path="/terminos"                                  element={<TermsView />} />
+        <Route path="/privacidad"                                element={<PrivacyView />} />
         <Route path="/admin"                                     element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/users"                               element={<AdminRoute><AdminUsers /></AdminRoute>} />
         <Route path="/admin/tournaments"                         element={<AdminRoute><AdminTournaments /></AdminRoute>} />
-        {/* <Route path="/subscription"                              element={<PrivateRoute><SubscriptionTest /></PrivateRoute>} /> */}
-        {/* <Route path="/subscription/success"                      element={<PrivateRoute><SubscriptionSuccess /></PrivateRoute>} /> */}
+        <Route path="/admin/notifications"                       element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+        <Route path="/subscription/success"                      element={<PrivateRoute><SubscriptionSuccess /></PrivateRoute>} />
         <Route path="*"                                          element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

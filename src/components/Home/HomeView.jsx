@@ -11,6 +11,27 @@ import MapPicker from '../shared/MapPicker';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
+const NEARBY_CACHE_KEY = 'nearby_v1';
+const NEARBY_TTL       = 10 * 60 * 1000; // 10 min
+const NEARBY_INITIAL   = 3;
+const NEARBY_PAGE_SIZE = 5;
+
+function readNearbyCache() {
+  try {
+    const raw = localStorage.getItem(NEARBY_CACHE_KEY);
+    if (!raw) return null;
+    const { groups, ts } = JSON.parse(raw);
+    if (Date.now() - ts > NEARBY_TTL) { localStorage.removeItem(NEARBY_CACHE_KEY); return null; }
+    return groups;
+  } catch { return null; }
+}
+
+function writeNearbyCache(groups) {
+  try { localStorage.setItem(NEARBY_CACHE_KEY, JSON.stringify({ groups, ts: Date.now() })); } catch {
+    /* */
+  }
+}
+
 export default function HomeView() {
   const [groups,       setGroups]       = useState([]);
   const [partGroups,   setPartGroups]   = useState([]);
@@ -40,6 +61,7 @@ export default function HomeView() {
 
   const [nearbyGroups,   setNearbyGroups]   = useState([]);
   const [nearbyStatus,   setNearbyStatus]   = useState('idle'); // idle | loading | done | denied | error
+  const [nearbyPage,     setNearbyPage]     = useState(NEARBY_INITIAL);
 
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -56,6 +78,11 @@ export default function HomeView() {
       .then(([owned, part]) => { setGroups(owned); setPartGroups(part); })
       .catch(() => { navigate('/login'); })
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const cached = readNearbyCache();
+    if (cached) { setNearbyGroups(cached); setNearbyStatus('done'); }
   }, []);
 
   // Sugerencias de lugar con Photon (OpenStreetMap) — gratis, sin API key
@@ -157,14 +184,23 @@ export default function HomeView() {
   }
 
   function handleNearby() {
+    const cached = readNearbyCache();
+    if (cached) {
+      setNearbyGroups(cached);
+      setNearbyStatus('done');
+      setNearbyPage(NEARBY_INITIAL);
+      return;
+    }
     if (!navigator.geolocation) { setNearbyStatus('error'); return; }
     setNearbyStatus('loading');
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         try {
           const data = await api.groups.nearby(coords.latitude, coords.longitude);
+          writeNearbyCache(data);
           setNearbyGroups(data);
           setNearbyStatus('done');
+          setNearbyPage(NEARBY_INITIAL);
         } catch {
           setNearbyStatus('error');
         }
@@ -281,8 +317,8 @@ export default function HomeView() {
                 onClick={handleNearby}
                 className="flex items-center gap-2 bg-transparent border border-border-mid text-muted px-3.5 py-2 rounded text-xs font-mono cursor-pointer hover:border-border-strong hover:text-white transition-colors"
               >
-                <Navigation size={13} />
-                BUSCAR CATEGORÍAS CERCA TUYO
+                <MapPin size={13} />
+                BUSCAR TORNEOS Y CATEGORÍAS CERCA TUYO
               </button>
             )}
             {nearbyStatus === 'loading' && (
@@ -301,7 +337,7 @@ export default function HomeView() {
               <>
                 <div className="flex items-center justify-between mb-3">
                   <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] flex items-center gap-2">
-                    <Navigation size={13} />
+                    <MapPin size={13} />
                     CERCA TUYO
                   </div>
                   <button
@@ -314,34 +350,44 @@ export default function HomeView() {
                 {nearbyVisible.length === 0 ? (
                   <div className="font-mono text-xs text-[#555]">No hay categorías públicas en un radio de 20 km.</div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
-                    {nearbyVisible.map((g, i) => (
-                      <FadeInCard key={g.id} delay={i * 60}
-                        className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
-                        style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
-                        onClick={() => navigate(`/cat/${g.id}`)}>
-                        {g.emojis?.length > 0 && (
-                          <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
-                            {g.emojis.join(' ')}
-                          </div>
-                        )}
-                        <div className="p-4">
-                          <div className="font-condensed font-bold text-xl text-white mb-1">{g.name}</div>
-                          <div className="font-mono text-xs text-gray-600 mb-1.5">@{g.owner_username}</div>
-                          {g.location_name && (
-                            <div className="flex items-center gap-1 font-mono text-xs text-gray-600 mb-1">
-                              <MapPin size={10} className="shrink-0" />
-                              <span className="truncate">{g.location_name}</span>
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }} className='bg-border-strong/20 p-3 rounded-lg'>
+                      {nearbyVisible.slice(0, nearbyPage).map((g, i) => (
+                        <FadeInCard key={g.id} delay={i * 60}
+                          className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
+                          style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
+                          onClick={() => navigate(`/cat/${g.id}`)}>
+                          {g.emojis?.length > 0 && (
+                            <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
+                              {g.emojis.join(' ')}
                             </div>
                           )}
-                          <div className="flex items-center gap-1 font-mono text-xs text-brand mt-2">
-                            <Navigation size={10} />
-                            {g.distance_km} km
+                          <div className="p-4">
+                            <div className="font-condensed font-bold text-xl text-white mb-1">{g.name}</div>
+                            <div className="font-mono text-xs text-gray-600 mb-1.5">@{g.owner_username}</div>
+                            {g.location_name && (
+                              <div className="flex items-center gap-1 font-mono text-xs text-gray-600 mb-1">
+                                <MapPin size={10} className="shrink-0" />
+                                <span className="truncate">{g.location_name}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1 font-mono text-xs text-brand mt-2">
+                              <Navigation size={10} />
+                              {g.distance_km} km
+                            </div>
                           </div>
-                        </div>
-                      </FadeInCard>
-                    ))}
-                  </div>
+                        </FadeInCard>
+                      ))}
+                    </div>
+                    {nearbyVisible.length > nearbyPage && (
+                      <button
+                        onClick={() => setNearbyPage(p => p + NEARBY_PAGE_SIZE)}
+                        className="mt-3 flex items-center gap-2 bg-transparent border border-border-mid text-muted px-3.5 py-2 rounded text-xs font-mono cursor-pointer hover:border-border-strong hover:text-white transition-colors"
+                      >
+                        VER MÁS · {nearbyVisible.length - nearbyPage} restantes
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -584,7 +630,7 @@ export default function HomeView() {
             <div style={{ marginBottom: 16 }}>
               <div className="font-[Barlow_Condensed] font-bold text-sm tracking-[3px] text-[#555]">MIS CATEGORÍAS</div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }} className='bg-border-strong/20 p-3 rounded'>
               {/* Botón Nuevo Torneo como primera card */}
               <div
                 onClick={() => { setShowNew(v => !v); setSelectedEmojis([]); setLocation(''); setPlaceId(''); setLat(null); setLon(null); }}
@@ -639,7 +685,7 @@ export default function HomeView() {
                 <div style={{ marginTop: 36, marginBottom: 16 }}>
                   <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">CATEGORÍAS EN LAS QUE PARTICIPO</div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }} className='bg-border-strong/20 p-3 rounded'>
                   {partGroups.map((g, i) => (
                     <FadeInCard key={g.id} delay={i * 60}
                       className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
