@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, UserCheck, Crown, Layers, Trophy, Swords, UserPlus, Image, ArrowRight } from 'lucide-react'
+import { Users, UserCheck, Crown, Layers, Trophy, Swords, UserPlus, Image, ArrowRight, Megaphone } from 'lucide-react'
 import { api } from '../../utils/api'
 import Loader from '../Loader/Loader'
 import TimeseriesChart from './TimeseriesChart'
@@ -58,6 +58,10 @@ export default function AdminDashboard() {
         <Link to="/admin/tournaments"
           className="inline-flex items-center gap-2 bg-surface border border-border hover:border-brand text-white text-xs font-condensed font-bold tracking-widest px-4 py-2 rounded transition-colors">
           VER TORNEOS <ArrowRight size={12} />
+        </Link>
+        <Link to="/admin/notifications"
+          className="inline-flex items-center gap-2 bg-surface border border-border hover:border-brand text-white text-xs font-condensed font-bold tracking-widest px-4 py-2 rounded transition-colors">
+          <Megaphone size={12} /> ENVIAR NOTIFICACIÓN
         </Link>
       </div>
 
