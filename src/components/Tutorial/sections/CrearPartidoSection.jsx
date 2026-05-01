@@ -8,8 +8,8 @@ export default function CrearPartidoSection() {
       description='Una partido en Padeleando tiene la posibilidad de asignar las parejas involucradas, setear la fecha, cancha, iniciar un cronómetro y registrar los resultados.'
       steps={[
         {
-          label: 'Ir a la jornada',
-          text: 'Desde la pantalla de tu jornada, en la sección de partidos,presioná el botón "NUEVO PARTIDO".',
+          label: 'Ir a el torneo',
+          text: 'Desde la pantalla de tu torneo, en la sección de partidos,presioná el botón "NUEVO PARTIDO".',
         },
         {
           label: 'Elegir las parejas',

@@ -3,15 +3,18 @@ import { clearUser } from './auth'
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
 async function handleAuth401(method, path, retry, replay) {
-  if (!(retry && path !== '/auth/refresh' && path !== '/auth/login' && path !== '/auth/me')) return null
+  if (!(retry && path !== '/auth/refresh' && path !== '/auth/login')) return null
   const refreshed = await fetch(`${BASE}/api/auth/refresh`, {
     method: 'POST', credentials: 'include',
   })
   if (refreshed.ok) return replay()
   clearUser()
-  const p = window.location.pathname
-  if (p !== '/login' && p !== '/register' && !p.startsWith('/reset-password/')) {
-    window.location.href = '/login?expired=1'
+  // En el chequeo de inicio (/auth/me) limpiar sin redirigir
+  if (path !== '/auth/me') {
+    const p = window.location.pathname
+    if (p !== '/login' && p !== '/register' && !p.startsWith('/reset-password/')) {
+      window.location.href = '/login?expired=1'
+    }
   }
   throw new Error('Sesión expirada')
 }
@@ -30,7 +33,12 @@ async function req(method, path, body, retry = true) {
   }
 
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error ?? 'Error desconocido')
+  if (!res.ok) {
+    const err = new Error(data.error ?? 'Error desconocido')
+    err.data   = data
+    err.status = res.status
+    throw err
+  }
   return data
 }
 
@@ -70,6 +78,8 @@ export const api = {
     search:         (q)    => req('GET',  `/auth/search?q=${encodeURIComponent(q)}`),
     forgotPassword: (email)       => req('POST',  '/auth/forgot-password',  { email }),
     resetPassword:  (token, pass) => req('POST',  '/auth/reset-password',   { token, password: pass }),
+    verifyEmail:        (token) => req('POST', '/auth/verify-email',        { token }),
+    resendVerification: (email) => req('POST', '/auth/resend-verification', { email }),
     updateMe:       (body)        => req('PATCH', '/auth/me', body),
     uploadAvatar:   (file)        => reqMultipart('POST',   '/auth/me/avatar', imageForm(file)),
     deleteAvatar:   ()            => req('DELETE', '/auth/me/avatar'),
@@ -77,6 +87,7 @@ export const api = {
   groups: {
     list:          ()         => req('GET',    '/groups'),
     search:        (q)        => req('GET',    `/groups/search?q=${encodeURIComponent(q)}`),
+    nearby:        (lat, lon, radius = 20) => req('GET', `/groups/nearby?lat=${lat}&lon=${lon}&radius=${radius}`),
     participating: ()         => req('GET',    '/groups/participating'),
     get:           (id)       => req('GET',    `/groups/${id}`),
     history:       (id)       => req('GET',    `/groups/${id}/history`),
@@ -124,15 +135,48 @@ export const api = {
     respond:(id, action)                 => req('PATCH',  `/invitations/${id}`, { action }),
     cancel: (id)                         => req('DELETE', `/invitations/${id}`),
   },
+  follows: {
+    follow:    (username) => req('POST',   `/follows/${username}`),
+    unfollow:  (username) => req('DELETE', `/follows/${username}`),
+    followers: (username) => req('GET',    `/follows/${username}/followers`),
+    following: (username) => req('GET',    `/follows/${username}/following`),
+  },
+  notifications: {
+    list:        (limit = 30, offset = 0) => req('GET',   `/notifications?limit=${limit}&offset=${offset}`),
+    count:       ()                        => req('GET',   '/notifications/count'),
+    markAllRead: ()                        => req('PATCH', '/notifications/read-all'),
+    markRead:    (id)                      => req('PATCH', `/notifications/${id}/read`),
+  },
   subscriptions: {
     me:       ()                => req('GET',  '/subscriptions/me'),
     checkout: (billing_period)  => req('POST', '/subscriptions/checkout', { billing_period }),
     cancel:   ()                => req('POST', '/subscriptions/cancel'),
   },
+  admin: {
+    stats:         ()                       => req('GET',  '/admin/stats'),
+    timeseries:    (days = 30)              => req('GET',  `/admin/timeseries?days=${days}`),
+    users:         ({ q = '', page = 1, limit = 25 } = {}) =>
+      req('GET', `/admin/users?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`),
+    tournaments:   ({ q = '', status = 'all', page = 1, limit = 25 } = {}) =>
+      req('GET', `/admin/tournaments?q=${encodeURIComponent(q)}&status=${status}&page=${page}&limit=${limit}`),
+    grantPremium:  (userId, duration_days)  => req('POST', `/admin/users/${userId}/grant-premium`, { duration_days }),
+    revokePremium: (userId)                 => req('POST', `/admin/users/${userId}/revoke-premium`),
+    broadcast:     (body)                   => req('POST', '/admin/broadcast', body),
+    broadcasts:    ({ page = 1, limit = 20 } = {}) =>
+      req('GET', `/admin/broadcasts?page=${page}&limit=${limit}`),
+  },
+  joinRequests: {
+    send:     (tournamentId)          => req('POST',  '/join-requests', { tournamentId }),
+    myStatus: (tournamentId)          => req('GET',   `/join-requests/my-status/${tournamentId}`),
+    get:      (id)                    => req('GET',   `/join-requests/${id}`),
+    accept:   (id, playerId)          => req('PATCH', `/join-requests/${id}`, { action: 'accept', playerId }),
+    reject:   (id)                    => req('PATCH', `/join-requests/${id}`, { action: 'reject' }),
+  },
   photos: {
     list:          (tournamentId)                       => req('GET',    `/tournaments/${tournamentId}/photos`),
     upload:        (tournamentId, file, caption)        => reqMultipart('POST', `/tournaments/${tournamentId}/photos`, imageForm(file, { caption })),
     updateCaption: (tournamentId, photoId, caption)     => req('PATCH',  `/tournaments/${tournamentId}/photos/${photoId}`, { caption }),
+    setCover:      (tournamentId, photoId)              => req('PATCH',  `/tournaments/${tournamentId}/photos/${photoId}/cover`),
     delete:        (tournamentId, photoId)              => req('DELETE', `/tournaments/${tournamentId}/photos/${photoId}`),
   },
 }

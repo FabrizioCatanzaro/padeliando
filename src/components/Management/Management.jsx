@@ -15,7 +15,7 @@ export default function Management({
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">GESTIÓN DE LA JORNADA</div>
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">GESTIÓN DEL TORNEO</div>
       </div>
 
       <PlayerManager
@@ -52,7 +52,7 @@ export default function Management({
               onClick={() => setDeleteModal(true)}
               className="flex flex-row gap-2 bg-danger/13 border border-danger text-danger px-4 py-2.25 text-[13px] cursor-pointer rounded-sm font-sans"
             >
-              <Trash2 size={15} /> Eliminar jornada
+              <Trash2 size={15} /> Eliminar torneo
             </div>
             <button
               onClick={() => onToggleStatus()}
@@ -65,12 +65,12 @@ export default function Management({
               {tournament.status === 'active' ? (
                 <div className="flex flex-row gap-2 items-center">
                   <TicketCheck size={15} />
-                  <span>Finalizar jornada</span>
+                  <span>Finalizar torneo</span>
                 </div>
               ) : (
                 <div className="flex flex-row gap-2 items-center">
                   <Play size={15} />
-                  <span>Reanudar jornada</span>
+                  <span>Reanudar torneo</span>
                 </div>
               )}
             </button>
@@ -91,8 +91,8 @@ export default function Management({
 
       {deleteModal && (
         <Modal
-          title="¿Eliminar la jornada?"
-          message="Se eliminará la jornada actual por completo. Los jugadores quedan en la base de datos para estadísticas históricas. Esta acción no se puede deshacer."
+          title="¿Eliminar torneo?"
+          message="Se eliminará el torneo actual por completo. Los jugadores quedan en la base de datos para estadísticas históricas. Esta acción no se puede deshacer."
           confirmText="Sí, eliminar"
           confirmDanger
           onConfirm={() => { onDeleteTournament(); setDeleteModal(false); }}

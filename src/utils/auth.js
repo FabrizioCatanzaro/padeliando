@@ -5,4 +5,5 @@ export function clearSession()    { localStorage.removeItem(USER_KEY); }
 
 export function clearUser() {
     localStorage.removeItem('padeliando_user')
+    localStorage.removeItem('padeliando_session_start')
 }

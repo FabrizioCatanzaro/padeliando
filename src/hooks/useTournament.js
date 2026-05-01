@@ -6,8 +6,9 @@ import { useAuth } from '../context/useAuth';
 export function useTournament(groupId, tournamentId) {
   const { user } = useAuth();
   const [tournament, setTournament] = useState(null);
-  const [groupOwnerId, setGroupOwnerId] = useState(null);
-  const [groupName, setGroupName] = useState(null);
+  const [groupOwnerId,      setGroupOwnerId]      = useState(null);
+  const [groupOwnerIsPremium, setGroupOwnerIsPremium] = useState(false);
+  const [groupName,  setGroupName]  = useState(null);
   const [groupEmojis, setGroupEmojis] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
@@ -20,6 +21,7 @@ export function useTournament(groupId, tournamentId) {
     try {
       const t = await api.tournaments.get(tournamentId);
       setTournament(adaptTournament(t));
+      setGroupOwnerIsPremium(t.owner_is_premium ?? false);
       const gId = groupId ?? t.group_id;
       if (gId) {
         const g = await api.groups.get(gId);
@@ -55,27 +57,31 @@ export function useTournament(groupId, tournamentId) {
  
   // ── Partidos ────────────────────────────────────────────────────────
   async function handleAddMatch(matchData) {
-    // matchData: { team1, team2, score1, score2, date }
     await api.matches.create({
       tournamentId: tournament.id,
-      team1:    matchData.team1,
-      team2:    matchData.team2,
-      score1:   matchData.score1,
-      score2:   matchData.score2,
-      playedAt: matchData.date,
+      team1:        matchData.team1,
+      team2:        matchData.team2,
+      score1:       matchData.score1,
+      score2:       matchData.score2,
+      playedAt:     matchData.date,
       duration_seconds: matchData.duration_seconds,
+      sets_format:  matchData.sets_format ?? null,
+      sets:         matchData.sets ?? [],
     });
     await reload();
     flash();
   }
- 
+
   async function handleEditMatch(matchId, matchData) {
     await api.matches.update(matchId, {
-      team1:    matchData.team1,
-      team2:    matchData.team2,
-      score1:   matchData.score1,
-      score2:   matchData.score2,
-      playedAt: matchData.date,
+      team1:            matchData.team1,
+      team2:            matchData.team2,
+      score1:           matchData.score1,
+      score2:           matchData.score2,
+      playedAt:         matchData.date,
+      duration_seconds: matchData.duration_seconds ?? null,
+      sets_format:      matchData.sets_format ?? null,
+      sets:             matchData.sets ?? [],
     });
     await reload();
     flash();
@@ -192,7 +198,7 @@ export function useTournament(groupId, tournamentId) {
   const isOwner = !!user && !!tournament && groupOwnerId != null && String(groupOwnerId) === String(user.id);
 
   return {
-    tournament, groupName, groupEmojis, loading, error, saved, isOwner,
+    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, saved, isOwner,
     handleCreate,
     handleAddMatch,    handleEditMatch,    handleDeleteMatch,
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,

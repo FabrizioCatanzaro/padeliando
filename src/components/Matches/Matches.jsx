@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef } from "react";
-import { expandPair, emptyForm, localDateStr, getPairLabel } from "../../utils/helpers";
+import { expandPair, emptyForm, localDateStr, getPairLabel, visibleSetsCount } from "../../utils/helpers";
 import MatchCard from "./MatchCard";
 import MatchForm from "./MatchForm";
 import Modal from "../shared/Modal";
@@ -121,7 +121,13 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       if (new Set([...team1, ...team2]).size !== 4) return alert("Los jugadores no pueden repetirse");
     }
 
-    const matchData = { team1, team2, score1: s1, score2: s2, date: form.date, duration_seconds: form.duration_seconds };
+    const nv = form.sets_format ? visibleSetsCount(form.sets_format, form.sets) : 0;
+    const matchData = {
+      team1, team2, score1: s1, score2: s2,
+      date: form.date, duration_seconds: form.duration_seconds,
+      sets_format: form.sets_format ?? null,
+      sets: nv > 0 ? (form.sets ?? []).slice(0, nv) : [],
+    };
 
     // ─── Fix bug: limpiar localStorage ANTES del await para evitar restore en remount ───
     const remaining = liveMatches.filter((m) => m.id !== liveId);
@@ -132,12 +138,14 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
     }
     setLiveMatches(remaining);
 
-    await onAddMatch(matchData);
-
+    // Sincronizar live_match en el servidor ANTES del reload para que el
+    // tournament recargado no traiga el partido en curso viejo.
     const labels = remaining
       .filter((m) => m.timer.startedAt !== null)
       .map((m) => resolveTeamLabels(m.form));
-    onSetLiveMatch?.(labels.length > 0 ? labels : null);
+    await onSetLiveMatch?.(labels.length > 0 ? labels : null);
+
+    await onAddMatch(matchData);
   }
 
   async function handleSaveEdit() {
@@ -156,7 +164,13 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       if (new Set([...team1, ...team2]).size !== 4) return alert("Los jugadores no pueden repetirse");
     }
 
-    await onEditMatch(editId, { team1, team2, score1: s1, score2: s2, date: editForm.date });
+    const nv = editForm.sets_format ? visibleSetsCount(editForm.sets_format, editForm.sets) : 0;
+    await onEditMatch(editId, {
+      team1, team2, score1: s1, score2: s2, date: editForm.date,
+      duration_seconds: editForm.duration_seconds ?? null,
+      sets_format: editForm.sets_format ?? null,
+      sets: nv > 0 ? (editForm.sets ?? []).slice(0, nv) : [],
+    });
     setEditId(null);
     setEditForm(null);
   }
@@ -170,10 +184,14 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
         (p) => (p.p1 === m.team2[0] && p.p2 === m.team2[1]) || (p.p1 === m.team2[1] && p.p2 === m.team2[0])
       );
       setEditForm({ ...emptyForm(), team1Pair: pair1?.id ?? "", team2Pair: pair2?.id ?? "",
-        score1: String(m.score1), score2: String(m.score2), date: m.date || localDateStr() });
+        score1: String(m.score1), score2: String(m.score2), date: m.date || localDateStr(),
+        duration_seconds: m.duration_seconds ?? null,
+        sets_format: m.sets_format ?? null, sets: m.sets ?? [] });
     } else {
       setEditForm({ team1: [...m.team1], team2: [...m.team2],
-        score1: String(m.score1), score2: String(m.score2), date: m.date || localDateStr() });
+        score1: String(m.score1), score2: String(m.score2), date: m.date || localDateStr(),
+        duration_seconds: m.duration_seconds ?? null,
+        sets_format: m.sets_format ?? null, sets: m.sets ?? [] });
     }
     setEditId(m.id);
   }
@@ -208,19 +226,6 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
         )}
       </div>
 
-      {/* Formulario de edición */}
-      {editId && editForm && (
-        <MatchForm
-          form={editForm} setForm={setEditForm}
-          tournament={tournament}
-          onSave={handleSaveEdit}
-          onCancel={() => { setEditId(null); setEditForm(null); }}
-          isEditing={true}
-          timerState={EMPTY_TIMER}
-          onTimerChange={() => {}}
-        />
-      )}
-
       {/* Formularios de partidos en progreso */}
       {canEdit && liveMatches.map((liveMatch) => (
         <MatchForm
@@ -242,10 +247,23 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {sorted.map((m) => (
-            <MatchCard key={m.id} match={m} tournament={tournament} isOwner={canEdit}
-              onEdit={() => handleEdit(m)} onDelete={() => handleDelete(m.id)} />
-          ))}
+          {sorted.map((m) =>
+            editId === m.id && editForm ? (
+              <MatchForm
+                key={m.id}
+                form={editForm} setForm={setEditForm}
+                tournament={tournament}
+                onSave={handleSaveEdit}
+                onCancel={() => { setEditId(null); setEditForm(null); }}
+                isEditing={true}
+                timerState={EMPTY_TIMER}
+                onTimerChange={() => {}}
+              />
+            ) : (
+              <MatchCard key={m.id} match={m} tournament={tournament} isOwner={canEdit}
+                onEdit={() => handleEdit(m)} onDelete={() => handleDelete(m.id)} />
+            )
+          )}
         </div>
       )}
     </div>

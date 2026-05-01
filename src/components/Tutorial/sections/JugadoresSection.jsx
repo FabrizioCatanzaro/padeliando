@@ -5,11 +5,11 @@ export default function JugadoresSection() {
   return (
     <TutorialSection
       title="Agregar, editar y eliminar jugadores o parejas"
-      description="Desde la pestaña de gestión de una jornada podés administrar los participantes: agregar nuevos jugadores o parejas, editar sus nombres, y eliminarlos si es necesario."
+      description="Desde la pestaña de gestión de un torneo podés administrar los participantes: agregar nuevos jugadores o parejas, editar sus nombres, y eliminarlos si es necesario."
       steps={[
         {
-          label: 'Acceder a la gestión de la jornada',
-          text: 'Dentro de una jornada, buscá la pestaña o sección de gestión de jugadores/parejas.',
+          label: 'Acceder a la gestión de el torneo',
+          text: 'Dentro de un torneo, buscá la pestaña o sección de gestión de jugadores/parejas.',
         },
         {
           label: 'Agregar un jugador o pareja',

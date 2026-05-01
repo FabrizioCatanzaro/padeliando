@@ -1,14 +1,36 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../utils/api';
 import { useNavigate } from 'react-router-dom'
 import { useAuth }     from '../../context/useAuth'
-import { Globe, Lock, Plus, X, Search } from 'lucide-react';
+import { Globe, Lock, Plus, X, Search, MapPin, Smile, Check, Loader2, Navigation } from 'lucide-react';
 import logoUrl from '../../assets/padeleando.ico'
 import FadeInCard from '../shared/FadeInCard'
 import Loader from '../Loader/Loader';
+import MapPicker from '../shared/MapPicker';
 
-const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','🥚','🍆','💸','🗿','♂️','♀️','🪄','🧑🏼‍🎄','🎉','👑']
+const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
+
+const NEARBY_CACHE_KEY = 'nearby_v1';
+const NEARBY_TTL       = 10 * 60 * 1000; // 10 min
+const NEARBY_INITIAL   = 3;
+const NEARBY_PAGE_SIZE = 5;
+
+function readNearbyCache() {
+  try {
+    const raw = localStorage.getItem(NEARBY_CACHE_KEY);
+    if (!raw) return null;
+    const { groups, ts } = JSON.parse(raw);
+    if (Date.now() - ts > NEARBY_TTL) { localStorage.removeItem(NEARBY_CACHE_KEY); return null; }
+    return groups;
+  } catch { return null; }
+}
+
+function writeNearbyCache(groups) {
+  try { localStorage.setItem(NEARBY_CACHE_KEY, JSON.stringify({ groups, ts: Date.now() })); } catch {
+    /* */
+  }
+}
 
 export default function HomeView() {
   const [groups,       setGroups]       = useState([]);
@@ -19,6 +41,14 @@ export default function HomeView() {
   const [isPublic,     setIsPublic]     = useState(true);
   const [showNew,      setShowNew]      = useState(false);
   const [selectedEmojis, setSelectedEmojis] = useState([]);
+  const [showEmojiModal, setShowEmojiModal] = useState(false);
+  const [location,           setLocation]           = useState('');
+  const [placeId,            setPlaceId]            = useState('');
+  const [lat,                setLat]                = useState(null);
+  const [lon,                setLon]                = useState(null);
+  const [locationSuggestions,setLocationSuggestions] = useState([]);
+  const [locationLoading,    setLocationLoading]    = useState(false);
+  const [showMapPicker,      setShowMapPicker]      = useState(false);
   const [searchQ,        setSearchQ]        = useState('');
   const [searchUsers,    setSearchUsers]    = useState([]);
   const [searchGroups,   setSearchGroups]   = useState([]);
@@ -29,8 +59,13 @@ export default function HomeView() {
   const [committing,     setCommitting]     = useState(false);
   const [error,     setError]     = useState(null)
 
+  const [nearbyGroups,   setNearbyGroups]   = useState([]);
+  const [nearbyStatus,   setNearbyStatus]   = useState('idle'); // idle | loading | done | denied | error
+  const [nearbyPage,     setNearbyPage]     = useState(NEARBY_INITIAL);
+
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
+  const locationAbortRef = useRef(null);
 
   const valsPrivacy = [
     { val: true, label: 'Público', icon: Globe },
@@ -44,6 +79,54 @@ export default function HomeView() {
       .catch(() => { navigate('/login'); })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const cached = readNearbyCache();
+    if (cached) { setNearbyGroups(cached); setNearbyStatus('done'); }
+  }, []);
+
+  // Sugerencias de lugar con Photon (OpenStreetMap) — gratis, sin API key
+  useEffect(() => {
+    if (!location.trim() || location.length < 2 || placeId || lat !== null) {
+      setLocationSuggestions([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      locationAbortRef.current?.abort();
+      const controller = new AbortController();
+      locationAbortRef.current = controller;
+      setLocationLoading(true);
+      // bbox de Argentina para sesgar resultados
+      const params = new URLSearchParams({ q: location, limit: 5, lat: -34.646194, lon: -58.566583 });
+      fetch(`https://photon.komoot.io/api/?${params}`, { signal: controller.signal })
+        .then(r => r.json())
+        .then(data => setLocationSuggestions(data.features ?? []))
+        .catch(() => {})
+        .finally(() => setLocationLoading(false));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [location, placeId, lat]);
+
+  function selectPlace(feature) {
+    const p = feature.properties;
+    const [fLon, fLat] = feature.geometry.coordinates;
+    const parts = [p.name, p.street, p.city, p.state].filter(Boolean);
+    const display = [...new Set(parts)].join(', ');
+    setLocation(display);
+    setPlaceId(`${p.osm_type}:${p.osm_id}`);
+    setLat(fLat);
+    setLon(fLon);
+    setLocationSuggestions([]);
+  }
+
+  function handleMapConfirm(pickedLat, pickedLon, displayName) {
+    setLat(pickedLat);
+    setLon(pickedLon);
+    if (displayName) setLocation(displayName);
+    setPlaceId('');
+    setLocationSuggestions([]);
+    setShowMapPicker(false);
+  }
 
   // Búsqueda de perfiles y torneos con debounce
   useEffect(() => {
@@ -100,17 +183,56 @@ export default function HomeView() {
     setSearchGroups([]);
   }
 
+  function handleNearby() {
+    const cached = readNearbyCache();
+    if (cached) {
+      setNearbyGroups(cached);
+      setNearbyStatus('done');
+      setNearbyPage(NEARBY_INITIAL);
+      return;
+    }
+    if (!navigator.geolocation) { setNearbyStatus('error'); return; }
+    setNearbyStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const data = await api.groups.nearby(coords.latitude, coords.longitude);
+          writeNearbyCache(data);
+          setNearbyGroups(data);
+          setNearbyStatus('done');
+          setNearbyPage(NEARBY_INITIAL);
+        } catch {
+          setNearbyStatus('error');
+        }
+      },
+      () => setNearbyStatus('denied'),
+      { timeout: 8000 }
+    );
+  }
+
   async function handleCreate() {
     try {
       if (!name.trim()) return;
-      const g = await api.groups.create({ name: name.trim(), description: desc, is_public: isPublic, emojis: selectedEmojis });
-      navigate(`/groups/${g.id}`);
+      const g = await api.groups.create({
+        name: name.trim(),
+        description: desc,
+        is_public: isPublic,
+        emojis: selectedEmojis,
+        location_name: location || null,
+        place_id: placeId || null,
+        lat: lat ?? null,
+        lon: lon ?? null,
+      });
+      navigate(`/cat/${g.id}`);
     } catch (e){
       setError(e.message)
-    } 
+    }
   }
 
   if (loading) return <Loader />;
+
+  const ownGroupIds = new Set(groups.map(g => g.id));
+  const nearbyVisible = nearbyGroups.filter(g => !ownGroupIds.has(g.id));
 
   return (
     <div className="bg-base text-[#ccc] font-[Barlow] pb-16">
@@ -120,7 +242,7 @@ export default function HomeView() {
           <div className="flex gap-2">
             <input
               className="flex-1 bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-sans"
-              placeholder="Buscar perfiles o torneos..."
+              placeholder="Buscar perfiles o categorías..."
               value={searchQ}
               onChange={(e) => setSearchQ(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
@@ -168,7 +290,7 @@ export default function HomeView() {
                   <div className='font-mono px-4 pt-2 pb-1 text-[10px] text-gray-600 tracking-widest'>TORNEOS</div>
                   {searchGroups.map((g) => (
                     <div key={g.id}
-                      onClick={() => { navigate(`/groups/${g.id}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); }}
+                      onClick={() => { navigate(`/cat/${g.id}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); }}
                       style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1a2030' }}
                       onMouseEnter={(e) => e.currentTarget.style.background = '#1a2030'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
@@ -187,15 +309,148 @@ export default function HomeView() {
           )}
         </div>
 
+        {/* Cerca de vos */}
+        {!committedQ && (
+          <div className="mb-7">
+            {nearbyStatus === 'idle' && (
+              <button
+                onClick={handleNearby}
+                className="flex items-center gap-2 bg-transparent border border-border-mid text-muted px-3.5 py-2 rounded text-xs font-mono cursor-pointer hover:border-border-strong hover:text-white transition-colors"
+              >
+                <MapPin size={13} />
+                BUSCAR TORNEOS Y CATEGORÍAS CERCA TUYO
+              </button>
+            )}
+            {nearbyStatus === 'loading' && (
+              <div className="flex items-center gap-2 text-xs font-mono text-muted">
+                <Loader2 size={13} className="animate-spin" />
+                Buscando torneos cercanos...
+              </div>
+            )}
+            {nearbyStatus === 'denied' && (
+              <div className="text-xs font-mono text-[#555]">Permiso de ubicación denegado.</div>
+            )}
+            {nearbyStatus === 'error' && (
+              <div className="text-xs font-mono text-[#555]">No se pudo obtener la ubicación.</div>
+            )}
+            {nearbyStatus === 'done' && (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] flex items-center gap-2">
+                    <MapPin size={13} />
+                    CERCA TUYO
+                  </div>
+                  <button
+                    onClick={() => { setNearbyStatus('idle'); setNearbyGroups([]); }}
+                    className="text-[#555] hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+                {nearbyVisible.length === 0 ? (
+                  <div className="font-mono text-xs text-[#555]">No hay categorías públicas en un radio de 20 km.</div>
+                ) : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }} className='bg-border-strong/20 p-3 rounded-lg'>
+                      {nearbyVisible.slice(0, nearbyPage).map((g, i) => (
+                        <FadeInCard key={g.id} delay={i * 60}
+                          className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
+                          style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
+                          onClick={() => navigate(`/cat/${g.id}`)}>
+                          {g.emojis?.length > 0 && (
+                            <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
+                              {g.emojis.join(' ')}
+                            </div>
+                          )}
+                          <div className="p-4">
+                            <div className="font-condensed font-bold text-xl text-white mb-1">{g.name}</div>
+                            <div className="font-mono text-xs text-gray-600 mb-1.5">@{g.owner_username}</div>
+                            {g.location_name && (
+                              <div className="flex items-center gap-1 font-mono text-xs text-gray-600 mb-1">
+                                <MapPin size={10} className="shrink-0" />
+                                <span className="truncate">{g.location_name}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1 font-mono text-xs text-brand mt-2">
+                              <Navigation size={10} />
+                              {g.distance_km} km
+                            </div>
+                          </div>
+                        </FadeInCard>
+                      ))}
+                    </div>
+                    {nearbyVisible.length > nearbyPage && (
+                      <button
+                        onClick={() => setNearbyPage(p => p + NEARBY_PAGE_SIZE)}
+                        className="mt-3 flex items-center gap-2 bg-transparent border border-border-mid text-muted px-3.5 py-2 rounded text-xs font-mono cursor-pointer hover:border-border-strong hover:text-white transition-colors"
+                      >
+                        VER MÁS · {nearbyVisible.length - nearbyPage} restantes
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Formulario nuevo torneo */}
         {isLoggedIn && showNew && (
           <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
-            <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>NOMBRE DEL TORNEO</label>
+            <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>NOMBRE DE LA CATEGORÍA</label>
             <input className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" placeholder="ej: C7/C8"
               value={name} onChange={(e) => setName(e.target.value)} maxLength={30} minLength={2}/>
+
             <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>DESCRIPCIÓN (opcional)</label>
             <input className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" placeholder="ej: Todos los martes a las 17..."
               value={desc} onChange={(e) => setDesc(e.target.value)} />
+
+            {/* Lugar / Club */}
+            <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>LUGAR / CLUB (opcional)</label>
+            <div className="relative">
+              {locationLoading
+                ? <Loader2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#555] pointer-events-none animate-spin" />
+                : <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#555] pointer-events-none" />
+              }
+              <input
+                className="w-full bg-surface border border-border-mid text-white pl-8 pr-20 py-2.5 rounded text-sm outline-none font-[Barlow]"
+                placeholder="ej: Padel Club Palermo..."
+                value={location}
+                onChange={(e) => { setLocation(e.target.value); setPlaceId(''); setLat(null); setLon(null); }}
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => setShowMapPicker(true)}
+                title="Elegir en el mapa"
+                className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono border transition-colors cursor-pointer bg-transparent ${lat ? 'border-brand text-brand' : 'border-border-mid text-[#555] hover:border-border-strong hover:text-white'}`}
+              >
+                <MapPin size={11} />
+                {lat ? 'PIN ✓' : 'MAPA'}
+              </button>
+              {locationSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 border border-border-mid border-t-0 rounded-b overflow-hidden"
+                     style={{ background: '#111827' }}>
+                  {locationSuggestions.map((f, i) => {
+                    const p = f.properties;
+                    const primary = p.name || p.street || '';
+                    const secondary = [p.city, p.state].filter(Boolean).join(', ');
+                    return (
+                      <div key={i}
+                        onMouseDown={(e) => { e.preventDefault(); selectPlace(f); }}
+                        className="flex items-start gap-2 px-3 py-2.5 cursor-pointer border-b border-border-mid last:border-0 hover:bg-surface transition-colors"
+                      >
+                        <MapPin size={12} className="text-[#444] mt-1 shrink-0" />
+                        <div>
+                          <div className="text-sm text-white leading-snug">{primary}</div>
+                          {secondary && <div className="text-xs text-[#555] mt-0.5">{secondary}</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Visibilidad */}
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
@@ -207,26 +462,108 @@ export default function HomeView() {
             </div>
             <div style={{ fontSize: 11, color: '#444', fontFamily: "'Kode Mono',monospace", marginTop: 6 }}>
               {isPublic
-                ? 'Cualquiera puede ver este torneo en tu perfil.'
-                : 'Solo vos podés ver este torneo.'}
+                ? 'Cualquiera puede ver esta categoría en tu perfil.'
+                : 'Solo vos podés ver esta categoría.'}
             </div>
 
-            <label style={{display: "block", fontSize: 11, letterSpacing: 2, color: "#555", fontFamily: "'Kode Mono', monospace", marginBottom: 8, marginTop: 20}}>ÍCONOS (opcional · máx. 2)</label>
-            <div className="flex flex-wrap gap-1.5">
-              {EMOJI_LIST.map(e => (
-                <button key={e} onClick={() => toggleEmoji(e)}
-                  className={`text-lg p-1.5 rounded border transition-all cursor-pointer bg-transparent ${selectedEmojis.includes(e) ? 'border-brand scale-110' : 'border-transparent opacity-50 hover:opacity-100 hover:border-border-strong'}`}
-                >
-                  {e}
-                </button>
-              ))}
+            {/* Íconos */}
+            <div className="flex items-center gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowEmojiModal(true)}
+                className="flex items-center gap-2 bg-transparent border border-border-mid text-[#888] hover:border-border-strong hover:text-white transition-colors px-3 py-2 rounded text-xs font-mono cursor-pointer"
+              >
+                <Smile size={14} />
+                ÍCONOS
+                {selectedEmojis.length > 0 && (
+                  <span className="text-brand font-bold">({selectedEmojis.length}/2)</span>
+                )}
+              </button>
+              {selectedEmojis.length > 0 && (
+                <div className="flex gap-1.5 items-center">
+                  {selectedEmojis.map(e => (
+                    <span key={e} className="text-xl leading-none">{e}</span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEmojis([])}
+                    className="ml-1 text-[#555] hover:text-white transition-colors bg-transparent border-none cursor-pointer"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {error && <p className="text-danger text-xs font-mono mt-2">{error}</p>}
             <button onClick={handleCreate}
               style={{ width: "100%", background: "#e8f04a", color: "#0a0e1a", border: "none", padding: "14px", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 16, letterSpacing: 2, borderRadius: 4, marginTop: 28, transition: "opacity 0.2s", cursor: "pointer", opacity: name.trim() ? 1 : 0.4 }}>
-              CREAR TORNEO
+              CREAR CATEGORÍA
             </button>
+          </div>
+        )}
+
+        {/* Modal mapa */}
+        {showMapPicker && (
+          <MapPicker
+            initialLat={lat}
+            initialLon={lon}
+            onConfirm={handleMapConfirm}
+            onClose={() => setShowMapPicker(false)}
+          />
+        )}
+
+        {/* Modal de selección de íconos */}
+        {showEmojiModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.7)' }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowEmojiModal(false); }}
+          >
+            <div className="bg-surface border border-border-mid rounded-t-2xl sm:rounded-xl w-full sm:max-w-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="font-mono text-[11px] text-[#555] tracking-widest">
+                  ÍCONOS · máx. 2
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiModal(false)}
+                  className="bg-transparent border-none text-[#555] hover:text-white cursor-pointer transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-5">
+                {EMOJI_LIST.map(e => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => toggleEmoji(e)}
+                    className={`relative text-xl p-2 rounded border transition-all cursor-pointer bg-transparent ${
+                      selectedEmojis.includes(e)
+                        ? 'border-brand scale-110'
+                        : selectedEmojis.length >= 2
+                          ? 'border-transparent opacity-30 cursor-not-allowed'
+                          : 'border-transparent opacity-60 hover:opacity-100 hover:border-border-strong'
+                    }`}
+                  >
+                    {e}
+                    {selectedEmojis.includes(e) && (
+                      <span className="absolute -top-1 -right-1 bg-brand rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                        <Check size={8} strokeWidth={3} className="text-base" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEmojiModal(false)}
+                style={{ width: '100%', background: '#e8f04a', color: '#0a0e1a', border: 'none', padding: '12px', fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 15, letterSpacing: 2, borderRadius: 4, cursor: 'pointer' }}
+              >
+                CONFIRMAR
+              </button>
+            </div>
           </div>
         )}
 
@@ -269,7 +606,7 @@ export default function HomeView() {
                     <FadeInCard key={g.id}
                       className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
                       style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
-                      onClick={() => navigate(`/groups/${g.id}`)}>
+                      onClick={() => navigate(`/cat/${g.id}`)}>
                       {g.emojis?.length > 0 && (
                         <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
                           {g.emojis.join(' ')}
@@ -291,29 +628,26 @@ export default function HomeView() {
         {!committedQ && isLoggedIn && (
           <>
             <div style={{ marginBottom: 16 }}>
-              <div className="font-[Barlow_Condensed] font-bold text-sm tracking-[3px] text-[#555]">MIS TORNEOS</div>
+              <div className="font-[Barlow_Condensed] font-bold text-sm tracking-[3px] text-[#555]">MIS CATEGORÍAS</div>
             </div>
-            {groups.length === 0 && !showNew && (
-              <div className="text-center text-[#444] py-10 px-5 leading-loose">No hay torneos todavía.<br />Creá el primero.</div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }} className='bg-border-strong/20 p-3 rounded'>
               {/* Botón Nuevo Torneo como primera card */}
               <div
-                onClick={() => { setShowNew(v => !v); setSelectedEmojis([]); }}
+                onClick={() => { setShowNew(v => !v); setSelectedEmojis([]); setLocation(''); setPlaceId(''); setLat(null); setLon(null); }}
                 className={`${showNew ? 'bg-#b8c032' : '#0d1120'} border-dashed border-brand border-2 rounded-sm p-2 cursor-pointer flex flex-col items-center justify-center min-h-full transition-[background] duration-200 hover:border-solid hover:bg-surface`}
               >
                 <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 36, color: '#e8f04a', lineHeight: 1 }}>
                   {showNew ? <X size={28} /> : <Plus size={28} />}
                 </div>
                 <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 15, color: '#e8f04a', letterSpacing: 3, marginTop: 4 }}>
-                  {showNew ? 'CANCELAR' : 'NUEVO TORNEO'}
+                  {showNew ? 'CANCELAR' : 'NUEVA CATEGORÍA'}
                 </div>
               </div>
               {groups.map((g, i) => (
                 <FadeInCard key={g.id} delay={i * 60}
                   className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
                   style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
-                  onClick={() => { navigate(`/groups/${g.id}`); }}>
+                  onClick={() => { navigate(`/cat/${g.id}`); }}>
                   {g.emojis?.length > 0 && (
                     <div className="inline-flex px-3 pt-2 pb-1.5 text-base bg-surface border-b border-r border-border-mid rounded-br-lg leading-none">
                       {g.emojis.join(' ')}
@@ -331,8 +665,14 @@ export default function HomeView() {
                     {g.description && (
                       <div className='font-sans text-sm text-gray-400 mb-2'>{g.description}</div>
                     )}
+                    {g.location_name && (
+                      <div className='flex items-center gap-1 font-mono text-xs text-gray-600 mb-2 min-w-0'>
+                        <MapPin size={10} className="shrink-0" />
+                        <span className='truncate'>{g.location_name}</span>
+                      </div>
+                    )}
                     <div className='font-mono text-xs text-gray-600' >
-                      {g.player_count} jugadores · {g.tournament_count} {g.tournament_count > 1 ? 'jornadas' : 'jornada'}
+                      {g.player_count} jugadores · {g.tournament_count} {g.tournament_count > 1 ? 'torneos' : 'torneo'}
                     </div>
                   </div>
                 </FadeInCard>
@@ -343,33 +683,41 @@ export default function HomeView() {
             {partGroups.length > 0 && (
               <>
                 <div style={{ marginTop: 36, marginBottom: 16 }}>
-                  <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">TORNEOS EN LOS QUE PARTICIPO</div>
+                  <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">CATEGORÍAS EN LAS QUE PARTICIPO</div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }} className='bg-border-strong/20 p-3 rounded'>
                   {partGroups.map((g, i) => (
                     <FadeInCard key={g.id} delay={i * 60}
                       className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
-                      style={{ background: 'linear-gradient(145deg, #111827 0%, #0d1120 100%)' }}
-                      onClick={() => { navigate(`/groups/${g.id}`); }}>
-                      {g.emojis?.length > 0 && (
-                        <div className="inline-flex px-3 pt-2 pb-1.5 text-base border-b border-r border-border-mid rounded-br-lg leading-none">
-                          {g.emojis.join(' ')}
-                        </div>
-                      )}
-                      <div className="p-5">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div className='font-condensed text-xl font-bold text-white mb-4'>
-                            {g.name}
+                      style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
+                      onClick={() => { navigate(`/cat/${g.id}`); }}>
+                      <div className='flex justify-between'>
+                        {g.emojis?.length > 0 && (
+                          <div className="inline-flex px-3 pt-2 pb-1.5 text-base border-b border-r border-border-mid rounded-br-lg leading-none">
+                            {g.emojis.join(' ')}
                           </div>
-                          <span className='text-xs text-green-700 font-mono border-solid border border-[#4af07a22] rounded-lg px-5 py-2'>
+                        )}
+                          <span className='inline-flex px-3 pt-2 pb-1.5 border-b border-l border-border-mid rounded-bl-lg leading-none text-xs text-green-700 font-mono py-2'>
                             jugador
                           </span>
+                      </div>
+                      <div className="p-5">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div className='font-condensed text-2xl font-bold text-white mb-2'>
+                            {g.name}
+                          </div>
                         </div>
                         {g.description && (
                           <div className='font-sans text-sm text-gray-400 mb-2' >{g.description}</div>
                         )}
+                        {g.location_name && (
+                          <div className='flex items-center gap-1 font-mono text-xs text-gray-600 mb-2'>
+                            <MapPin size={10} />
+                            {g.location_name}
+                          </div>
+                        )}
                         <div className='font-mono text-xs text-gray-600'>
-                          {g.player_count} jugadores · {g.tournament_count} {g.tournament_count > 1 ? 'jornadas' : 'jornada'}
+                          {g.player_count} jugadores · {g.tournament_count} {g.tournament_count > 1 ? 'torneos' : 'torneo'}
                         </div>
                         {g.owner_username && (
                           <div className='font-mono text-xs text-gray-600 mt-2' >
@@ -391,7 +739,7 @@ export default function HomeView() {
               <img className='max-w-30 my-4 opacity-20' src={logoUrl}/>
             </div>
             <div style={{ color: '#aaa', marginBottom: 8 }}>
-              Registrate para guardar tus torneos y compartirlos.
+              Registrate para guardar tus categorías y compartirlas.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
               <button onClick={() => { navigate('/login'); }} className="bg-brand text-base font-[Barlow_Condensed] font-bold text-sm tracking-widest px-5 py-2.5 rounded cursor-pointer whitespace-nowrap">

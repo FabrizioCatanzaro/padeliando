@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { getPairLabel } from "../../utils/helpers";
+import { getPairLabel, setWinner, setsWon, visibleSetsCount } from "../../utils/helpers";
 import { CirclePlay, CircleStop, CircleX, Play } from "lucide-react";
 import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 
@@ -99,25 +99,94 @@ function ScoreCounter({ value, onChange, color = "text-brand" }) {
 // ── Scores + fecha ────────────────────────────────────────────────────────────
 function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, onTimerChange, team1Avatar, team2Avatar }) {
   function handleTimerStop(seconds) {
-    if (seconds === null) {
-      setForm((f) => ({ ...f, duration_seconds: null }));
+    setForm((f) => ({ ...f, duration_seconds: seconds ?? null }));
+  }
+
+  function pickFormat(fmt) {
+    if (fmt === null) {
+      setForm((f) => ({ ...f, sets_format: null, sets: [], score1: 0, score2: 0 }));
     } else {
-      setForm((f) => ({ ...f, duration_seconds: seconds }));
+      const empty = { s1: 0, s2: 0 };
+      const newSets = fmt === 1 ? [empty] : [empty, empty, empty];
+      setForm((f) => ({ ...f, sets_format: fmt, sets: newSets, score1: 0, score2: 0 }));
     }
   }
 
+  function updateSet(idx, field, val) {
+    setForm((f) => {
+      const sets = f.sets.map((s, i) => i === idx ? { ...s, [field]: val } : s);
+      const nv = visibleSetsCount(f.sets_format, sets);
+      const [sw1, sw2] = setsWon(sets.slice(0, nv));
+      return { ...f, sets, score1: sw1, score2: sw2 };
+    });
+  }
+
+  const { sets_format, sets = [] } = form;
+  const nVisible = visibleSetsCount(sets_format, sets);
+  const [sw1, sw2] = sets_format ? setsWon(sets.slice(0, nVisible)) : [form.score1, form.score2];
+  const matchDone = sets_format === 1
+    ? setWinner(sets[0]) !== null
+    : sets_format === 3
+      ? (sw1 >= 2 || sw2 >= 2)
+      : false;
+  const canSave = sets_format != null ? matchDone : form.score1 !== form.score2;
+
   return (
     <div className="mt-4">
-      <div className="flex justify-between items-center mb-2">
+      {/* Header VS */}
+      <div className="flex justify-between items-center mb-3">
         <div className="flex items-center gap-2">{team1Avatar}</div>
         <div className="font-condensed font-black text-[32px] text-border-strong text-center mx-2">VS</div>
         <div className="flex items-center gap-2">{team2Avatar}</div>
       </div>
-      <div className="flex gap-4 justify-center items-center">
-        <ScoreCounter value={form.score1} onChange={(v) => setForm((f) => ({ ...f, score1: v }))} color="text-brand" />
-        <span className="text-muted font-mono text-[20px]">—</span>
-        <ScoreCounter value={form.score2} onChange={(v) => setForm((f) => ({ ...f, score2: v }))} color="text-cyan" />
+
+      {/* Selector de formato */}
+      <div className="flex gap-2 justify-center mb-4">
+        {[1, 3].map((fmt) => (
+          <button key={fmt} onClick={() => pickFormat(fmt)}
+            className={`px-3 py-1.5 text-[11px] font-mono font-bold tracking-[1.5px] rounded-sm border cursor-pointer transition-colors ${
+              sets_format === fmt
+                ? "bg-brand text-base border-brand"
+                : "bg-transparent text-muted border-border-mid"
+            }`}>
+            {fmt === 1 ? "1 SET" : "3 SETS"}
+          </button>
+        ))}
       </div>
+
+      {/* Área de puntuación */}
+      {sets_format == null ? (
+        <div className="flex gap-4 justify-center items-center">
+          <ScoreCounter value={form.score1} onChange={(v) => setForm((f) => ({ ...f, score1: v }))} color="text-brand" />
+          <span className="text-muted font-mono text-[20px]">—</span>
+          <ScoreCounter value={form.score2} onChange={(v) => setForm((f) => ({ ...f, score2: v }))} color="text-cyan" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Array.from({ length: nVisible }, (_, i) => {
+            const s = sets[i] ?? { s1: 0, s2: 0 };
+            const w = setWinner(s);
+            return (
+              <div key={i}>
+                <div className="text-[11px] tracking-[2px] font-mono text-center mb-2">
+                  <span className="text-muted">SET {i + 1}</span>
+                  {w && <span className={`ml-2 font-bold ${w === 1 ? "text-brand" : "text-cyan"}`}>✓</span>}
+                </div>
+                <div className="flex gap-4 justify-center items-center">
+                  <ScoreCounter value={s.s1} onChange={(v) => updateSet(i, "s1", v)} color="text-brand" />
+                  <span className="text-muted font-mono text-[20px]">—</span>
+                  <ScoreCounter value={s.s2} onChange={(v) => updateSet(i, "s2", v)} color="text-cyan" />
+                </div>
+              </div>
+            );
+          })}
+          {matchDone && sets_format === 3 && (
+            <p className="text-center font-mono text-[11px] text-muted tracking-widest">
+              RESULTADO: {sw1} — {sw2} EN SETS
+            </p>
+          )}
+        </div>
+      )}
 
       {!isEditing && (
         <Timer timerState={timerState} onTimerChange={onTimerChange} onStop={handleTimerStop} />
@@ -131,23 +200,37 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, 
         />
       </div>
 
-        <div className="flex gap-2.5 mt-4">
-          <button onClick={onSave} disabled={form.score1 === form.score2} className={`text-base border-0 flex-1 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm ${form.score1 === form.score2 ? "bg-border-mid text-muted cursor-not-allowed" : "bg-brand cursor-pointer"}`}>
-            {isEditing ? "GUARDAR CAMBIOS" : "REGISTRAR PARTIDO"}
-          </button>
-          <button onClick={onCancel} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans">
-            Cancelar
-          </button>
-        </div>
+      <div className="flex gap-2.5 mt-4">
+        <button onClick={onSave} disabled={!canSave}
+          className={`text-base border-0 flex-1 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm ${!canSave ? "bg-border-mid text-muted cursor-not-allowed" : "bg-brand cursor-pointer"}`}>
+          {isEditing ? "GUARDAR CAMBIOS" : "REGISTRAR PARTIDO"}
+        </button>
+        <button onClick={onCancel} className="bg-transparent text-muted border border-border-strong px-3 py-2 text-[12px] cursor-pointer rounded-sm font-sans">
+          Cancelar
+        </button>
+      </div>
     </div>
   );
 }
 
 // ── Pairs mode ────────────────────────────────────────────────────────────────
-function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, timerState, onTimerChange }) {
+function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, timerState, onTimerChange, pairMatchCounts, pairMatchLimit }) {
   const { pairs, players } = tournament;
   const removedIds    = new Set(players.filter((p) => p.removed).map((p) => p.id));
   const selectablePairs = pairs.filter((p) => !removedIds.has(p.p1) && !removedIds.has(p.p2));
+  const showCounts = !isEditing && pairMatchCounts && pairMatchLimit;
+
+  function pairOptionLabel(pairId) {
+    const base = getPairLabel(pairId, pairs, players);
+    if (!showCounts) return base;
+    const count = pairMatchCounts[pairId] ?? 0;
+    return `${base} · ${count}/${pairMatchLimit} PJ`;
+  }
+
+  function isAtLimit(pairId) {
+    if (!showCounts) return false;
+    return (pairMatchCounts[pairId] ?? 0) >= pairMatchLimit;
+  }
 
   function pairAvatarFor(pairId) {
     const pair = pairs.find((p) => p.id === pairId);
@@ -178,8 +261,12 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, tim
             value={form.team1Pair || ""} onChange={(e) => setForm({ ...form, team1Pair: e.target.value })}>
             <option value="">Seleccionar pareja</option>
             {selectablePairs.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.id === form.team2Pair}>
-                {getPairLabel(p.id, pairs, players)}
+              <option
+                key={p.id}
+                value={p.id}
+                disabled={p.id === form.team2Pair || (isAtLimit(p.id) && p.id !== form.team1Pair)}
+              >
+                {pairOptionLabel(p.id)}
               </option>
             ))}
           </select>
@@ -193,8 +280,12 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, tim
             value={form.team2Pair || ""} onChange={(e) => setForm({ ...form, team2Pair: e.target.value })}>
             <option value="">Seleccionar pareja</option>
             {selectablePairs.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.id === form.team1Pair}>
-                {getPairLabel(p.id, pairs, players)}
+              <option
+                key={p.id}
+                value={p.id}
+                disabled={p.id === form.team1Pair || (isAtLimit(p.id) && p.id !== form.team2Pair)}
+              >
+                {pairOptionLabel(p.id)}
               </option>
             ))}
           </select>
@@ -256,7 +347,7 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, time
             return (
               <div key={i} className="flex items-center gap-2 mb-2">
                 {selected && (
-                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} />
+                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} premium={selected.is_premium ?? false} />
                 )}
                 <select className="flex-1 w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={form.team1[i]} onChange={(e) => updateTeam("team1", i, e.target.value)}>
@@ -278,7 +369,7 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, time
             return (
               <div key={i} className="flex items-center gap-2 mb-2">
                 {selected && (
-                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} />
+                  <PlayerAvatar name={selected.name} src={selected.linked_avatar_url ?? null} size={28} premium={selected.is_premium ?? false} />
                 )}
                 <select className="flex-1 w-full bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={form.team2[i]} onChange={(e) => updateTeam("team2", i, e.target.value)}>

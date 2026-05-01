@@ -1,5 +1,30 @@
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
+// ── Set helpers ───────────────────────────────────────────────────────────────
+// Un set tiene ganador cuando alguien llegó a 6+ (o 7 en tiebreak) y va ganando.
+export function setWinner(s) {
+  if (!s || s.s1 === s.s2) return null;
+  if (s.s1 >= 6 || s.s2 >= 6) return s.s1 > s.s2 ? 1 : 2;
+  return null;
+}
+
+export function setsWon(sets) {
+  return sets.reduce(([w1, w2], s) => {
+    const w = setWinner(s);
+    return w === 1 ? [w1 + 1, w2] : w === 2 ? [w1, w2 + 1] : [w1, w2];
+  }, [0, 0]);
+}
+
+// Cuántos sets mostrar en UI (reveal progresivo) o cuántos están jugados en un partido guardado.
+export function visibleSetsCount(sets_format, sets) {
+  if (sets_format === 1) return 1;
+  if (sets_format !== 3 || !sets?.length) return 0;
+  if (!setWinner(sets[0])) return 1;
+  if (!sets[1] || !setWinner(sets[1])) return 2;
+  const [w1, w2] = setsWon([sets[0], sets[1]]);
+  return (w1 >= 2 || w2 >= 2) ? 2 : 3;
+}
+
 // Strings con solo fecha (YYYY-MM-DD) se parsean como UTC midnight en JS,
 // lo que en Argentina (UTC-3) retrocede un día. Agregando T00:00 sin Z
 // se fuerza el parseo en timezone local.
@@ -16,7 +41,7 @@ export const normalize = (s) => s.trim().toLowerCase();
 export function calcStandings(players, matches) {
   const s = {};
   players.forEach((p) => {
-    s[p.id] = { id: p.id, name: p.name, pj: 0, pg: 0, pp: 0, sf: 0, sc: 0 };
+    s[p.id] = { id: p.id, name: p.name, linked_username: p.linked_username ?? null, pj: 0, pg: 0, pp: 0, sf: 0, sc: 0 };
   });
   matches.forEach(({ team1, team2, score1, score2 }) => {
     if (score1 === "" || score2 === "") return;
@@ -63,9 +88,11 @@ export function expandPair(pairId, pairs) {
 export function adaptMatch(m) {
   return {
     ...m,
-    team1: [m.team1_p1, m.team1_p2],
-    team2: [m.team2_p1, m.team2_p2],
-    date:  m.played_at?.slice(0, 10) ?? m.date ?? '',
+    team1:       [m.team1_p1, m.team1_p2],
+    team2:       [m.team2_p1, m.team2_p2],
+    date:        m.played_at?.slice(0, 10) ?? m.date ?? '',
+    sets:        m.sets ?? [],
+    sets_format: m.sets_format ?? null,
   };
 }
  
@@ -83,7 +110,7 @@ export function adaptPair(p) {
  * Convierte matches y pairs al formato interno.
  */
 /**
- * Calcula el label del ganador de un torneo (igual lógica que se muestra en jornadas).
+ * Calcula el label del ganador de un torneo (igual lógica que se muestra en torneos).
  * Para americano: ganador de la final del bracket.
  * Para parejas: pareja con más victorias.
  * Para libre: jugador con más victorias.
@@ -116,12 +143,46 @@ export function getTournamentWinnerLabel(t) {
   }
 }
 
+function patchBracketNames(bracket, pairs, players) {
+  if (!bracket) return bracket;
+  const nameByPair = {};
+  for (const pair of pairs) {
+    const p1 = players.find(p => p.id === pair.p1);
+    const p2 = players.find(p => p.id === pair.p2);
+    nameByPair[pair.id] = `${p1?.name ?? '?'} & ${p2?.name ?? '?'}`;
+  }
+  function patchMatch(m) {
+    if (!m) return m;
+    return {
+      ...m,
+      pair1_name:  m.pair1_id  ? (nameByPair[m.pair1_id]  ?? m.pair1_name)  : m.pair1_name,
+      pair2_name:  m.pair2_id  ? (nameByPair[m.pair2_id]  ?? m.pair2_name)  : m.pair2_name,
+      winner_name: m.winner_id ? (nameByPair[m.winner_id] ?? m.winner_name) : m.winner_name,
+    };
+  }
+  return {
+    ...bracket,
+    standings: (bracket.standings ?? []).map(s => ({
+      ...s,
+      pair_name: s.pair_id ? (nameByPair[s.pair_id] ?? s.pair_name) : s.pair_name,
+    })),
+    octavos: (bracket.octavos ?? []).map(patchMatch),
+    cuartos: (bracket.cuartos ?? []).map(patchMatch),
+    semis:   (bracket.semis   ?? []).map(patchMatch),
+    final:   patchMatch(bracket.final),
+  };
+}
+
 export function adaptTournament(t) {
+  const players = (t.players ?? []).map(p => ({ ...p, name: p.linked_name ?? p.name }));
+  const pairs   = (t.pairs   ?? []).map(adaptPair);
   return {
     ...t,
     createdAt: t.created_at ?? t.createdAt,
-    matches:   (t.matches ?? []).map(adaptMatch),
-    pairs:     (t.pairs   ?? []).map(adaptPair),
+    players,
+    pairs,
+    matches: (t.matches ?? []).map(adaptMatch),
+    bracket: patchBracketNames(t.bracket, pairs, players),
   };
 }
 
@@ -137,4 +198,6 @@ export const emptyForm = () => ({
   score2: 0,
   date: localDateStr(),
   duration_seconds: null,
+  sets_format: 1,
+  sets: [{ s1: 0, s2: 0 }],
 });

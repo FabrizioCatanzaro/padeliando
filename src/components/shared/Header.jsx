@@ -1,41 +1,126 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { User, CircleHelp } from 'lucide-react'
+import { User, CircleHelp, Bell } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
-//import { useTheme } from '../../context/ThemeContext'
 import { api } from '../../utils/api'
 import logoUrl from '../../assets/padeleando.ico'
+import logoTxtUrl from '../../assets/padeleando-txt.png'
 import PlayerAvatar from './PlayerAvatar'
 
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return 'ahora';
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 7)  return `${d}d`;
+  return new Date(dateStr).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+}
+
+function NotifItemText({ n }) {
+  if (n.type === 'admin_message') return (
+    <div>
+      <div className="font-semibold text-white text-[12px]">{n.title}</div>
+      <div className="text-dim text-[11px] mt-0.5 line-clamp-2">{n.body}</div>
+    </div>
+  );
+  const actor = <span className="font-semibold text-white">@{n.actor_username ?? n.actor_name}</span>;
+  if (n.type === 'follow') return <>{actor} te empezó a seguir</>;
+  if (n.type === 'invitation') return (
+    <>{actor} te invitó a <span className="text-white font-semibold">{n.group_name ?? 'un grupo'}</span>
+      {n.player_name ? <> como <span className="text-brand">{n.player_name}</span></> : null}</>
+  );
+  if (n.type === 'join_request') return (
+    <>{actor} solicitó unirse al torneo{' '}
+      <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span></>
+  );
+  return null;
+}
+
 export default function Header() {
-  const [open, setOpen] = useState(false)
-  const [invCount, setInvCount] = useState(0)
+  const [menuOpen,      setMenuOpen]      = useState(false)
+  const [notifOpen,     setNotifOpen]     = useState(false)
+  const [notifCount,    setNotifCount]    = useState(0)
+  const [notifs,        setNotifs]        = useState([])
+  const [notifLoading,  setNotifLoading]  = useState(false)
+
   const { user, isLoggedIn, logout } = useAuth()
-  //const { theme, toggle } = useTheme()
-  const displayCount = isLoggedIn ? invCount : 0
-  const navigate = useNavigate()
-  const location = useLocation()
-  const ref = useRef(null)
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const menuRef   = useRef(null)
+  const notifRef  = useRef(null)
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      if (menuRef.current  && !menuRef.current.contains(e.target))  setMenuOpen(false)
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Consultar invitaciones pendientes cuando el usuario está logueado
   useEffect(() => {
     if (!isLoggedIn) return;
-    api.invitations.count()
-      .then(d => setInvCount(d.count ?? 0))
+    api.notifications.count()
+      .then(d => setNotifCount(d.count ?? 0))
       .catch(() => {})
   }, [isLoggedIn, location.pathname])
 
+  const openNotifications = useCallback(async () => {
+    if (notifOpen) { setNotifOpen(false); return; }
+    setMenuOpen(false);
+    setNotifOpen(true);
+    setNotifLoading(true);
+    try {
+      const data = await api.notifications.list(8);
+      setNotifs(data);
+      if (notifCount > 0) {
+        api.notifications.markAllRead().catch(() => {});
+        setNotifCount(0);
+      }
+    } catch { /* ignore */ }
+    finally { setNotifLoading(false); }
+  }, [notifOpen, notifCount])
+
+  function updateNotif(id, patch) {
+    setNotifs(prev => prev.map(n => n.id === id ? { ...n, ...patch } : n));
+  }
+
+  async function handleFollow(n) {
+    try {
+      if (n.is_following_back) {
+        await api.follows.unfollow(n.actor_username);
+        updateNotif(n.id, { is_following_back: false });
+      } else {
+        await api.follows.follow(n.actor_username);
+        updateNotif(n.id, { is_following_back: true });
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function handleInvitation(n, action) {
+    try {
+      await api.invitations.respond(n.entity_id, action);
+      updateNotif(n.id, { invitation_status: action === 'accept' ? 'accepted' : 'rejected' });
+    } catch { /* ignore */ }
+  }
+
+  async function handleJoinRequest(n, action, playerId) {
+    try {
+      if (action === 'accept') {
+        await api.joinRequests.accept(n.entity_id, playerId);
+      } else {
+        await api.joinRequests.reject(n.entity_id);
+      }
+      updateNotif(n.id, { request_status: action === 'accept' ? 'accepted' : 'rejected' });
+    } catch { /* ignore */ }
+  }
+
   function go(path) {
-    setOpen(false)
-    navigate(path)
+    setMenuOpen(false);
+    navigate(path);
   }
 
   return (
@@ -44,19 +129,11 @@ export default function Header() {
         className="flex flex-row gap-2 items-center font-condensed font-black text-xl tracking-widest text-white cursor-pointer"
         onClick={() => location.pathname === '/' ? navigate(0) : navigate('/')}
       >
-        <img className='max-w-8' src={logoUrl}/>
-        <span>PADEL<span className="text-brand">EANDO</span></span>
+        <img className='max-w-8 hidden md:block' src={logoUrl} />
+        <img className='max-h-10' src={logoTxtUrl} />
       </div>
 
       <div className="flex items-center gap-2">
-        {/* <button
-          onClick={toggle}
-          className="bg-transparent border border-border-strong p-2 rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors"
-          aria-label="Toggle theme"
-        >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-        </button> */}
-
         <Link
           to="/tutorial"
           className="bg-transparent border border-border-strong p-2 rounded text-[#555] hover:text-white hover:border-[#555] transition-colors"
@@ -66,77 +143,253 @@ export default function Header() {
           <CircleHelp size={18} />
         </Link>
 
-        <div className="relative" ref={ref}>
-        <button
-          onClick={() => setOpen(o => !o)}
-          className={`relative bg-transparent rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong'}`}
-        >
-          {isLoggedIn
-            ? <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={30} />
-            : <User className='text-gray-200' size={18} />}
-          {displayCount > 0 && (
-            <span className="absolute -top-1 animate-pulse -right-1 bg-brand text-base text-[9px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
-              {displayCount > 9 ? '9+' : displayCount}
-            </span>
-          )}
-        </button>
+        {/* Bell — notificaciones */}
+        {isLoggedIn && (
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={openNotifications}
+              className="relative bg-transparent border border-border-strong p-2 rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors"
+              aria-label="Notificaciones"
+            >
+              <Bell size={18} />
+              {notifCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-brand text-base text-[9px] font-mono font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none animate-pulse">
+                  {notifCount > 9 ? '9+' : notifCount}
+                </span>
+              )}
+            </button>
 
-        {open && (
-          <div className="absolute right-0 top-full mt-1 bg-surface-alt border border-border-strong rounded min-w-40 z-50 overflow-hidden">
-            {isLoggedIn ? (
-              <>
-                <div className="px-4 py-2.5 text-[11px] text-gray-500 font-mono border-b border-border-mid">
-                  @{user?.username}
+            {notifOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-[#111] border border-border-strong rounded z-50 overflow-hidden shadow-xl" style={{ width: 320 }}>
+                <div className="px-4 py-2.5 flex items-center justify-between border-b border-border-mid">
+                  <span className="text-[10px] font-mono tracking-[3px] text-muted">NOTIFICACIONES</span>
+                  <Link
+                    to="/notifications"
+                    onClick={() => setNotifOpen(false)}
+                    className="text-[10px] font-mono text-dim hover:text-white transition-colors"
+                  >
+                    Ver todas
+                  </Link>
                 </div>
-                <button
-                  onClick={() => go(`/u/${user?.username}`)}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans"
-                >
-                  Mi perfil
-                </button>
-                <button
-                  onClick={() => go('/')}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans"
-                >
-                  Mis torneos
-                </button>
-                <button
-                  onClick={() => go('/invitations')}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-between font-sans"
-                >
-                  <span>Invitaciones</span>
-                  {displayCount > 0 && (
-                    <span className="bg-brand text-base text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full leading-none">
-                      {displayCount}
-                    </span>
+
+                <div className="max-h-80 overflow-y-auto">
+                  {notifLoading ? (
+                    <div className="px-4 py-6 text-center text-dim text-xs font-mono">Cargando...</div>
+                  ) : notifs.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-dim text-xs font-mono">Sin notificaciones</div>
+                  ) : (
+                    notifs.map(n => (
+                      <DropdownNotifItem
+                        key={n.id}
+                        n={n}
+                        onNavigate={(path) => { setNotifOpen(false); navigate(path); }}
+                        onFollow={() => handleFollow(n)}
+                        onInvitation={(action) => handleInvitation(n, action)}
+                        onJoinRequest={(action, playerId) => handleJoinRequest(n, action, playerId)}
+                      />
+                    ))
                   )}
-                </button>
-                {/* <button
-                  onClick={() => go('/subscription')}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans"
-                >
-                  Suscripción (test)
-                </button> */}
-                <div className="border-t border-border-mid" />
-                <button
-                  onClick={() => { setOpen(false); logout(); navigate('/') }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-700 hover:bg-border-mid hover:text-red-500 transition-colors cursor-pointer bg-transparent border-0"
-                >
-                  Cerrar sesión
-                </button>
-              </>
-            ) : (
-                <button
-                  onClick={() => go('/login')}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0"
-                >
-                  Iniciar sesión
-                </button>
+                </div>
+
+                <div className="border-t border-border-mid px-4 py-2.5">
+                  <Link
+                    to="/notifications"
+                    onClick={() => setNotifOpen(false)}
+                    className="text-[11px] font-mono text-brand hover:brightness-110 transition-colors"
+                  >
+                    Ver historial completo →
+                  </Link>
+                </div>
+              </div>
             )}
           </div>
         )}
+
+        {/* User menu */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => { setNotifOpen(false); setMenuOpen(o => !o); }}
+            className={`relative flex items-center bg-transparent rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong'}`}
+          >
+            {isLoggedIn
+              ? <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={40} premium={user?.subscription?.plan === 'premium'} />
+              : <User className='text-gray-200' size={18} />}
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-surface-alt border border-border-strong rounded min-w-40 z-50 overflow-hidden">
+              {isLoggedIn ? (
+                <>
+                  <div className="px-4 py-2.5 text-[11px] text-gray-500 font-mono border-b border-border-mid">
+                    @{user?.username}
+                  </div>
+                  <button onClick={() => go(`/u/${user?.username}`)}
+                    className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                    Mi perfil
+                  </button>
+                  <button onClick={() => go('/')}
+                    className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                    Mis categorías
+                  </button>
+                  {user?.role === 'admin' && (
+                    <button onClick={() => go('/admin')}
+                      className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:brightness-110 transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                      Admin
+                    </button>
+                  )}
+                  <div className="border-t border-border-mid" />
+                  <button
+                    onClick={() => { setMenuOpen(false); logout(); navigate('/'); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-700 hover:bg-border-mid hover:text-red-500 transition-colors cursor-pointer bg-transparent border-0"
+                  >
+                    Cerrar sesión
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => go('/login')}
+                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0">
+                  Iniciar sesión
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
+}
+
+function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation, onJoinRequest }) {
+  const [busy, setBusy] = useState(false);
+  const [acceptModal, setAcceptModal] = useState(null); // { players: [], selectedId: '' } | null
+  const unread = !n.read;
+
+  async function wrap(fn) {
+    if (busy) return;
+    setBusy(true);
+    try { await fn(); } finally { setBusy(false); }
+  }
+
+  async function openAcceptModal() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const data = await api.joinRequests.get(n.entity_id);
+      setAcceptModal({ players: data.unlinked_players ?? [], selectedId: data.unlinked_players?.[0]?.id ?? '' });
+    } catch { /* ignore */ } finally { setBusy(false); }
+  }
+
+  async function confirmAccept() {
+    if (!acceptModal?.selectedId) return;
+    await wrap(() => onJoinRequest('accept', acceptModal.selectedId));
+    setAcceptModal(null);
+  }
+
+  return (
+    <div
+      className={`flex items-start gap-3 px-4 py-3 border-b border-border-mid last:border-b-0 transition-colors ${unread ? 'bg-brand/5' : ''} ${n.type === 'admin_message' ? 'cursor-pointer hover:bg-white/5' : ''}`}
+      onClick={n.type === 'admin_message' ? () => onNavigate('/notifications') : undefined}
+    >
+      {unread && <div className="shrink-0 mt-2.5 w-1.5 h-1.5 rounded-full bg-brand flex-none" />}
+      <div className={`shrink-0 ${unread ? '' : 'ml-[18px]'}`}>
+        {n.type === 'admin_message' ? (
+          <div className="w-8 h-8 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-[14px]">📢</div>
+        ) : (
+          <div
+            className="cursor-pointer"
+            onClick={() => n.actor_username && onNavigate(`/u/${n.actor_username}`)}
+          >
+            <PlayerAvatar name={n.actor_name} src={n.actor_avatar_url} size={32} premium={n.actor_is_premium} />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] text-secondary leading-snug">
+          <NotifItemText n={n} />
+        </div>
+        <div className="text-[10px] font-mono text-dim mt-0.5">{timeAgo(n.created_at)}</div>
+
+        {/* Actions */}
+        {n.type === 'follow' && n.actor_username && (
+          <button
+            onClick={() => wrap(onFollow)}
+            disabled={busy}
+            className={`mt-1.5 text-[10px] font-mono px-2.5 py-0.5 rounded border cursor-pointer transition-colors disabled:opacity-40 ${
+              n.is_following_back
+                ? 'border-border-strong text-dim hover:border-danger hover:text-danger'
+                : 'border-brand/60 text-brand hover:bg-brand hover:text-base'
+            }`}
+          >
+            {n.is_following_back ? 'Siguiendo' : 'Seguir'}
+          </button>
+        )}
+
+        {n.type === 'invitation' && (
+          n.invitation_status === 'accepted' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-green">✓ Aceptada</div>
+          ) : n.invitation_status === 'rejected' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-dim">Rechazada</div>
+          ) : n.invitation_status === 'pending' ? (
+            <div className="mt-1.5 flex gap-1.5">
+              <button onClick={() => wrap(() => onInvitation('accept'))} disabled={busy}
+                className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-brand/60 text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+                Aceptar
+              </button>
+              <button onClick={() => wrap(() => onInvitation('reject'))} disabled={busy}
+                className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-border-strong text-dim hover:border-danger hover:text-danger cursor-pointer transition-colors disabled:opacity-40">
+                Rechazar
+              </button>
+            </div>
+          ) : null
+        )}
+
+        {n.type === 'join_request' && (
+          n.request_status === 'accepted' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-green">✓ Aceptada</div>
+          ) : n.request_status === 'rejected' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-dim">Rechazada</div>
+          ) : n.request_status === 'pending' ? (
+            acceptModal ? (
+              <div className="mt-1.5 flex flex-col gap-1.5">
+                {acceptModal.players.length === 0 ? (
+                  <div className="text-[10px] font-mono text-dim">Sin jugadores sin vincular.</div>
+                ) : (
+                  <select
+                    value={acceptModal.selectedId}
+                    onChange={(e) => setAcceptModal(m => ({ ...m, selectedId: e.target.value }))}
+                    className="bg-surface border border-border-strong text-white text-[11px] font-mono rounded px-1.5 py-1 cursor-pointer w-full"
+                  >
+                    {acceptModal.players.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
+                <div className="flex gap-1.5">
+                  <button onClick={confirmAccept} disabled={busy || !acceptModal.selectedId}
+                    className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-brand/60 text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+                    {busy ? '...' : 'Confirmar'}
+                  </button>
+                  <button onClick={() => setAcceptModal(null)} disabled={busy}
+                    className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-border-strong text-dim hover:text-white cursor-pointer transition-colors disabled:opacity-40">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-1.5 flex gap-1.5">
+                <button onClick={openAcceptModal} disabled={busy}
+                  className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-brand/60 text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+                  {busy ? '...' : 'Aceptar'}
+                </button>
+                <button onClick={() => wrap(() => onJoinRequest('reject'))} disabled={busy}
+                  className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-border-strong text-dim hover:border-danger hover:text-danger cursor-pointer transition-colors disabled:opacity-40">
+                  Rechazar
+                </button>
+              </div>
+            )
+          ) : null
+        )}
+      </div>
+    </div>
+  );
 }
