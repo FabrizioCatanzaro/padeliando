@@ -83,6 +83,19 @@ export default function NotificationsView() {
     }
   }
 
+  async function handleJoinRequest(n, action, playerId) {
+    try {
+      if (action === 'accept') {
+        await api.joinRequests.accept(n.entity_id, playerId);
+      } else {
+        await api.joinRequests.reject(n.entity_id);
+      }
+      updateItem(n.id, { request_status: action === 'accept' ? 'accepted' : 'rejected' });
+    } catch {
+      //
+    }
+  }
+
   if (loading) return <Loader />;
 
   // Group by day label
@@ -131,6 +144,7 @@ export default function NotificationsView() {
                 navigate={navigate}
                 onFollow={() => handleFollow(n)}
                 onInvitation={(action) => handleInvitation(n, action)}
+                onJoinRequest={(action, playerId) => handleJoinRequest(n, action, playerId)}
               />
             ))}
           </div>
@@ -152,26 +166,33 @@ export default function NotificationsView() {
   );
 }
 
-function NotifRow({ n, navigate, onFollow, onInvitation }) {
+function NotifRow({ n, navigate, onFollow, onInvitation, onJoinRequest }) {
   const unread = !n.read;
+  const isAdmin = n.type === 'admin_message';
   return (
     <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors ${unread ? 'bg-surface border-brand/20' : 'bg-surface border-border-mid'}`}>
       {unread && <div className="shrink-0 mt-2 w-1.5 h-1.5 rounded-full bg-brand" />}
-      <div
-        className={`shrink-0 cursor-pointer ${unread ? '' : 'ml-[18px]'}`}
-        onClick={() => n.actor_username && navigate(`/u/${n.actor_username}`)}
-      >
-        <PlayerAvatar
-          name={n.actor_name}
-          src={n.actor_avatar_url}
-          size={38}
-          premium={n.actor_is_premium}
-        />
+      <div className={`shrink-0 ${unread ? '' : 'ml-[18px]'}`}>
+        {isAdmin ? (
+          <div className="w-[38px] h-[38px] rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-brand text-[16px]">📢</div>
+        ) : (
+          <div
+            className="cursor-pointer"
+            onClick={() => n.actor_username && navigate(`/u/${n.actor_username}`)}
+          >
+            <PlayerAvatar
+              name={n.actor_name}
+              src={n.actor_avatar_url}
+              size={38}
+              premium={n.actor_is_premium}
+            />
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <NotifText n={n} navigate={navigate} />
         <div className="text-[10px] font-mono text-dim mt-1">{timeAgo(n.created_at)}</div>
-        <NotifActions n={n} onFollow={onFollow} onInvitation={onInvitation} />
+        <NotifActions n={n} onFollow={onFollow} onInvitation={onInvitation} onJoinRequest={onJoinRequest} />
       </div>
     </div>
   );
@@ -187,6 +208,14 @@ function NotifText({ n, navigate }) {
     </span>
   );
 
+  if (n.type === 'admin_message') {
+    return (
+      <div>
+        <div className="text-[13px] font-semibold text-white">{n.title}</div>
+        <div className="text-[12px] text-secondary mt-0.5 whitespace-pre-wrap">{n.body}</div>
+      </div>
+    );
+  }
   if (n.type === 'follow') {
     return <div className="text-[13px] text-secondary">{actorEl} te empezó a seguir</div>;
   }
@@ -199,16 +228,44 @@ function NotifText({ n, navigate }) {
       </div>
     );
   }
+  if (n.type === 'join_request') {
+    return (
+      <div className="text-[13px] text-secondary">
+        {actorEl} solicitó unirse al torneo{' '}
+        <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span>
+      </div>
+    );
+  }
   return null;
 }
 
-function NotifActions({ n, onFollow, onInvitation }) {
+function NotifActions({ n, onFollow, onInvitation, onJoinRequest }) {
   const [busy, setBusy] = useState(false);
+  const [acceptModal, setAcceptModal] = useState(null); // { players: [], selectedId: '' } | null
 
   async function wrap(fn) {
     if (busy) return;
     setBusy(true);
     try { await fn(); } finally { setBusy(false); }
+  }
+
+  async function openAcceptModal() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const data = await api.joinRequests.get(n.entity_id);
+      setAcceptModal({ players: data.unlinked_players ?? [], selectedId: data.unlinked_players?.[0]?.id ?? '' });
+    } catch {
+      //
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmAccept() {
+    if (!acceptModal?.selectedId) return;
+    await wrap(() => onJoinRequest('accept', acceptModal.selectedId));
+    setAcceptModal(null);
   }
 
   if (n.type === 'follow') {
@@ -254,6 +311,72 @@ function NotifActions({ n, onFollow, onInvitation }) {
           >
             Rechazar
           </button>
+        </div>
+      );
+    }
+  }
+
+  if (n.type === 'join_request') {
+    if (n.request_status === 'accepted') {
+      return <div className="mt-2 text-[11px] font-mono text-green">✓ Aceptada</div>;
+    }
+    if (n.request_status === 'rejected') {
+      return <div className="mt-2 text-[11px] font-mono text-dim">Rechazada</div>;
+    }
+    if (n.request_status === 'pending') {
+      return (
+        <div className="mt-2">
+          {acceptModal ? (
+            <div className="flex flex-col gap-2 bg-base border border-border-strong rounded p-3">
+              <div className="text-[11px] font-mono text-muted">Vincular a jugador:</div>
+              {acceptModal.players.length === 0 ? (
+                <div className="text-[11px] font-mono text-dim">No hay jugadores sin vincular en este torneo.</div>
+              ) : (
+                <select
+                  value={acceptModal.selectedId}
+                  onChange={(e) => setAcceptModal(m => ({ ...m, selectedId: e.target.value }))}
+                  className="bg-surface border border-border-strong text-white text-[12px] font-mono rounded px-2 py-1.5 cursor-pointer"
+                >
+                  {acceptModal.players.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmAccept}
+                  disabled={busy || !acceptModal.selectedId}
+                  className="text-[11px] font-mono px-3 py-1 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40"
+                >
+                  {busy ? 'Guardando...' : 'Confirmar'}
+                </button>
+                <button
+                  onClick={() => setAcceptModal(null)}
+                  disabled={busy}
+                  className="text-[11px] font-mono px-3 py-1 rounded border border-border-strong text-muted hover:text-white cursor-pointer transition-colors disabled:opacity-40"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={openAcceptModal}
+                disabled={busy}
+                className="text-[11px] font-mono px-3 py-1 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40"
+              >
+                {busy ? 'Cargando...' : 'Aceptar'}
+              </button>
+              <button
+                onClick={() => wrap(() => onJoinRequest('reject'))}
+                disabled={busy}
+                className="text-[11px] font-mono px-3 py-1 rounded border border-border-strong text-muted hover:border-danger hover:text-danger cursor-pointer transition-colors disabled:opacity-40"
+              >
+                Rechazar
+              </button>
+            </div>
+          )}
         </div>
       );
     }

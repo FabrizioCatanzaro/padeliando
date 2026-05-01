@@ -383,7 +383,7 @@ export default function GroupView() {
           ))}
         </div>
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS HISTÓRICAS</div>
-        <HistoricalStats tournaments={allTournaments} showTorneos={false} />
+        <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} />
       </div>
 
       {/* Modal mapa */}
