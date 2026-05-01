@@ -1,9 +1,14 @@
 import { Clock, Pencil, Trash2 } from "lucide-react";
-import { fmt, getPairLabel } from "../../utils/helpers";
+import { fmt, getPairLabel, setWinner, visibleSetsCount } from "../../utils/helpers";
 export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete, matchNum }) {
-  const { team1, team2, score1, score2, date, createdAt } = match;
+  const { team1, team2, score1, score2, date, createdAt, sets = [], sets_format } = match;
   const { players, pairs, mode } = tournament;
-  const win1 = parseInt(score1) > parseInt(score2);
+
+  // Para 1 set mostramos el score del set, no los sets ganados (que sería 1-0)
+  const displayS1 = sets_format === 1 ? (sets[0]?.s1 ?? score1) : score1;
+  const displayS2 = sets_format === 1 ? (sets[0]?.s2 ?? score2) : score2;
+  const win1 = parseInt(displayS1) > parseInt(displayS2);
+  const nVisible = sets_format === 3 ? visibleSetsCount(sets_format, sets) : 0;
 
   function getLabel(team) {
     if (mode === "pairs") {
@@ -24,10 +29,26 @@ export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete
         <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-xl ${win1 ? "text-brand" : "text-secondary"}`}>
           {getLabel(team1)}
         </div>
-        <div className="flex items-center gap-2 font-condensed font-black text-[28px] min-w-20 justify-center">
-          <span className={win1 ? "text-brand" : "text-secondary"}>{score1}</span>
-          <span className="text-border-strong text-[20px]">—</span>
-          <span className={!win1 ? "text-cyan" : "text-secondary"}>{score2}</span>
+        <div className="flex flex-col items-center gap-1 min-w-20 justify-center">
+          <div className="flex items-center gap-2 font-condensed font-black text-[28px]">
+            <span className={win1 ? "text-brand" : "text-secondary"}>{displayS1}</span>
+            <span className="text-border-strong text-[20px]">—</span>
+            <span className={!win1 ? "text-cyan" : "text-secondary"}>{displayS2}</span>
+          </div>
+          {nVisible > 0 && (
+            <div className="flex gap-2 font-mono text-[11px] text-muted">
+              {sets.slice(0, nVisible).map((s, i) => {
+                const w = setWinner(s);
+                return (
+                  <span key={i}>
+                    <span className={w === 1 ? "text-brand" : ""}>{s.s1}</span>
+                    <span>-</span>
+                    <span className={w === 2 ? "text-cyan" : ""}>{s.s2}</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-xl justify-end text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
           {getLabel(team2)}
