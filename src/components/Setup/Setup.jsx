@@ -13,6 +13,7 @@ export default function Setup() {
   const [format, setFormat]       = useState("liga");
   const [name, setName]           = useState("");
   const [playerNames, setPlayerNames] = useState(["", "", "", ""]);
+  const [ligaMode, setLigaMode]   = useState("free");
   const [pairs, setPairs]         = useState([]);
   const [step, setStep]           = useState("formato");
   const [error, setError]         = useState(false);
@@ -43,7 +44,12 @@ export default function Setup() {
   const directPairsValid = tituloValido && directAllFilled && !directHasDupes;
 
   function addPlayer()         { setPlayerNames([...playerNames, ""]); }
-  function removePlayer(i)     { setPlayerNames(playerNames.filter((_, idx) => idx !== i)); }
+  function removePlayer(i)     {
+    const updated = playerNames.filter((_, idx) => idx !== i);
+    setPlayerNames(updated);
+    const filled = updated.filter((n) => n.trim());
+    if (filled.length % 2 !== 0) setLigaMode('free');
+  }
   function updatePlayer(i, v)  { const p = [...playerNames]; p[i] = v; setPlayerNames(p); }
 
   function updateDirectPair(id, field, value) {
@@ -63,7 +69,7 @@ export default function Setup() {
 
   function handleNext() {
     if (!playersValid) return;
-    if (isEven) {
+    if (isEven && ligaMode === 'pairs') {
       setPairs(Array.from({ length: filledNames.length / 2 }, () => ({ id: uid(), p1Name: "", p2Name: "" })));
       setStep("pairs");
     } else {
@@ -85,9 +91,9 @@ export default function Setup() {
 
   function infoBox() {
     if (filledNames.length < 4) return null;
-    return isEven
-      ? `✦ ${filledNames.length} jugadores — en el siguiente paso armás las ${filledNames.length / 2} parejas fijas.`
-      : `✦ ${filledNames.length} jugadores — número impar, los equipos se armarán partido a partido.`;
+    if (!isEven) return `✦ ${filledNames.length} jugadores — número impar, los equipos se armarán partido a partido.`;
+    if (ligaMode === 'pairs') return `✦ ${filledNames.length} jugadores — en el siguiente paso armás las ${filledNames.length / 2} parejas fijas.`;
+    return `✦ ${filledNames.length} jugadores — equipos libres, se armarán partido a partido.`;
   }
 
   return (
@@ -171,6 +177,38 @@ export default function Setup() {
               + Agregar jugador
             </button>
 
+            {filledNames.length >= 4 && (
+              <div className="mt-4">
+                <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">MODO DE JUEGO</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLigaMode('free')}
+                    className={`flex-1 py-2.5 text-[12px] font-condensed font-bold tracking-wide rounded-sm border transition cursor-pointer ${ligaMode === 'free' ? 'bg-brand/15 border-brand text-brand' : 'bg-surface border-border-mid text-muted hover:border-border-strong'}`}
+                  >
+                    EQUIPOS LIBRES
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { if (isEven) setLigaMode('pairs'); }}
+                    disabled={!isEven}
+                    className={`flex-1 py-2.5 text-[12px] font-condensed font-bold tracking-wide rounded-sm border transition ${
+                      !isEven
+                        ? 'border-border-mid text-dim cursor-not-allowed opacity-40'
+                        : ligaMode === 'pairs'
+                          ? 'bg-brand/15 border-brand text-brand cursor-pointer'
+                          : 'bg-surface border-border-mid text-muted hover:border-border-strong cursor-pointer'
+                    }`}
+                  >
+                    PAREJAS FIJAS
+                  </button>
+                </div>
+                {!isEven && (
+                  <p className="text-[10px] text-dim font-mono mt-1.5">Número impar de jugadores — parejas fijas no disponible.</p>
+                )}
+              </div>
+            )}
+
             {infoBox() && (
               <div className="bg-surface-alt border border-border-strong rounded-md px-3.5 py-2.5 text-[12px] text-soft font-mono leading-relaxed mt-4">
                 {infoBox()}
@@ -182,7 +220,7 @@ export default function Setup() {
               onClick={() => tituloValido ? handleNext() : setError(true)}
               className={`w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-7 transition-opacity cursor-pointer ${playersValid ? 'opacity-100' : 'opacity-40 cursor-not-allowed'}`}
             >
-              {isEven ? "SIGUIENTE → PAREJAS" : "CREAR TORNEO"}
+              {isEven && ligaMode === 'pairs' ? "SIGUIENTE → PAREJAS" : "CREAR TORNEO"}
             </button>
           </>
         )}

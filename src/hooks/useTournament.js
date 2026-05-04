@@ -96,10 +96,16 @@ export function useTournament(groupId, tournamentId) {
   async function syncMode() {
     const t = await api.tournaments.get(tournamentId);
     const count = (t.players ?? []).filter((p) => !p.removed).length;
-    const expected = count % 2 !== 0 ? 'free' : 'pairs';
-    if (expected !== t.mode) {
-      await api.tournaments.update(t.id, { mode: expected });
+    // Solo forzar 'free' si el count es impar (no se pueden tener parejas fijas con impar)
+    if (count % 2 !== 0 && t.mode === 'pairs') {
+      await api.tournaments.update(t.id, { mode: 'free' });
     }
+  }
+
+  async function handleUpdateMode(newMode) {
+    await api.tournaments.update(tournament.id, { mode: newMode });
+    await reload();
+    flash();
   }
 
   async function handleAddPlayer(name) {
@@ -206,5 +212,6 @@ export function useTournament(groupId, tournamentId) {
     handleResetScores, handleDeleteTournament,
     getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
+    handleUpdateMode,
   };
 }
