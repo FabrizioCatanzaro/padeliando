@@ -8,6 +8,7 @@ import logoUrl from '../../assets/padeleando.ico'
 import FadeInCard from '../shared/FadeInCard'
 import Loader from '../Loader/Loader';
 import MapPicker from '../shared/MapPicker';
+import PremiumModal from '../shared/PremiumModal';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
@@ -57,13 +58,14 @@ export default function HomeView() {
   const [committedUsers, setCommittedUsers] = useState([]);
   const [committedGroups,setCommittedGroups]= useState([]);
   const [committing,     setCommitting]     = useState(false);
-  const [error,     setError]     = useState(null)
+  const [error,             setError]             = useState(null)
+  const [showPremiumModal,  setShowPremiumModal]  = useState(false)
 
   const [nearbyGroups,   setNearbyGroups]   = useState([]);
   const [nearbyStatus,   setNearbyStatus]   = useState('idle'); // idle | loading | done | denied | error
   const [nearbyPage,     setNearbyPage]     = useState(NEARBY_INITIAL);
 
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const navigate = useNavigate();
   const locationAbortRef = useRef(null);
 
@@ -633,7 +635,18 @@ export default function HomeView() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }} className='bg-border-strong/20 p-3 rounded'>
               {/* Botón Nuevo Torneo como primera card */}
               <div
-                onClick={() => { setShowNew(v => !v); setSelectedEmojis([]); setLocation(''); setPlaceId(''); setLat(null); setLon(null); }}
+                onClick={() => {
+                  if (user?.subscription?.plan !== 'premium' && groups.length >= 2) {
+                    setShowPremiumModal(true);
+                    return;
+                  }
+                  setShowNew(v => !v);
+                  setSelectedEmojis([]);
+                  setLocation('');
+                  setPlaceId('');
+                  setLat(null);
+                  setLon(null);
+                }}
                 className={`${showNew ? 'bg-#b8c032' : '#0d1120'} border-dashed border-brand border-2 rounded-sm p-2 cursor-pointer flex flex-col items-center justify-center min-h-full transition-[background] duration-200 hover:border-solid hover:bg-surface`}
               >
                 <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 36, color: '#e8f04a', lineHeight: 1 }}>
@@ -732,6 +745,8 @@ export default function HomeView() {
             )}
           </>
         )}
+
+        {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
 
         {!isLoggedIn && (
           <div className="text-center text-[#444] py-10 px-5 leading-loose">
