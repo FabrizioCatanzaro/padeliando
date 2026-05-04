@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Check, Zap, Star, Gift, ChevronDown, Loader2 } from 'lucide-react';
 import { api } from '../../utils/api';
+import { useAuth } from '../../context/useAuth';
 
 const FREE_FEATURES = [
   '2 categorías máximo',
@@ -43,21 +44,27 @@ const FAQS = [
 
 const ORIGINAL_PRICE = 7000;
 const MONTHLY_PRICE  = 3500;
-const ANNUAL_PRICE   = Math.round(MONTHLY_PRICE * 0.8);
+const ANNUAL_PRICE   = Math.round(ORIGINAL_PRICE * 0.8);
 
 export default function PremiumModal({ onClose }) {
+  const { user } = useAuth();
   const [billing, setBilling] = useState('monthly');
   const [openFaq, setOpenFaq] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [mpEmail, setMpEmail] = useState(user?.email ?? '');
 
   const price = billing === 'monthly' ? MONTHLY_PRICE : ANNUAL_PRICE;
 
   async function handleCheckout() {
+    if (!mpEmail.trim()) {
+      setError('Ingresá el email de tu cuenta de Mercado Pago.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const data = await api.subscriptions.checkout(billing);
+      const data = await api.subscriptions.checkout(billing, mpEmail.trim());
       window.location.href = data.init_point;
     } catch (e) {
       setError(e.message || 'Error al iniciar el pago. Intentá de nuevo.');
@@ -112,7 +119,7 @@ export default function PremiumModal({ onClose }) {
 
         {/* Free trial banner */}
         <div className="mx-6 mb-5 bg-brand/10 border border-brand/30 rounded-xl px-4 py-3 flex items-center gap-3">
-          <Gift size={18} className="text-brand flex-shrink-0" />
+          <Gift size={18} className="text-brand shrink-0" />
           <div>
             <p className="text-brand text-sm font-semibold">Probá PREMIUM gratis por 7 días</p>
             <p className="text-secondary text-xs mt-0.5">Sin compromiso. Cancelá cuando quieras.</p>
@@ -158,7 +165,7 @@ export default function PremiumModal({ onClose }) {
             <ul className="flex flex-col gap-2">
               {FREE_FEATURES.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm text-secondary">
-                  <Check size={14} className="text-green flex-shrink-0" />
+                  <Check size={14} className="text-green shrink-0" />
                   {f}
                 </li>
               ))}
@@ -198,31 +205,45 @@ export default function PremiumModal({ onClose }) {
             <ul className="flex flex-col gap-2 mb-5">
               {PRO_FEATURES.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm text-soft">
-                  <Check size={14} className="text-brand flex-shrink-0" />
+                  <Check size={14} className="text-brand shrink-0" />
                   {f}
                 </li>
               ))}
             </ul>
 
+            <div className="mb-3">
+              <label className="block text-xs text-secondary mb-1.5">
+                Email de la cuenta de Mercado Pago con la que vas a realizar el pago
+              </label>
+              <input
+                type="email"
+                value={mpEmail}
+                onChange={(e) => setMpEmail(e.target.value)}
+                placeholder="tu@email.com"
+                disabled={loading}
+                className="w-full bg-surface border border-border-strong rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:border-brand transition disabled:opacity-60"
+              />
+            </div>
+
             <button
               type="button"
               onClick={handleCheckout}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-brand text-black font-condensed font-bold text-base tracking-wide py-3.5 rounded-xl hover:brightness-110 active:brightness-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 bg-brand text-black font-condensed font-bold cursor-pointer tracking-wide py-3.5 rounded-xl hover:brightness-110 active:brightness-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Zap size={16} />
               )}
-              {loading ? 'Redirigiendo a Mercado Pago...' : 'Empezá 7 días gratis'}
+              {loading ? 'Redirigiendo a Mercado Pago...' : 'Empezá a ser Premium'}
             </button>
             {error && (
               <p className="text-center text-[11px] text-danger mt-2">{error}</p>
             )}
             {!error && (
               <p className="text-center text-[11px] text-muted mt-2">
-                Sin cargo por 7 días. Luego AR${price}/mes. Cancelá cuando quieras.
+                ¿Primera vez? Te regalamos 7 días de prueba. Luego AR${price}/mes. Cancelá cuando quieras.
               </p>
             )}
           </div>
@@ -287,7 +308,7 @@ export default function PremiumModal({ onClose }) {
                   <span className="text-sm text-soft pr-4">{faq.q}</span>
                   <ChevronDown
                     size={16}
-                    className={`text-muted flex-shrink-0 transition-transform duration-200 ${
+                    className={`text-muted shrink-0 transition-transform duration-200 ${
                       openFaq === i ? 'rotate-180' : ''
                     }`}
                   />

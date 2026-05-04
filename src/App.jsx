@@ -20,6 +20,9 @@ import InvitationsView    from './components/Invitations/InvitationsView'
 import NotificationsView  from './components/Notifications/NotificationsView'
 import TutorialView      from './components/Tutorial/TutorialView'
 import SubscriptionSuccess from './components/Subscription/SubscriptionSuccess'
+import SubscriptionFailure from './components/Subscription/SubscriptionFailure'
+import SubscriptionPending from './components/Subscription/SubscriptionPending'
+import SubscriptionManage  from './components/Subscription/SubscriptionManage'
 import FAQView      from './components/Legal/FAQView'
 import AboutView    from './components/Legal/AboutView'
 import ContactView  from './components/Legal/ContactView'
@@ -104,6 +107,9 @@ export default function App() {
         <Route path="/admin/tournaments"                         element={<AdminRoute><AdminTournaments /></AdminRoute>} />
         <Route path="/admin/notifications"                       element={<AdminRoute><AdminNotifications /></AdminRoute>} />
         <Route path="/subscription/success"                      element={<PrivateRoute><SubscriptionSuccess /></PrivateRoute>} />
+        <Route path="/subscription/failure"                      element={<PrivateRoute><SubscriptionFailure /></PrivateRoute>} />
+        <Route path="/subscription/pending"                      element={<PrivateRoute><SubscriptionPending /></PrivateRoute>} />
+        <Route path="/subscription/manage"                       element={<PrivateRoute><SubscriptionManage /></PrivateRoute>} />
         <Route path="*"                                          element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

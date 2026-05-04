@@ -149,7 +149,8 @@ export const api = {
   },
   subscriptions: {
     me:       ()                => req('GET',  '/subscriptions/me'),
-    checkout: (billing_period)  => req('POST', '/subscriptions/checkout', { billing_period }),
+    checkout: (billing_period, mp_email)  => req('POST', '/subscriptions/checkout', { billing_period, mp_email }),
+    sync:     ()                          => req('GET',  '/subscriptions/sync'),
     cancel:   ()                => req('POST', '/subscriptions/cancel'),
   },
   admin: {

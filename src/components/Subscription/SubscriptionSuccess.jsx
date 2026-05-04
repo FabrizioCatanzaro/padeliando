@@ -27,6 +27,8 @@ export default function SubscriptionSuccess() {
 
     async function poll() {
       try {
+        // Intentar activar activamente consultando MP (fallback al webhook)
+        await api.subscriptions.sync()
         const sub = await api.subscriptions.me()
         if (sub?.status === 'active' && sub?.plan === 'premium') {
           await refreshUser()
