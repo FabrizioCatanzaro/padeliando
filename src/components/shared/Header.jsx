@@ -231,6 +231,10 @@ export default function Header() {
                     className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
                     Mis categorías
                   </button>
+                  <button onClick={() => go('/subscription/manage')}
+                    className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                    Mi plan
+                  </button>
                   {user?.role === 'admin' && (
                     <button onClick={() => go('/admin')}
                       className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:brightness-110 transition-colors cursor-pointer bg-transparent border-0 font-sans">

@@ -11,6 +11,7 @@ import { useParams } from 'react-router-dom';
 import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, MapPin, Smile, Check, X, Loader2 } from 'lucide-react';
 import FadeInCard from '../shared/FadeInCard';
 import { HistoricalStats } from '../Stats/Stats';
+import PremiumModal from '../shared/PremiumModal';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
@@ -18,8 +19,9 @@ export default function GroupView() {
   const { groupId } = useParams();
   const [group,   setGroup]   = useState(null);
   const [loading, setLoading] = useState(true);
-  const [deleteModal, setDeleteModal] = useState(false);
-  const [editingGroup, setEditingGroup] = useState(false);
+  const [deleteModal,      setDeleteModal]      = useState(false);
+  const [editingGroup,     setEditingGroup]     = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [allTournaments, setAllTournaments] = useState([]);
 
   // edit fields
@@ -353,7 +355,20 @@ export default function GroupView() {
         <div className="flex flex-col gap-2.5 mb-10">
           {isOwner && (
             <div
-              onClick={() => navigate(`/cat/${groupId}/torneo/new`)}
+              onClick={() => {
+                if (user?.subscription?.plan !== 'premium') {
+                  const now = new Date();
+                  const thisMonthCount = (group.tournaments ?? []).filter(t => {
+                    const d = new Date(t.created_at);
+                    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+                  }).length;
+                  if (thisMonthCount >= 2) {
+                    setShowPremiumModal(true);
+                    return;
+                  }
+                }
+                navigate(`/cat/${groupId}/torneo/new`);
+              }}
               className="border-dashed border-brand border-2 rounded-sm p-2 cursor-pointer flex flex-col items-center justify-center min-h-full transition-[background] duration-200 hover:border-solid hover:bg-surface"
             >
               <Plus className='text-brand' size={20} />
@@ -435,6 +450,8 @@ export default function GroupView() {
           </div>
         </div>
       )}
+
+      {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
 
       {deleteModal && (
         <Modal

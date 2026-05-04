@@ -7,11 +7,11 @@ export function AuthProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('padeliando_user')) }
     catch { return null }
   })
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !!localStorage.getItem('padeliando_user'))
 
   // Al montar, verificar que la cookie siga siendo válida (solo si hay sesión guardada)
   useEffect(() => {
-    if (!localStorage.getItem('padeliando_user')) { setLoading(false); return }
+    if (!localStorage.getItem('padeliando_user')) return
     api.auth.me()
       .then((u) => { setUser(u); localStorage.setItem('padeliando_user', JSON.stringify(u)) })
       .catch(() => { setUser(null); localStorage.removeItem('padeliando_user') })

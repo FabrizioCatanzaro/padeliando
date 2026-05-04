@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react'
 import { api } from '../../utils/api'
 
 const PLANS = [
-  { key: 'monthly',   label: 'Mensual',    price: '$5499 ARS/mes' },
-  { key: 'quarterly', label: 'Trimestral', price: '$15999 ARS/3 meses' },
-  { key: 'annual',    label: 'Anual',      price: '$59999 ARS/año' },
+  { key: 'monthly',   label: 'Mensual',    price: '$3500 ARS/mes' },
+  { key: 'annual',    label: 'Anual',      price: '$76800 ARS/año' },
 ]
 
 export default function SubscriptionTest() {

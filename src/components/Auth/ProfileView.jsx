@@ -760,7 +760,11 @@ export default function ProfileView() {
               {isOwnProfile && (
                 <div className="mt-1">
                   {user?.subscription?.plan === 'premium' ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-brand border border-brand rounded px-1.5 py-0.5">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/subscription/manage')}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-mono text-brand border border-brand rounded px-1.5 py-0.5 bg-transparent cursor-pointer hover:bg-brand/10 transition-colors"
+                    >
                       <BadgeCheck size={11} />
                       PREMIUM
                       {user.subscription.starts_at && (
@@ -769,7 +773,7 @@ export default function ProfileView() {
                       {user.subscription.ends_at && (
                         <> al {new Date(user.subscription.ends_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}</>
                       )}
-                    </span>
+                    </button>
                   ) : (
                     <button
                       type="button"

@@ -42,6 +42,7 @@ export default function Main() {
     handleResetScores, handleDeleteTournament,
     getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
+    handleUpdateMode,
   } = useTournament(groupId, tournamentId);
 
   const [tab, setTab]         = useState(null);
@@ -301,6 +302,7 @@ export default function Main() {
             onResetScores={handleResetScores}
             onDeleteTournament={async () => { await handleDeleteTournament(); navigate(`/cat/${groupId}`); }}
             onToggleStatus={handleToggleStatus}
+            onUpdateMode={handleUpdateMode}
           />
         )}
 

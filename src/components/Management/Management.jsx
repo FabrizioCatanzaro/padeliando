@@ -7,10 +7,14 @@ export default function Management({
   tournament, isOwner,
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
-  onResetScores, onDeleteTournament, onToggleStatus
+  onResetScores, onDeleteTournament, onToggleStatus, onUpdateMode,
 }) {
   const [resetModal, setResetModal]   = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+
+  const activePlayers = tournament.players.filter((p) => !p.removed).length;
+  const showModeToggle = tournament.format === 'liga' && activePlayers >= 4;
+  const canPickPairs   = activePlayers % 2 === 0;
 
   return (
     <div>
@@ -26,7 +30,39 @@ export default function Management({
         onDelete={onDeletePlayer}
       />
 
-      {(tournament.mode === "pairs" || tournament.players.filter((p) => !p.removed).length % 2 === 0) && (
+      {showModeToggle && isOwner && (
+        <div className="bg-surface border border-border-mid rounded-lg p-4 mt-2">
+          <div className="font-condensed font-bold text-[11px] tracking-[2px] text-muted mb-2">MODO DE JUEGO</div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => tournament.mode !== 'free' && onUpdateMode('free')}
+              className={`flex-1 py-2.5 text-[12px] font-condensed font-bold tracking-wide rounded-sm border transition cursor-pointer ${tournament.mode === 'free' ? 'bg-brand/15 border-brand text-brand' : 'bg-surface-alt border-border-mid text-muted hover:border-border-strong'}`}
+            >
+              EQUIPOS LIBRES
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (canPickPairs && tournament.mode !== 'pairs') onUpdateMode('pairs'); }}
+              disabled={!canPickPairs}
+              className={`flex-1 py-2.5 text-[12px] font-condensed font-bold tracking-wide rounded-sm border transition ${
+                !canPickPairs
+                  ? 'border-border-mid text-dim cursor-not-allowed opacity-40'
+                  : tournament.mode === 'pairs'
+                    ? 'bg-brand/15 border-brand text-brand cursor-pointer'
+                    : 'bg-surface-alt border-border-mid text-muted hover:border-border-strong cursor-pointer'
+              }`}
+            >
+              PAREJAS FIJAS
+            </button>
+          </div>
+          {!canPickPairs && (
+            <p className="text-[10px] text-dim font-mono mt-1.5">Número impar de jugadores — parejas fijas no disponible.</p>
+          )}
+        </div>
+      )}
+
+      {tournament.mode === "pairs" && (
         <PairManager
           tournament={tournament}
           isOwner={isOwner}
