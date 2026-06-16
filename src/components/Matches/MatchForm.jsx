@@ -5,6 +5,38 @@ import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 
+// ── Selector de cancha ─────────────────────────────────────────────────────────
+function CourtSelector({ courts, value, onChange }) {
+  return (
+    <div className="mt-3 mb-1">
+      <div className="text-[11px] tracking-[2px] text-muted font-mono mb-2">CANCHA</div>
+      <div className="flex gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className={`px-3 py-1.5 rounded-sm border font-mono font-bold text-[11px] cursor-pointer transition-colors ${
+            value == null ? 'bg-brand text-base border-brand' : 'bg-surface border-border-mid text-muted hover:border-border-strong'
+          }`}
+        >
+          Sin asignar
+        </button>
+        {Array.from({ length: courts }, (_, i) => i + 1).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            className={`w-10 h-8 rounded-sm border font-mono font-bold text-[13px] cursor-pointer transition-colors ${
+              value === n ? 'bg-brand text-base border-brand' : 'bg-surface border-border-mid text-muted hover:border-border-strong'
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Cronómetro (controlado, basado en timestamps) ──────────────────────────────
 function Timer({ timerState = EMPTY_TIMER, onTimerChange, onStop }) {
   const running = timerState.startedAt !== null && timerState.stoppedAt === null;
@@ -50,7 +82,7 @@ function Timer({ timerState = EMPTY_TIMER, onTimerChange, onStop }) {
 
   if (!running && !stopped) {
     return (
-      <div onClick={start} className="flex flex-row items-center justify-center gap-2 bg-brand text-base border-0 w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-3">
+      <div onClick={start} className="flex flex-row items-center justify-center gap-2 text-brand border w-full py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm mt-3">
         <Play size={13} />
         <span>INICIAR CRONÓMETRO</span>
       </div>
@@ -79,16 +111,16 @@ function Timer({ timerState = EMPTY_TIMER, onTimerChange, onStop }) {
 function ScoreCounter({ value, onChange, color = "text-brand" }) {
   const num = Number(value);
   return (
-    <div className="flex items-center gap-2.5 justify-center">
+    <div className="flex items-center gap-1.5 sm:gap-2.5 justify-center">
       <button
-        className="w-10 h-10 rounded-sm border border-border-strong bg-border-mid text-white text-[22px] cursor-pointer flex items-center justify-center"
+        className="w-8 h-8 sm:w-10 sm:h-10 rounded-sm border border-border-strong bg-border-mid text-white text-[18px] sm:text-[22px] cursor-pointer flex items-center justify-center shrink-0"
         onClick={() => onChange(Math.max(0, num - 1))}
       >−</button>
-      <span className={`font-mono text-[34px] min-w-10 text-center font-bold ${color}`}>
+      <span className={`font-mono text-[24px] sm:text-[34px] w-8 sm:min-w-10 text-center font-bold shrink-0 ${color}`}>
         {num}
       </span>
       <button
-        className={`w-10 h-10 rounded-sm border bg-border-mid text-[22px] flex items-center justify-center ${color} border-current ${num >= 7 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
+        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-sm border bg-border-mid text-[18px] sm:text-[22px] flex items-center justify-center ${color} border-current shrink-0 ${num >= 7 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
         onClick={() => onChange(Math.min(7, num + 1))}
         disabled={num >= 7}
       >+</button>
@@ -124,12 +156,12 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, 
   const { sets_format, sets = [] } = form;
   const nVisible = visibleSetsCount(sets_format, sets);
   const [sw1, sw2] = sets_format ? setsWon(sets.slice(0, nVisible)) : [form.score1, form.score2];
-  const matchDone = sets_format === 1
-    ? setWinner(sets[0]) !== null
+  const matchDone = sets_format === 3 && (sw1 >= 2 || sw2 >= 2);
+  const canSave = sets_format === 1
+    ? (sw1 !== sw2)
     : sets_format === 3
       ? (sw1 >= 2 || sw2 >= 2)
-      : false;
-  const canSave = sets_format != null ? matchDone : form.score1 !== form.score2;
+      : (form.score1 !== form.score2);
 
   return (
     <div className="mt-4">
@@ -192,13 +224,13 @@ function ScoreSection({ form, setForm, isEditing, onSave, onCancel, timerState, 
         <Timer timerState={timerState} onTimerChange={onTimerChange} onStop={handleTimerStop} />
       )}
 
-      <div className="mt-3 flex justify-center">
+      {/* <div className="mt-3 flex justify-center">
         <input type="date"
           className="bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[13px] rounded-sm outline-none w-auto"
           value={form.date}
           onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
         />
-      </div>
+      </div> */}
 
       <div className="flex gap-2.5 mt-4">
         <button onClick={onSave} disabled={!canSave}
@@ -295,12 +327,17 @@ function PairsForm({ form, setForm, tournament, isEditing, onSave, onCancel, tim
         </div>
       </div>
       {form.team1Pair && form.team2Pair && (
-        <ScoreSection
-          form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel}
-          timerState={timerState} onTimerChange={onTimerChange}
-          team1Avatar={pairAvatarFor(form.team1Pair)}
-          team2Avatar={pairAvatarFor(form.team2Pair)}
-        />
+        <>
+          {tournament.number_of_courts > 1 && (
+            <CourtSelector courts={tournament.number_of_courts} value={form.court} onChange={(v) => setForm({ ...form, court: v })} />
+          )}
+          <ScoreSection
+            form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel}
+            timerState={timerState} onTimerChange={onTimerChange}
+            team1Avatar={pairAvatarFor(form.team1Pair)}
+            team2Avatar={pairAvatarFor(form.team2Pair)}
+          />
+        </>
       )}
     </div>
   );
@@ -386,12 +423,17 @@ function FreeForm({ form, setForm, tournament, isEditing, onSave, onCancel, time
         </div>
       </div>
       {teamsComplete && (
-        <ScoreSection
-          form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel}
-          timerState={timerState} onTimerChange={onTimerChange}
-          team1Avatar={teamAvatars(form.team1)}
-          team2Avatar={teamAvatars(form.team2)}
-        />
+        <>
+          {tournament.number_of_courts > 1 && (
+            <CourtSelector courts={tournament.number_of_courts} value={form.court} onChange={(v) => setForm({ ...form, court: v })} />
+          )}
+          <ScoreSection
+            form={form} setForm={setForm} isEditing={isEditing} onSave={onSave} onCancel={onCancel}
+            timerState={timerState} onTimerChange={onTimerChange}
+            team1Avatar={teamAvatars(form.team1)}
+            team2Avatar={teamAvatars(form.team2)}
+          />
+        </>
       )}
     </div>
   );

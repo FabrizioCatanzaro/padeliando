@@ -10,8 +10,10 @@ import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
 import { AuthContext } from '../../context/useAuth';
-import { ChartNoAxesCombined, Check, ChevronLeft, Eye, Flame, Lock, Share2, Split, List, Trophy, User, Zap } from "lucide-react";
-import Loader from "../Loader/Loader";
+import { ChartNoAxesCombined, Check, ChevronLeft, Eye, Flame, Lock, Share2, Split, List, Trophy, User, Users, Zap } from "lucide-react";
+import Badge from "../shared/Badge";
+import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
+import Btn from "../shared/Btn";
 
 const LIGA_TABS = [
   { id: "standings", label: "TABLA",        icon: Trophy },
@@ -43,6 +45,7 @@ export default function ReadonlyView() {
   const [copied, setCopied]         = useState(false);
   const [joinStatus, setJoinStatus] = useState(null); // { is_player, request }
   const [joinBusy, setJoinBusy]     = useState(false);
+  const [hideJoinBanner, setHideJoinBanner] = useState(false);
 
   async function copyLink() {
     const url = window.location.href;
@@ -117,7 +120,17 @@ export default function ReadonlyView() {
     );
   }
 
-  if (!tournament) return <Loader />;
+  if (!tournament) return (
+    <div className="bg-base text-content font-sans pb-24 sm:pb-15">
+      <TournamentHeaderSkeleton />
+      <TabsSkeleton count={4} />
+      <div className="p-6 flex flex-col gap-3">
+        <CardSkeleton lines={3} />
+        <CardSkeleton lines={2} />
+        <CardSkeleton lines={2} />
+      </div>
+    </div>
+  );
 
   const isAmericano = tournament.format === 'americano';
   const TABS = isAmericano ? AMERICANO_TABS : LIGA_TABS;
@@ -155,8 +168,16 @@ export default function ReadonlyView() {
     : 0;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
 
+  const MOBILE_LABEL = {
+    standings: 'TABLA',
+    matches:   isAmericano ? 'PREVIA' : 'PARTIDOS',
+    players:   'JUGAD.',
+    stats:     'STATS',
+    bracket:   'CUADRO',
+  };
+
   return (
-    <div className="bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-24 sm:pb-15">
       <div className="px-6 pt-5 pb-5 border-b border-border bg-gradient-to-b from-surface/25 to-transparent">
         {/* Breadcrumbs + compartir */}
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -192,22 +213,9 @@ export default function ReadonlyView() {
               )
             )}
           </div>
-          <div
-            onClick={copyLink}
-            className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold tracking-wide text-[13px] cursor-pointer rounded-sm inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
-          >
-            {copied ? (
-              <>
-                <Check size={14} />
-                <span>COPIADO!</span>
-              </>
-            ) : (
-              <>
-                <Share2 size={14} />
-                <span>COMPARTIR</span>
-              </>
-            )}
-          </div>
+          <Btn variant="primary" size="sm" onClick={copyLink} icon={copied ? Check : Share2}>
+            {copied ? 'COPIADO!' : 'COMPARTIR'}
+          </Btn>
         </div>
 
         {/* Título */}
@@ -217,13 +225,11 @@ export default function ReadonlyView() {
 
         {/* Estado + ganador + dueño */}
         <div className="flex items-center gap-3 flex-wrap mb-3">
-          <span className={`text-[11px] font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
-            {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
-          </span>
+          <Badge variant="status" color={tournament.status === 'active' ? 'green' : 'default'}>
+            {tournament.status === 'active' ? 'EN CURSO' : 'FINALIZADA'}
+          </Badge>
           {winnerLabel && (
-            <span className="inline-flex items-center gap-1.5 text-[13px] text-brand font-mono">
-              <Trophy size={13} /> {winnerLabel}
-            </span>
+            <Badge variant="chip" color="brand" icon={Trophy}>{winnerLabel}</Badge>
           )}
           {groupOwner && (
             <span
@@ -238,24 +244,14 @@ export default function ReadonlyView() {
 
         {/* Chips con datos del torneo */}
         <div className="flex gap-1.5 flex-wrap">
-          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
-            {fmt(tournament.createdAt)}
-          </span>
-          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
-            {isAmericano ? `${tournament.pairs.length} parejas` : `${tournament.players.length} jugadores`}
-          </span>
-          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
-            {playedCount} partidos
-          </span>
-          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono">
-            {isAmericano ? (
-              <span className="text-brand">americano</span>
-            ) : (
-              <span className={tournament.mode === "pairs" ? "text-cyan" : "text-brand"}>
-                {tournament.mode === "pairs" ? "parejas fijas" : "equipos libres"}
-              </span>
-            )}
-          </span>
+          <Badge>{fmt(tournament.createdAt)}</Badge>
+          <Badge icon={isAmericano ? Users : User}>
+            {isAmericano ? `${tournament.pairs.length}` : `${tournament.players.length}`}
+          </Badge>
+          <Badge icon={Flame}>{playedCount} PJ</Badge>
+          <Badge color={isAmericano ? 'brand' : tournament.mode === 'pairs' ? 'cyan' : 'brand'}>
+            {isAmericano ? 'americano' : tournament.mode === 'pairs' ? 'parejas fijas' : 'equipos libres'}
+          </Badge>
         </div>
       </div>
 
@@ -268,7 +264,7 @@ export default function ReadonlyView() {
       </div>
 
       {/* Banner de solicitud de unión */}
-      {user && tournament?.status === 'active' && joinStatus && !joinStatus.is_player && (() => {
+      {user && tournament?.status === 'active' && joinStatus && !joinStatus.is_player && !joinStatus.is_owner && !hideJoinBanner && (() => {
         const req = joinStatus.request;
         if (!req || req.status === 'rejected') {
           return (
@@ -276,20 +272,34 @@ export default function ReadonlyView() {
               <span className="text-[12px] font-mono text-brand/80">
                 {req?.status === 'rejected' ? 'Tu solicitud fue rechazada.' : '¿Jugás en este torneo?'}
               </span>
-              <button
-                onClick={handleJoinRequest}
-                disabled={joinBusy}
-                className="text-[11px] font-mono px-3 py-1.5 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40"
-              >
-                {joinBusy ? 'Enviando...' : req?.status === 'rejected' ? 'Volver a solicitar' : 'Solicitar unirse'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleJoinRequest}
+                  disabled={joinBusy}
+                  className="text-[11px] font-mono px-3 py-1.5 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40"
+                >
+                  {joinBusy ? 'Enviando...' : req?.status === 'rejected' ? 'Volver a solicitar' : 'Solicitar unirse'}
+                </button>
+                <button
+                  onClick={() => setHideJoinBanner(true)}
+                  className="text-brand/60 hover:text-brand cursor-pointer transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           );
         }
         if (req.status === 'pending') {
           return (
-            <div className="px-6 py-2.5 bg-surface border-b border-border-mid flex items-center gap-2">
+            <div className="px-6 py-2.5 bg-surface border-b border-border-mid flex items-center justify-between gap-2">
               <span className="text-[11px] font-mono text-muted">⏳ Solicitud pendiente de aprobación</span>
+              <button
+                onClick={() => setHideJoinBanner(true)}
+                className="text-muted/60 hover:text-muted cursor-pointer transition-colors shrink-0"
+              >
+                ✕
+              </button>
             </div>
           );
         }
@@ -301,25 +311,48 @@ export default function ReadonlyView() {
           {tournament.live_match.map((m, i) => (
             <div key={i} className="flex items-center gap-3 px-6 py-2.5 bg-brand/10">
               <Zap size={13} className="text-brand shrink-0" />
-              <span className="font-condensed font-bold text-[12px] tracking-wide text-brand whitespace-nowrap">EN VIVO</span>
-              {isAmericano && m.phase && (
-                <span className="font-condensed font-bold text-[11px] tracking-wide text-brand/60 whitespace-nowrap border border-brand/30 px-1.5 py-0.5 rounded-sm">
-                  {{ previa: 'FASE PREVIA', octavos: 'OCTAVOS', cuartos: 'CUARTOS', semis: 'SEMIS', final: 'FINAL' }[m.phase] ?? m.phase.toUpperCase()}
-                </span>
-              )}
-              <span className="text-soft font-sans text-[13px]">
-                {m.team1Label} <span className="text-muted">vs</span> {m.team2Label}
-              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isAmericano && m.phase && (
+                  <Badge variant="label" color="brand">
+                    {{ previa: 'FASE PREVIA', octavos: 'OCTAVOS', cuartos: 'CUARTOS', semis: 'SEMIS', final: 'FINAL' }[m.phase] ?? m.phase.toUpperCase()}
+                  </Badge>
+                )}
+                {m.court != null && (
+                  <Badge variant="label" color="brand" className="whitespace-nowrap">CANCHA {m.court}</Badge>
+                )}
+              </div>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-soft font-sans text-[13px] leading-tight">{m.team1Label}</span>
+                <span className="text-muted font-mono text-[10px] leading-none">vs</span>
+                <span className="text-soft font-sans text-[13px] leading-tight">{m.team2Label}</span>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <div className="flex border-b border-border px-4 items-center overflow-x-auto">
+      {/* Tabs — desktop (sm+) */}
+      <div className="hidden sm:flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex flex-row gap-2 items-center bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${tab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
             <t.icon size={15}/>{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Bottom nav — mobile only */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-base border-t border-border flex">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 bg-transparent border-0 cursor-pointer transition-colors ${tab === t.id ? 'text-brand' : 'text-muted'}`}
+          >
+            <t.icon size={20} />
+            <span className="text-[9px] font-mono tracking-wide leading-none">
+              {MOBILE_LABEL[t.id] ?? t.label}
+            </span>
           </button>
         ))}
       </div>

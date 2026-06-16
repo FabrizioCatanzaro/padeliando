@@ -1,46 +1,56 @@
-function SkeletonBox({ className = '' }) {
+export function Skeleton({ className = '' }) {
   return (
-    <div className={`animate-pulse bg-border-mid rounded ${className}`} />
+    <div className={`bg-surface animate-pulse rounded-sm ${className}`} />
   )
 }
 
-export function SkeletonCard() {
+export function TournamentHeaderSkeleton() {
   return (
-    <div className="bg-surface border border-border-mid rounded-lg p-5">
-      <SkeletonBox className="h-5 w-2/3 mb-3" />
-      <SkeletonBox className="h-3 w-1/2 mb-4" />
-      <SkeletonBox className="h-3 w-1/4" />
+    <div className="px-6 pt-5 pb-5 border-b border-border bg-gradient-to-b from-surface/25 to-transparent">
+      <div className="flex items-center justify-between mb-4">
+        <Skeleton className="h-7 w-20" />
+        <Skeleton className="h-7 w-24" />
+      </div>
+      <Skeleton className="h-9 w-56 mb-3" />
+      <div className="flex gap-3 mb-3">
+        <Skeleton className="h-4 w-16" />
+      </div>
+      <div className="flex gap-1.5">
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-5 w-24 rounded-full" />
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-5 w-24 rounded-full" />
+      </div>
     </div>
   )
 }
 
-export function SkeletonList({ count = 3 }) {
+export function TabsSkeleton({ count = 4 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="hidden sm:flex border-b border-border px-4 gap-1">
       {Array.from({ length: count }).map((_, i) => (
-        <SkeletonCard key={i} />
+        <Skeleton key={i} className="h-11 w-24 rounded-none" />
       ))}
     </div>
   )
 }
 
-export function SkeletonGrid({ count = 6 }) {
+export function CardSkeleton({ lines = 2 }) {
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))' }}>
-      {Array.from({ length: count }).map((_, i) => (
-        <SkeletonCard key={i} />
-      ))}
+    <div className="border border-border-mid rounded-lg p-5 flex flex-col gap-3">
+      <Skeleton className="h-5 w-2/3" />
+      {lines >= 2 && <Skeleton className="h-3.5 w-1/2" />}
+      {lines >= 3 && <Skeleton className="h-3.5 w-1/3" />}
     </div>
   )
 }
 
-export function SkeletonText({ lines = 3 }) {
-  const widths = ['w-full', 'w-5/6', 'w-4/6', 'w-3/4', 'w-2/3']
+export function TableRowSkeleton() {
   return (
-    <div className="flex flex-col gap-2">
-      {Array.from({ length: lines }).map((_, i) => (
-        <SkeletonBox key={i} className={`h-3 ${widths[i % widths.length]}`} />
-      ))}
+    <div className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-3">
+      <Skeleton className="h-4 w-4 shrink-0" />
+      <Skeleton className="h-4 flex-1" />
+      <Skeleton className="h-4 w-20 shrink-0" />
     </div>
   )
 }
