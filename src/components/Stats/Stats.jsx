@@ -4,7 +4,7 @@ import { calcStandings, adaptTournament, getTournamentWinnerLabel } from "../../
 import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Swords, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import PremiumModal from "../shared/PremiumModal";
 import groupStatsPreview from "../../assets/group-advanced-stats-preview.svg";
@@ -180,7 +180,7 @@ function CurrentStats({ tournament }) {
 
   return (
     <>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
         <div className="bg-surface border border-secondary/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
           <div className="text-4xl mb-2 text-secondary flex justify-center"><Swords size={30} /></div>
           <div className="font-condensed font-bold text-3xl text-white mb-1">{played.length}</div>
@@ -292,6 +292,37 @@ function CurrentStats({ tournament }) {
   );
 }
 
+function buildIndividualRows(tournaments) {
+  const playerMap = {};
+  tournaments.forEach((t) => {
+    const nameById = Object.fromEntries(t.players.map((p) => [p.id, p.name]));
+    calcStandings(t.players, getAllMatches(t)).forEach((s) => {
+      if (!playerMap[s.name]) playerMap[s.name] = { name: s.name, linked_username: s.linked_username ?? null, pj: 0, pg: 0, pp: 0, torneos: 0, sf: 0, sc: 0 };
+      if (s.linked_username && !playerMap[s.name].linked_username) playerMap[s.name].linked_username = s.linked_username;
+      playerMap[s.name].pj += s.pj;
+      playerMap[s.name].pg += s.pg;
+      playerMap[s.name].pp += s.pp;
+      if (s.pj > 0) playerMap[s.name].torneos++;
+    });
+    getAllMatches(t).forEach((m) => {
+      const s1 = +m.score1 || 0, s2 = +m.score2 || 0;
+      [[m.team1, s1, s2], [m.team2, s2, s1]].forEach(([team, sf, sc]) => {
+        team.forEach((id) => {
+          const name = nameById[id];
+          if (name && playerMap[name]) { playerMap[name].sf += sf; playerMap[name].sc += sc; }
+        });
+      });
+    });
+  });
+  return Object.values(playerMap)
+    .filter((r) => r.pj > 0)
+    .sort((a, b) => {
+      const pctA = a.pj > 0 ? a.pg / a.pj : 0;
+      const pctB = b.pj > 0 ? b.pg / b.pj : 0;
+      return pctB - pctA || b.pg - a.pg;
+    });
+}
+
 export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const navigate = useNavigate();
@@ -302,25 +333,25 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const hasPairMode = tournaments.some((t) => t.mode === "pairs");
   const allPairMode = tournaments.every((t) => t.mode === "pairs");
 
-  // ── Standings individuales ──────────────────────────────────────────────
-  const playerMap = {};
-  tournaments.forEach((t) => {
-    calcStandings(t.players, getAllMatches(t)).forEach((s) => {
-      if (!playerMap[s.name]) playerMap[s.name] = { name: s.name, linked_username: s.linked_username ?? null, pj: 0, pg: 0, pp: 0, torneos: 0 };
-      if (s.linked_username && !playerMap[s.name].linked_username) playerMap[s.name].linked_username = s.linked_username;
-      playerMap[s.name].pj += s.pj;
-      playerMap[s.name].pg += s.pg;
-      playerMap[s.name].pp += s.pp;
-      if (s.pj > 0) playerMap[s.name].torneos++;
-    });
-  });
-  const individualRows = Object.values(playerMap)
-    .filter((r) => r.pj > 0)
-    .sort((a, b) => {
-      const pctA = a.pj > 0 ? a.pg / a.pj : 0;
-      const pctB = b.pj > 0 ? b.pg / b.pj : 0;
-      return pctB - pctA || b.pg - a.pg;
-    });
+  // ── Standings individuales + movimiento de ranking ──────────────────────
+  const sortedByDate = [...tournaments].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  const individualRows = buildIndividualRows(sortedByDate);
+
+  const movementMap = (() => {
+    if (sortedByDate.length < 2) return {};
+    const prevRows = buildIndividualRows(sortedByDate.slice(0, -1));
+    const prevRank = Object.fromEntries(prevRows.map((r, i) => [r.name, i + 1]));
+    return Object.fromEntries(
+      individualRows.map((r, i) => {
+        const prev = prevRank[r.name];
+        const curr = i + 1;
+        if (!prev) return [r.name, 'new'];
+        if (curr < prev) return [r.name, 'up'];
+        if (curr > prev) return [r.name, 'down'];
+        return [r.name, null];
+      })
+    );
+  })();
 
   // ── Standings por pareja ────────────────────────────────────────────────
   const pairMap = {};
@@ -386,14 +417,20 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   // ── Datos para gráficos avanzados ──────────────────────────────────────
   const champChartData = champRows.slice(0, 5).map((c) => ({ name: c.name.split(' ')[0], torneos: c.count }));
 
-  const winRateChartData = individualRows
-    .filter((r) => r.pj >= 3)
-    .slice(0, 5)
-    .map((r) => ({ name: r.name.split(' ')[0], winRate: Math.round((r.pg / r.pj) * 100) }));
+  const pointDiffChartData = [...individualRows]
+    .filter((r) => r.pj >= 2)
+    .sort((a, b) => (b.sf - b.sc) - (a.sf - a.sc))
+    .slice(0, 7)
+    .map((r) => ({ name: r.name.split(' ')[0], diff: r.sf - r.sc }));
 
   const activityChartData = [...tournaments]
-    .reverse()
-    .map((t) => ({ name: t.name.length > 10 ? t.name.slice(0, 10) + '…' : t.name, partidos: t.matches.length + bracketPlayedCount(t) }));
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .map((t) => {
+      const totalMatches = t.matches.length + bracketPlayedCount(t);
+      const totalGames = t.matches.reduce((acc, m) => acc + (+m.score1 || 0) + (+m.score2 || 0), 0);
+      const label = new Date(t.createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+      return { name: label, partidos: totalMatches, games: totalGames };
+    });
 
   return (
     <>
@@ -423,6 +460,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       {/* ── AVANZADAS (solo si el dueño tiene premium) ── */}
       {ownerIsPremium ? (
         <>
+          <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS AVANZADAS</div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
             {individualRows[0] && (() => {
               const best = individualRows[0];
@@ -456,7 +494,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
             </div>
             {showPairTable
               ? <PerPlayerTable standings={pairRows} useLabelKey />
-              : <PerPlayerTable standings={individualRows} showTourneys />
+              : <PerPlayerTable standings={individualRows} movementMap={movementMap} />
             }
           </div>
 
@@ -464,7 +502,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {champChartData.length > 0 && (
               <div className="bg-surface border border-border-mid rounded-lg p-4">
-                <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">CAMPEONES POR TORNEO</div>
+                <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">CAMPEONES</div>
                 <ResponsiveContainer width="100%" height={150}>
                   <BarChart data={champChartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" horizontal={false} />
@@ -476,16 +514,30 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
                 </ResponsiveContainer>
               </div>
             )}
-            {winRateChartData.length > 0 && (
+            {pointDiffChartData.length > 0 && (
               <div className="bg-surface border border-border-mid rounded-lg p-4">
-                <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">WIN RATE POR JUGADOR (mín. 3PJ)</div>
+                <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">DIFERENCIAL DE GAMES (mín. 2PJ)</div>
                 <ResponsiveContainer width="100%" height={150}>
-                  <BarChart data={winRateChartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                  <BarChart data={pointDiffChartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} />
+                    <XAxis type="number" tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <YAxis type="category" dataKey="name" tick={{ fill: '#888', fontSize: 10 }} axisLine={false} tickLine={false} width={60} />
-                    <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }} cursor={{ fill: '#ffffff06' }} formatter={(v) => [`${v}%`, 'Win rate']} />
-                    <Bar dataKey="winRate" name="Win rate" fill="#4af07a" radius={[0, 3, 3, 0]} barSize={12} />
+                    <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }} cursor={{ fill: '#ffffff06' }} formatter={(v) => [`${v > 0 ? '+' : ''}${v}`, 'Diferencial']} />
+                    <Bar
+                      dataKey="diff"
+                      name="Diferencial"
+                      barSize={12}
+                      shape={({ x, y, width, height, value }) => (
+                        <rect
+                          x={width < 0 ? x + width : x}
+                          y={y}
+                          width={Math.abs(width)}
+                          height={height}
+                          fill={value >= 0 ? '#4af07a' : '#f04a4a'}
+                          rx={3}
+                        />
+                      )}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -494,15 +546,28 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
 
           {activityChartData.length > 1 && (
             <div className="bg-surface border border-border-mid rounded-lg p-4 mb-6">
-              <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">PARTIDOS POR TORNEO</div>
-              <ResponsiveContainer width="100%" height={130}>
-                <BarChart data={activityChartData} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={16}>
+              <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">EVOLUCIÓN POR TORNEO</div>
+              <div className="flex items-center gap-4 mb-3">
+                <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-[#4ab8f0]" />Partidos
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted">
+                  <span className="inline-block w-4 h-0.5 bg-brand" />Games totales
+                </span>
+              </div>
+              <ResponsiveContainer width="100%" height={150}>
+                <ComposedChart data={activityChartData} margin={{ top: 4, right: 16, left: -20, bottom: 0 }} barSize={14}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fill: '#444', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }} cursor={{ fill: '#ffffff06' }} />
-                  <Bar dataKey="partidos" name="Partidos" fill="#4ab8f0" radius={[3, 3, 0, 0]} />
-                </BarChart>
+                  <XAxis dataKey="name" tick={{ fill: '#555', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="left" tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }}
+                    cursor={{ fill: '#ffffff06' }}
+                  />
+                  <Bar yAxisId="left" dataKey="partidos" name="Partidos" fill="#4ab8f0" radius={[3, 3, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="games" name="Games totales" stroke="#e8f04a" strokeWidth={2} dot={{ r: 3, fill: '#e8f04a', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           )}
@@ -537,9 +602,9 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       )}
 
       {showTorneos && (
-        <div className="mt-2">
+        <div className="mt-6">
           <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">TORNEOS</div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             {[...tournaments].reverse().map((t) => {
               const winnerLabel = getTournamentWinnerLabel(t);
               return (
@@ -563,7 +628,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   );
 }
 
-function PerPlayerTable({ standings, showTourneys, useLabelKey }) {
+function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {} }) {
   const navigate = useNavigate();
   return (
     <div className="mt-4">
@@ -571,12 +636,14 @@ function PerPlayerTable({ standings, showTourneys, useLabelKey }) {
         <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">RENDIMIENTO POR JUGADOR</div>
       )}
       {/* Header */}
-      <div className="flex items-center gap-2 px-3.5 mb-1">
-        <div className="shrink-0 w-5" />
+      <div className="flex items-center gap-2 px-3.5 mb-2">
+        <div className="shrink-0 w-8" />
         <div className="flex-1 min-w-0 text-[10px] font-mono tracking-[2px] text-dim">NOMBRE</div>
-        {showTourneys && <div className="shrink-0 text-[10px] font-mono tracking-[2px] text-dim">TORNEOS</div>}
-        <div className="shrink-0 w-20 text-[10px] font-mono tracking-[2px] text-dim text-center">W/L</div>
-        <div className="shrink-0 text-right text-[10px] font-mono tracking-[2px] text-dim">G · P · %</div>
+        <div className="shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-dim text-center">J</div>
+        <div className="shrink-0 w-14 text-[10px] font-mono tracking-[2px] text-dim text-center">WIN RATE</div>
+        <div className="shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-dim text-center">G</div>
+        <div className="shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-dim text-center">P</div>
+        <div className="shrink-0 w-9 text-[10px] font-mono tracking-[2px] text-dim text-right">%</div>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -584,26 +651,32 @@ function PerPlayerTable({ standings, showTourneys, useLabelKey }) {
           const pct = p.pj > 0 ? Math.round((p.pg / p.pj) * 100) : 0;
           const username = p.linked_username ?? null;
           const displayName = useLabelKey ? p.label : p.name;
+          const movement = movementMap[p.name] ?? null;
           return (
             <div key={p.id ?? p.name} className="flex items-center gap-2 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
-              <div className="shrink-0 w-5 text-[#666] font-mono font-bold">{i + 1}</div>
+              <div className="shrink-0 w-8 flex items-center gap-0.5">
+                <span className="text-[#666] font-mono font-bold text-[13px]">{i + 1}</span>
+                {movement === 'up'   && <span className="text-green   text-[9px] leading-none">▲</span>}
+                {movement === 'down' && <span className="text-danger  text-[9px] leading-none">▼</span>}
+                {movement === 'new'  && <span className="text-brand   text-[8px] leading-none font-bold font-mono">N</span>}
+              </div>
               <div
                 className={`flex-1 min-w-0 truncate font-semibold text-white ${username ? 'cursor-pointer hover:text-brand transition-colors' : ''}`}
                 onClick={() => username && navigate(`/u/${username}`)}
               >
                 {displayName}
               </div>
-              {showTourneys && (
-                <div className="shrink-0 text-muted text-[11px] font-mono">{p.torneos}J</div>
-              )}
-              <div className="shrink-0 w-16">
+              <div className="shrink-0 w-7 text-center font-mono text-soft text-[13px]">{p.torneos ?? '-'}</div>
+              <div className="shrink-0 w-14">
                 <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-[width] duration-500 ${pct > 60 ? 'bg-brand' : pct > 40 ? 'bg-cyan' : 'bg-danger'}`}
                     style={{ width: `${pct}%` }} />
                 </div>
               </div>
-              <div className="shrink-0 text-right font-mono text-soft text-[13px]">
-                {p.pg}G {p.pp}P <span className={pct >= 50 ? "text-brand" : "text-danger"}>({pct}%)</span>
+              <div className="shrink-0 w-7 text-center font-mono text-soft text-[13px]">{p.pg}</div>
+              <div className="shrink-0 w-7 text-center font-mono text-soft text-[13px]">{p.pp}</div>
+              <div className="shrink-0 w-9 text-right font-mono text-[13px]">
+                <span className={pct >= 50 ? "text-brand" : "text-danger"}>{pct}%</span>
               </div>
             </div>
           );

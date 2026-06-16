@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
 import { adaptTournament, getTournamentWinnerLabel } from '../utils/helpers';
 import { useAuth } from '../context/useAuth';
+import { useToast } from '../context/useToast';
 
 export function useTournament(groupId, tournamentId) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [tournament, setTournament] = useState(null);
   const [groupOwnerId,      setGroupOwnerId]      = useState(null);
   const [groupOwnerIsPremium, setGroupOwnerIsPremium] = useState(false);
@@ -16,7 +18,16 @@ export function useTournament(groupId, tournamentId) {
 
   // Carga el torneo al montar (o cuando cambia tournamentId)
   const reload = useCallback(async () => {
-    if (!tournamentId) { setLoading(false); return; }
+    if (!tournamentId) {
+      if (groupId) {
+        try {
+          const g = await api.groups.get(groupId);
+          setGroupOwnerIsPremium(g.owner_is_premium ?? false);
+        } catch { /* ignorar */ }
+      }
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const t = await api.tournaments.get(tournamentId);
@@ -41,15 +52,16 @@ export function useTournament(groupId, tournamentId) {
   function flash() { setSaved(true); setTimeout(() => setSaved(false), 1500); }
  
   // ── Crear torneo ────────────────────────────────────────────────────
-  async function handleCreate(name, playerNames, pairsInput, format = 'liga') {
+  async function handleCreate(name, playerNames, pairsInput, format = 'liga', numberOfCourts = 1) {
 
     const t = await api.tournaments.create({
       groupId,
       name,
-      mode:        pairsInput ? 'pairs' : 'free',
+      mode:             pairsInput ? 'pairs' : 'free',
       format,
-      playerNames: playerNames.filter(Boolean),
-      pairs:       pairsInput ?? [],
+      playerNames:      playerNames.filter(Boolean),
+      pairs:            pairsInput ?? [],
+      number_of_courts: numberOfCourts ?? 1,
     });
     setTournament(adaptTournament(t));
     return t.id; // para que App.js pueda navegar al torneo
@@ -67,9 +79,11 @@ export function useTournament(groupId, tournamentId) {
       duration_seconds: matchData.duration_seconds,
       sets_format:  matchData.sets_format ?? null,
       sets:         matchData.sets ?? [],
+      court:        matchData.court ?? null,
     });
     await reload();
     flash();
+    showToast('Partido registrado');
   }
 
   async function handleEditMatch(matchId, matchData) {
@@ -82,14 +96,17 @@ export function useTournament(groupId, tournamentId) {
       duration_seconds: matchData.duration_seconds ?? null,
       sets_format:      matchData.sets_format ?? null,
       sets:             matchData.sets ?? [],
+      court:            matchData.court ?? null,
     });
     await reload();
     flash();
+    showToast('Partido actualizado');
   }
- 
+
   async function handleDeleteMatch(matchId) {
     await api.matches.delete(matchId);
     await reload();
+    showToast('Partido eliminado', 'error');
   }
  
   // ── Jugadores ───────────────────────────────────────────────────────
@@ -106,6 +123,7 @@ export function useTournament(groupId, tournamentId) {
     await api.tournaments.update(tournament.id, { mode: newMode });
     await reload();
     flash();
+    showToast(newMode === 'pairs' ? 'Modo: parejas fijas' : 'Modo: equipos libres', 'info');
   }
 
   async function handleAddPlayer(name) {
@@ -113,20 +131,23 @@ export function useTournament(groupId, tournamentId) {
     await syncMode();
     await reload();
     flash();
+    showToast('Jugador agregado');
   }
 
   async function handleEditPlayer(playerId, newName) {
     await api.players.rename(playerId, newName, groupId);
     await reload();
     flash();
+    showToast('Jugador actualizado');
   }
 
   async function handleDeletePlayer(playerId) {
     await api.players.removeFromTournament(playerId, tournamentId);
     await syncMode();
     await reload();
+    showToast('Jugador eliminado', 'error');
   }
- 
+
   // ── Parejas ─────────────────────────────────────────────────────────
   async function handleAddPair(p1Id, p2Id) {
     await api.pairs.create({ tournamentId: tournament.id, p1Id, p2Id });
@@ -135,27 +156,32 @@ export function useTournament(groupId, tournamentId) {
     }
     await reload();
     flash();
+    showToast('Pareja creada');
   }
- 
+
   async function handleEditPair(pairId, p1Id, p2Id) {
     await api.pairs.update(pairId, { p1Id, p2Id });
     await reload();
     flash();
+    showToast('Pareja actualizada');
   }
- 
+
   async function handleDeletePair(pairId) {
     await api.pairs.delete(pairId);
     await reload();
+    showToast('Pareja eliminada', 'error');
   }
- 
+
   // ── Scores y torneo ─────────────────────────────────────────────────
   async function handleResetScores() {
     await api.tournaments.resetScores(tournament.id);
     await reload();
+    showToast('Puntos reiniciados', 'info');
   }
- 
+
   async function handleDeleteTournament() {
     await api.tournaments.delete(tournament.id);
+    showToast('Torneo eliminado', 'error');
   }
 
   async function handleToggleStatus() {
@@ -164,15 +190,18 @@ export function useTournament(groupId, tournamentId) {
     if (newStatus === 'finished') body.winner_label = getTournamentWinnerLabel(tournament) ?? '';
     await api.tournaments.update(tournament.id, body);
     await reload();
+    showToast(newStatus === 'finished' ? 'Torneo finalizado' : 'Torneo reanudado', 'info');
   }
 
   async function handleUpdateName(name) {
     await api.tournaments.update(tournament.id, { name });
     await reload();
+    showToast('Nombre actualizado');
   }
 
   async function handleSetLiveMatch(data) {
     await api.tournaments.setLive(tournament.id, data ?? null);
+    await reload();
   }
 
   async function handleGenerateSchedule() {
@@ -186,8 +215,8 @@ export function useTournament(groupId, tournamentId) {
     await reload();
   }
 
-  async function handleUpdateBracketMatch(matchId, score1, score2, duration_seconds) {
-    await api.tournaments.updateBracket(tournament.id, matchId, { score1, score2, duration_seconds });
+  async function handleUpdateBracketMatch(matchId, score1, score2, duration_seconds, court) {
+    await api.tournaments.updateBracket(tournament.id, matchId, { score1, score2, duration_seconds, court });
     await reload();
   }
 

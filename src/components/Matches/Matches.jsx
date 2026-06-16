@@ -45,14 +45,16 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
   
   function resolveTeamLabels(form) {
     const { mode, players, pairs } = tournament;
+    const court = form.court ?? null;
     if (mode === "pairs") {
       return {
         team1Label: getPairLabel(form.team1Pair, pairs, players),
         team2Label: getPairLabel(form.team2Pair, pairs, players),
+        court,
       };
     }
     const res = (ids) => ids.map((id) => players.find((p) => p.id === id)?.name ?? "?").join(" & ");
-    return { team1Label: res(form.team1), team2Label: res(form.team2) };
+    return { team1Label: res(form.team1), team2Label: res(form.team2), court };
   }
   useEffect(() => {
     const prev = prevLiveRef.current;
@@ -62,7 +64,16 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       const nowRunning = m.timer.startedAt !== null && !m.timer.stoppedAt;
       return wasIdle && nowRunning;
     });
-    if (newlyStarted) {
+
+    // Detectar si cambió la cancha en partidos que ya están en vivo (no sincronizar por cambios en score)
+    const liveFormChanged = liveMatches.some((m) => {
+      if (m.timer.startedAt === null) return false; // No está en vivo
+      const prevMatch = prev.find((p) => p.id === m.id);
+      if (!prevMatch) return false;
+      return prevMatch.form.court !== m.form.court;
+    });
+
+    if (newlyStarted || liveFormChanged) {
       const labels = liveMatches
         .filter((m) => m.timer.startedAt !== null)
         .map((m) => resolveTeamLabels(m.form));
@@ -106,7 +117,16 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
     const liveMatch = liveMatches.find((m) => m.id === liveId);
     if (!liveMatch) return;
     const { form } = liveMatch;
-    const s1 = parseInt(form.score1), s2 = parseInt(form.score2);
+
+    // Si hay sets_format, usar los scores del set; si no, usar form.score1/score2
+    let s1, s2;
+    if (form.sets_format && form.sets?.[0]) {
+      s1 = parseInt(form.sets[0].s1);
+      s2 = parseInt(form.sets[0].s2);
+    } else {
+      s1 = parseInt(form.score1);
+      s2 = parseInt(form.score2);
+    }
 
     if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) return alert("Ingresá un marcador válido");
 
@@ -122,11 +142,19 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
     }
 
     const nv = form.sets_format ? visibleSetsCount(form.sets_format, form.sets) : 0;
+
+    // Si el cronómetro está corriendo, detenerlo y calcular la duración
+    let duration = form.duration_seconds;
+    if (liveMatch.timer.startedAt !== null && liveMatch.timer.stoppedAt === null) {
+      duration = Math.floor((Date.now() - liveMatch.timer.startedAt) / 1000);
+    }
+
     const matchData = {
       team1, team2, score1: s1, score2: s2,
-      date: form.date, duration_seconds: form.duration_seconds,
+      date: form.date, duration_seconds: duration,
       sets_format: form.sets_format ?? null,
       sets: nv > 0 ? (form.sets ?? []).slice(0, nv) : [],
+      court: form.court ?? null,
     };
 
     // ─── Fix bug: limpiar localStorage ANTES del await para evitar restore en remount ───
@@ -150,7 +178,17 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
 
   async function handleSaveEdit() {
     if (!editId || !editForm) return;
-    const s1 = parseInt(editForm.score1), s2 = parseInt(editForm.score2);
+
+    // Si hay sets_format, usar los scores del set; si no, usar editForm.score1/score2
+    let s1, s2;
+    if (editForm.sets_format && editForm.sets?.[0]) {
+      s1 = parseInt(editForm.sets[0].s1);
+      s2 = parseInt(editForm.sets[0].s2);
+    } else {
+      s1 = parseInt(editForm.score1);
+      s2 = parseInt(editForm.score2);
+    }
+
     if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) return alert("Ingresá un marcador válido");
 
     let team1, team2;
@@ -170,6 +208,7 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       duration_seconds: editForm.duration_seconds ?? null,
       sets_format: editForm.sets_format ?? null,
       sets: nv > 0 ? (editForm.sets ?? []).slice(0, nv) : [],
+      court: editForm.court ?? null,
     });
     setEditId(null);
     setEditForm(null);
@@ -186,12 +225,14 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
       setEditForm({ ...emptyForm(), team1Pair: pair1?.id ?? "", team2Pair: pair2?.id ?? "",
         score1: String(m.score1), score2: String(m.score2), date: m.date || localDateStr(),
         duration_seconds: m.duration_seconds ?? null,
-        sets_format: m.sets_format ?? null, sets: m.sets ?? [] });
+        sets_format: m.sets_format ?? null, sets: m.sets ?? [],
+        court: m.court ?? null });
     } else {
       setEditForm({ team1: [...m.team1], team2: [...m.team2],
         score1: String(m.score1), score2: String(m.score2), date: m.date || localDateStr(),
         duration_seconds: m.duration_seconds ?? null,
-        sets_format: m.sets_format ?? null, sets: m.sets ?? [] });
+        sets_format: m.sets_format ?? null, sets: m.sets ?? [],
+        court: m.court ?? null });
     }
     setEditId(m.id);
   }

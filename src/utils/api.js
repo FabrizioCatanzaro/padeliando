@@ -140,6 +140,7 @@ export const api = {
     unfollow:  (username) => req('DELETE', `/follows/${username}`),
     followers: (username) => req('GET',    `/follows/${username}/followers`),
     following: (username) => req('GET',    `/follows/${username}/following`),
+    contacts:  ()         => req('GET',    '/follows/contacts'),
   },
   notifications: {
     list:        (limit = 30, offset = 0) => req('GET',   `/notifications?limit=${limit}&offset=${offset}`),

@@ -207,6 +207,15 @@ function BracketMatchCard({
         )}
       </div>
 
+      {/* Cancha */}
+      {match.court != null && (
+        <div className="text-center py-1">
+          <span className="text-[10px] font-mono font-bold text-brand border border-brand/40 px-1.5 py-0.5 rounded-sm">
+            CANCHA {match.court}
+          </span>
+        </div>
+      )}
+
       {/* Toggle EN VIVO */}
       {isOwner && !isPlayed && !isTBD1 && !isTBD2 && (
         <div className="mt-2.5">
@@ -246,7 +255,6 @@ function BracketByeCard({ bye, tournament }) {
 
 // ── Card de partido EN VIVO (debajo del cuadro) ────────────────────────────────
 function BracketLiveCard({ liveMatch, bracketMatch, tournament, saving, onScoreChange, onSave, onCancel, onTimerChange }) {
-  const timerDone = liveMatch.timer.startedAt !== null && liveMatch.timer.stoppedAt !== null;
   const { score1, score2 } = liveMatch.score;
 
   return (
@@ -285,11 +293,40 @@ function BracketLiveCard({ liveMatch, bracketMatch, tournament, saving, onScoreC
         onStop={secs => onScoreChange('duration_seconds', secs)}
       />
 
+      {tournament.number_of_courts > 1 && (
+        <div className="mt-3 mb-2">
+          <div className="text-[11px] tracking-[2px] text-muted font-mono mb-2">CANCHA</div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => onScoreChange('court', null)}
+              className={`px-3 py-1.5 rounded-sm border font-mono text-[12px] cursor-pointer transition-colors ${
+                liveMatch.score.court == null ? 'bg-brand text-base border-brand' : 'bg-surface border-border-mid text-muted hover:border-border-strong'
+              }`}
+            >
+              Sin asignar
+            </button>
+            {Array.from({ length: tournament.number_of_courts }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onScoreChange('court', n)}
+                className={`w-10 h-8 rounded-sm border font-mono font-bold text-[13px] cursor-pointer transition-colors ${
+                  liveMatch.score.court === n ? 'bg-brand text-base border-brand' : 'bg-surface border-border-mid text-muted hover:border-border-strong'
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <button
         onClick={onSave}
-        disabled={saving || Number(score1) === Number(score2) || !timerDone}
+        disabled={saving || Number(score1) === Number(score2)}
         className={`w-full border-0 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm mt-2 ${
-          saving || Number(score1) === Number(score2) || !timerDone
+          saving || Number(score1) === Number(score2)
             ? "bg-border-mid text-muted cursor-not-allowed"
             : "bg-brand text-base cursor-pointer"
         }`}
@@ -362,6 +399,34 @@ function BracketEditCard({ match, tournament, saving, editScore, onScoreChange, 
         <span className="text-muted font-mono text-[20px]">—</span>
         <ScoreCounter value={s2} onChange={v => onScoreChange('score2', v)} color="text-cyan" />
       </div>
+      {tournament.number_of_courts > 1 && (
+        <div className="mt-3 mb-2">
+          <div className="text-[11px] tracking-[2px] text-muted font-mono mb-2">CANCHA</div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => onScoreChange('court', null)}
+              className={`px-3 py-1.5 rounded-sm border font-mono text-[12px] cursor-pointer transition-colors ${
+                editScore.court == null ? 'bg-brand text-base border-brand' : 'bg-surface border-border-mid text-muted hover:border-border-strong'
+              }`}
+            >
+              Sin asignar
+            </button>
+            {Array.from({ length: tournament.number_of_courts }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onScoreChange('court', n)}
+                className={`w-10 h-8 rounded-sm border font-mono font-bold text-[13px] cursor-pointer transition-colors ${
+                  editScore.court === n ? 'bg-brand text-base border-brand' : 'bg-surface border-border-mid text-muted hover:border-border-strong'
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <button
         onClick={onSave}
         disabled={saving || s1 === s2}
@@ -420,11 +485,19 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     const changed = prevIds.size !== currIds.size ||
       [...currIds].some(id => !prevIds.has(id)) ||
       [...prevIds].some(id => !currIds.has(id));
-    if (changed) {
+
+    // Detectar si cambió la cancha en partidos que ya están en vivo (no sincronizar por cambios en score)
+    const dataChanged = liveMatches.some((lm) => {
+      const prevMatch = prevLiveRef.current.find(m => m.matchId === lm.matchId);
+      if (!prevMatch) return false;
+      return prevMatch.score.court !== lm.score.court;
+    });
+
+    if (changed || dataChanged) {
       const labels = liveMatches.map(lm => {
         const result = findBracketMatchWithPhase(lm.matchId);
         if (!result) return null;
-        return { team1Label: result.match.pair1_name, team2Label: result.match.pair2_name, phase: result.phase };
+        return { team1Label: result.match.pair1_name, team2Label: result.match.pair2_name, phase: result.phase, court: lm.score.court ?? null };
       }).filter(Boolean);
       onSetLiveMatch?.(labels.length > 0 ? labels : null);
     }
@@ -443,7 +516,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
       setLiveMatches(prev => [...prev, {
         matchId,
         timer: EMPTY_TIMER,
-        score: { score1: 0, score2: 0, duration_seconds: null },
+        score: { score1: 0, score2: 0, duration_seconds: null, court: null },
       }]);
     }
   }
@@ -463,6 +536,13 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     if (!lm) return;
     const s1 = Number(lm.score.score1), s2 = Number(lm.score.score2);
     if (s1 === s2) return;
+
+    // Si el cronómetro está corriendo, detenerlo y calcular la duración
+    let duration = lm.score.duration_seconds;
+    if (lm.timer.startedAt !== null && lm.timer.stoppedAt === null) {
+      duration = Math.floor((Date.now() - lm.timer.startedAt) / 1000);
+    }
+
     // Cerrar la card ANTES del await para evitar que un remount restaure desde localStorage
     const remaining = liveMatches.filter(m => m.matchId !== matchId);
     setLiveMatches(remaining);
@@ -471,7 +551,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     else localStorage.removeItem(key);
     setSaving(matchId);
     try {
-      await onUpdateMatch(matchId, s1, s2, lm.score.duration_seconds ?? null);
+      await onUpdateMatch(matchId, s1, s2, duration ?? null, lm.score.court ?? null);
     } finally {
       setSaving(null);
     }
@@ -479,7 +559,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
 
   function handleOpenEdit(match) {
     setEditMatchId(match.id);
-    setEditScore({ score1: match.score1, score2: match.score2 });
+    setEditScore({ score1: match.score1, score2: match.score2, duration_seconds: match.duration_seconds ?? null, court: match.court ?? null });
   }
 
   async function handleSaveEdit() {
@@ -487,7 +567,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     if (s1 === s2) return;
     setSaving(editMatchId);
     try {
-      await onUpdateMatch(editMatchId, s1, s2);
+      await onUpdateMatch(editMatchId, s1, s2, editScore.duration_seconds ?? null, editScore.court ?? null);
       setEditMatchId(null);
     } finally {
       setSaving(null);

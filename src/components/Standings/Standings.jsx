@@ -1,6 +1,50 @@
-import { Medal, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { calcStandings } from "../../utils/helpers";
 import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
+
+function calcForm(playerIds, matches) {
+  const ids = playerIds.map(String).filter(id => id && id !== 'null');
+  if (!ids.length) return [];
+  const played = matches
+    .filter(m => m.score1 !== "" && m.score2 !== "")
+    .filter(m => {
+      const t1 = (m.team1 ?? []).map(String).filter(id => id && id !== 'null');
+      const t2 = (m.team2 ?? []).map(String).filter(id => id && id !== 'null');
+      if (ids.length > 1) {
+        return ids.every(id => t1.includes(id)) || ids.every(id => t2.includes(id));
+      }
+      return [...t1, ...t2].some(id => ids.includes(id));
+    });
+  // API devuelve ORDER BY created_at DESC; slice(0,3) = los 3 más recientes, reverse = orden cron.
+  const last3 = played.slice(0, 3).reverse();
+  return last3.map(m => {
+    const t1 = (m.team1 ?? []).map(String);
+    const inTeam1 = ids.some(id => t1.includes(id));
+    const win = inTeam1 ? parseInt(m.score1) > parseInt(m.score2) : parseInt(m.score2) > parseInt(m.score1);
+    return win ? 'W' : 'L';
+  });
+}
+
+function FormDots({ form }) {
+  return (
+    <div className="flex gap-1 justify-center">
+      {Array.from({ length: 3 }).map((_, i) => {
+        const r = form[i];
+        return (
+          <div
+            key={i}
+            title={r === 'W' ? 'Victoria' : r === 'L' ? 'Derrota' : '–'}
+            className={`w-2 h-2 rounded-full transition-colors ${
+              r === 'W' ? 'bg-green' : r === 'L' ? 'bg-danger' : 'bg-border-strong'
+            }`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+const POS_COLOR = ['text-amber-400', 'text-[#b0b8c8]', 'text-[#cd7f32]'];
 
 export default function Standings({ tournament }) {
   const individualRows = calcStandings(tournament.players, tournament.matches);
@@ -9,7 +53,6 @@ export default function Standings({ tournament }) {
 
   const playerById = Object.fromEntries(tournament.players.map((p) => [String(p.id), p]));
 
-  // ── Filas de la tabla: una por pareja (pairs) o una por jugador (free) ──
   let displayRows;
   if (hasPairs) {
     displayRows = tournament.pairs.map((pair) => {
@@ -24,22 +67,20 @@ export default function Standings({ tournament }) {
         p1Name: p1?.name ?? "?", p2Name: p2?.name ?? "?",
         src1: p1?.linked_avatar_url ?? null,
         src2: p2?.linked_avatar_url ?? null,
+        playerIds: [pair.p1, pair.p2],
       };
     }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
   } else {
     displayRows = individualRows.map((r) => {
       const p = playerById[String(r.id)];
-      return { ...r, src: p?.linked_avatar_url ?? null, is_premium: p?.is_premium ?? false };
+      return { ...r, src: p?.linked_avatar_url ?? null, is_premium: p?.is_premium ?? false, playerIds: [r.id] };
     });
   }
 
-  // ── Destacar la primera posición solo si no hay empate ─────────────────
   const topPg   = displayRows[0]?.pg ?? 0;
   const topDiff = displayRows[0] ? displayRows[0].sf - displayRows[0].sc : 0;
-  const hasTie  = displayRows.filter(
-    (r) => r.pg === topPg && (r.sf - r.sc) === topDiff
-  ).length > 1;
-  const isTop = (r) => !hasTie && topPg > 0 && r.id === displayRows[0]?.id;
+  const hasTie  = displayRows.filter(r => r.pg === topPg && (r.sf - r.sc) === topDiff).length > 1;
+  const isTop   = (r) => !hasTie && topPg > 0 && r.id === displayRows[0]?.id;
 
   const champions = tournament.status === 'finished' && topPg > 0 && tournament.format !== 'americano'
     ? displayRows.filter((r) => r.pg === topPg && (r.sf - r.sc) === topDiff)
@@ -61,56 +102,71 @@ export default function Standings({ tournament }) {
                   ? <PairAvatar name1={c.p1Name} name2={c.p2Name} src1={c.src1} src2={c.src2} size={56} />
                   : <PlayerAvatar name={c.name} src={c.src} size={56} premium={!!(playerById[String(c.id)]?.is_premium)} />
                 }
-                <div className="font-condensed font-black text-[24px] text-white leading-tight">
-                  {c.name}
-                </div>
+                <div className="font-condensed font-black text-[24px] text-white leading-tight">{c.name}</div>
               </div>
             ))}
           </div>
         </div>
       )}
+
       <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">TABLA DE POSICIONES</div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse font-condensed">
+
+      <div className="rounded-lg border border-border">
+        <table className="w-full table-fixed border-collapse font-condensed">
           <thead>
-            <tr>
-              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">#</th>
-              <th className="px-3 py-2.5 text-left text-[11px] tracking-[2px] text-muted border-b border-border font-mono">
+            <tr className="bg-surface">
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-8">#</th>
+              <th className="px-2 py-2.5 text-left text-[10px] tracking-[2px] text-dim border-b border-border font-mono">
                 {hasPairs ? "PAREJA" : "JUGADOR"}
               </th>
-              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">PJ</th>
-              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">PTS</th>
-              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">GF</th>
-              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">GC</th>
-              <th className="px-3 py-2.5 text-center text-[11px] tracking-[2px] text-muted border-b border-border font-mono">DIF</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">PTS</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-9">PJ</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-9">PG</th>
+              <th className="hidden sm:table-cell px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">GF</th>
+              <th className="hidden sm:table-cell px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">GC</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-11">DIF</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-14">FORMA</th>
             </tr>
           </thead>
           <tbody>
             {displayRows.map((r, i) => {
-              const top     = isTop(r);
-              const baseRow = top
-                ? "bg-brand/8 border-l-2 border-l-brand"
-                : i % 2 === 0 ? "bg-surface" : "bg-base";
+              const top  = isTop(r);
+              const form = calcForm(r.playerIds, tournament.matches);
+              const rowBg = top
+                ? "bg-gradient-to-r from-brand/10 to-transparent border-l-2 border-l-brand"
+                : i % 2 === 0 ? "bg-surface/50" : "bg-base";
               return (
-                <tr key={r.id} className={baseRow}>
-                  <td className={`p-3 text-center text-[18px] flex justify-center items-center ${i === 0 ? "text-brand" : i === 1 ? "text-soft" : i === 2 ? "text-[#cd7f32]" : "text-muted"}`}>
-                    { i + 1}
+                <tr key={r.id} className={`${rowBg} transition-colors`}>
+                  <td className="px-2 py-3 text-center">
+                    {top ? (
+                      <Trophy size={14} className="text-amber-400 mx-auto" />
+                    ) : (
+                      <span className={`font-mono text-[13px] font-bold ${POS_COLOR[i] ?? 'text-dim'}`}>
+                        {i + 1}
+                      </span>
+                    )}
                   </td>
-                  <td className={`p-3 text-left text-[15px] font-semibold ${top ? "text-brand" : "text-white"}`}>
-                    <div className="flex items-center gap-2">
-                      {r.p1Name
-                        ? <PairAvatar name1={r.p1Name} name2={r.p2Name} src1={r.src1} src2={r.src2} size={26} />
-                        : <PlayerAvatar name={r.name} src={r.src} size={26} premium={!!(playerById[String(r.id)]?.is_premium)} />
-                      }
-                      {r.name}
+                  <td className={`px-2 py-3 text-left text-[18px] font-semibold ${top ? "text-brand" : "text-white"}`}>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="shrink-0">
+                        {r.p1Name
+                          ? <PairAvatar name1={r.p1Name} name2={r.p2Name} src1={r.src1} src2={r.src2} size={22} />
+                          : <PlayerAvatar name={r.name} src={r.src} size={22} premium={!!(playerById[String(r.id)]?.is_premium)} />
+                        }
+                      </div>
+                      <span className="line-clamp-2 leading-tight">{r.name}</span>
                     </div>
                   </td>
-                  <td className="p-3 text-center text-[15px] text-secondary">{r.pj}</td>
-                  <td className="p-3 text-center text-[17px] text-brand">{r.pg * 3}</td>
-                  <td className="p-3 text-center text-[15px] text-secondary">{r.sf}</td>
-                  <td className="p-3 text-center text-[15px] text-secondary">{r.sc}</td>
-                  <td className={`p-3 text-center text-[15px] font-bold ${r.sf - r.sc >= 0 ? "text-green" : "text-danger"}`}>
+                  <td className="px-2 py-3 text-center text-[15px] font-bold text-brand">{r.pg * 3}</td>
+                  <td className="px-2 py-3 text-center text-[13px] text-secondary">{r.pj}</td>
+                  <td className="px-2 py-3 text-center text-[13px] text-secondary">{r.pg}</td>
+                  <td className="hidden sm:table-cell px-2 py-3 text-center text-[13px] text-secondary">{r.sf}</td>
+                  <td className="hidden sm:table-cell px-2 py-3 text-center text-[13px] text-secondary">{r.sc}</td>
+                  <td className={`px-2 py-3 text-center text-[13px] font-bold ${r.sf - r.sc >= 0 ? "text-green" : "text-danger"}`}>
                     {r.sf - r.sc > 0 ? "+" : ""}{r.sf - r.sc}
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <FormDots form={form} />
                   </td>
                 </tr>
               );
@@ -118,9 +174,9 @@ export default function Standings({ tournament }) {
           </tbody>
         </table>
       </div>
-      <div className="mt-3 text-[11px] text-[#333] font-mono">
-        PJ: Partidos Jugados · PTS: Puntos (3 por victoria) · GF: Games a Favor ·
-        GC: Games en Contra · DIF: Diferencia
+
+      <div className="mt-3 text-[10px] text-dim font-mono leading-relaxed">
+        PTS: 3 por victoria · PG: victorias · PJ: partidos jugados · DIF: diferencia de games · FORMA: últimos 3
       </div>
     </div>
   );

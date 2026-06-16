@@ -3,13 +3,14 @@ import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck, Share2 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
 import FadeInCard from '../shared/FadeInCard';
+import GroupCard from '../shared/GroupCard';
 import PremiumModal from '../shared/PremiumModal';
 import statsPreview from '../../assets/advanced-stats-preview.svg';
 import Loader from '../Loader/Loader';
@@ -152,15 +153,23 @@ function SocialLinksDisplay({ links }) {
         const display = prefix && l.url.startsWith(prefix) ? l.url.slice(prefix.length) : l.url;
         return (
           <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 text-xs font-mono hover:border-border-strong transition-colors"
+            className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 text-xs font-mono hover:border-border-strong transition-colors max-w-[200px] overflow-hidden"
             style={{ color: net?.color ?? '#888', textDecoration: 'none' }}>
-            {net && <net.Icon size={12} />}
-            <span>{display || l.url}</span>
+            {net && <net.Icon size={12} className="shrink-0" />}
+            <span className="truncate">{display || l.url}</span>
           </a>
         );
       })}
     </div>
   );
+}
+
+function calcNivel(partidos, pct) {
+  if (partidos < 5) return null;
+  if (pct >= 65) return { label: 'Maestro', color: '#f0d04a' };
+  if (pct >= 50) return { label: 'Avanzado', color: '#4af07a' };
+  if (pct >= 35) return { label: 'Intermedio', color: '#4ab8f0' };
+  return { label: 'Amateur', color: '#888' };
 }
 
 function PasswordInput({ value, onChange, placeholder = '* * * * * * *' }) {
@@ -511,13 +520,17 @@ export default function ProfileView() {
   const [followersCount,   setFollowersCount]    = useState(0);
   const [followingCount,   setFollowingCount]    = useState(0);
   const [followModal,      setFollowModal]       = useState(null); // 'followers' | 'following' | null
+  const [showInviteModal,  setShowInviteModal]   = useState(false);
+  const [shareCopied,      setShareCopied]       = useState(false);
   const [followList,       setFollowList]        = useState([]);
   const [followListLoading, setFollowListLoading] = useState(false);
 
   const [editOpen,     setEditOpen]     = useState(false);
   const [editName,     setEditName]     = useState('');
   const [editUsername, setEditUsername] = useState('');
+  const [editBio,      setEditBio]      = useState('');
   const [socialLinks,  setSocialLinks]  = useState([{ ...EMPTY_LINK }]);
+  const [showAllMatches, setShowAllMatches] = useState(false);
   const [currentPass,  setCurrentPass]  = useState('');
   const [newPass,      setNewPass]      = useState('');
   const [newPass2,     setNewPass2]     = useState('');
@@ -539,6 +552,7 @@ export default function ProfileView() {
         setData(d);
         setEditName(d.owner.name);
         setEditUsername(d.owner.username);
+        setEditBio(d.owner.bio ?? '');
         const existing = Array.isArray(d.owner.social_links) ? d.owner.social_links : [];
         setSocialLinks(ensureTrailingEmpty(existing));
         setAvatarUrl(d.owner.avatar_url ?? null);
@@ -568,12 +582,14 @@ export default function ProfileView() {
   const hasChanges =
     editName.trim() !== owner.name ||
     editUsername.trim() !== owner.username ||
+    editBio.trim() !== (owner.bio ?? '') ||
     newPass !== '' || currentPass !== '' ||
     JSON.stringify(filledLinks) !== JSON.stringify(savedLinks);
 
   function handleCancel() {
     setEditName(owner.name);
     setEditUsername(owner.username);
+    setEditBio(owner.bio ?? '');
     setSocialLinks(ensureTrailingEmpty(savedLinks));
     setCurrentPass(''); setNewPass(''); setNewPass2('');
     setSaveError(null); setSaveOk(false);
@@ -643,6 +659,9 @@ export default function ProfileView() {
     const trimmedUsername = editUsername.trim();
     if (trimmedUsername && trimmedUsername !== owner.username) body.username = trimmedUsername;
 
+    const trimmedBio = editBio.trim();
+    if (trimmedBio !== (owner.bio ?? '')) body.bio = trimmedBio;
+
     if (newPass) {
       const pwErr = validatePassword(newPass);
       if (pwErr) { setSaveError(pwErr); return; }
@@ -669,6 +688,7 @@ export default function ProfileView() {
           ...d.owner,
           name: updated.name ?? d.owner.name,
           username: newUsername,
+          bio: updated.bio ?? d.owner.bio,
           social_links: updated.social_links ?? d.owner.social_links,
         },
       }));
@@ -684,6 +704,17 @@ export default function ProfileView() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleShare() {
+    navigator.clipboard.writeText(window.location.href);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 1800);
+  }
+
+  function handleShareWhatsApp() {
+    const text = encodeURIComponent(`Mirá el perfil de ${owner.name} en Padeleando: ${window.location.href}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   }
 
   async function handleFollowToggle() {
@@ -724,10 +755,10 @@ export default function ProfileView() {
       <div className="p-6">
 
         {/* Cabecera */}
-        <div className="mb-6 flex justify-between items-start gap-3 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-
+        <div className="mb-6">
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <div className="relative shrink-0">
               <PlayerAvatar
                 name={owner.name}
                 src={displayAvatar}
@@ -752,11 +783,26 @@ export default function ProfileView() {
                 </>
               )}
             </div>
-            <div>
-              <div className="font-condensed font-bold text-[28px] text-white">{owner.name}</div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="font-condensed font-bold text-[28px] text-white leading-tight">{owner.name}</div>
               <div className="text-[12px] text-muted font-mono mt-1">
                 @{owner.username} · Padeleando desde {fmt(owner.created_at)}
               </div>
+              {owner.bio && (
+                <div className="text-[13px] text-secondary font-sans mt-2 leading-snug">{owner.bio}</div>
+              )}
+              {(() => {
+                const pct = stats?.partidos > 0 ? Math.round((stats.victorias / stats.partidos) * 100) : 0;
+                const nivel = calcNivel(stats?.partidos ?? 0, pct);
+                return nivel ? (
+                  <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full border text-[10px] font-mono tracking-widest"
+                    style={{ color: nivel.color, borderColor: `${nivel.color}44`, background: `${nivel.color}10` }}>
+                    {nivel.label.toUpperCase()}
+                  </div>
+                ) : null;
+              })()}
               {isOwnProfile && (
                 <div className="mt-1">
                   {user?.subscription?.plan === 'premium' ? (
@@ -786,7 +832,6 @@ export default function ProfileView() {
                   )}
                 </div>
               )}
-              {/* Seguidores / Seguidos */}
               <div className="flex items-center gap-3 mt-2">
                 <button
                   onClick={() => openFollowModal('followers')}
@@ -807,30 +852,81 @@ export default function ProfileView() {
               {avatarError && <div className="text-[11px] text-danger font-mono mt-1">{avatarError}</div>}
               <SocialLinksDisplay links={savedLinks} />
             </div>
+
+            {/* Botones — desktop (sm+): top-right */}
+            {!isOwnProfile && (
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleShare}
+                  title="Copiar link del perfil"
+                  className={`w-9 h-9 flex items-center justify-center rounded border bg-transparent transition-colors cursor-pointer ${shareCopied ? 'border-green text-green' : 'border-border-strong text-muted hover:border-border-mid hover:text-white'}`}
+                >
+                  {shareCopied ? <Check size={14} /> : <Share2 size={14} />}
+                </button>
+                <button
+                  onClick={handleShareWhatsApp}
+                  title="Compartir por WhatsApp"
+                  className="w-9 h-9 flex items-center justify-center rounded border border-border-strong text-muted hover:border-[#25d366] hover:text-[#25d366] bg-transparent transition-colors cursor-pointer"
+                >
+                  <SiIcon icon={siWhatsapp} size={14} />
+                </button>
+                <button
+                  onClick={user ? handleFollowToggle : () => setShowInviteModal(true)}
+                  onMouseEnter={() => setFollowHover(true)}
+                  onMouseLeave={() => setFollowHover(false)}
+                  disabled={followBusy}
+                  className={`flex items-center gap-2 px-4 py-2 rounded font-condensed font-bold text-[13px] tracking-widest border transition-colors cursor-pointer disabled:opacity-40 ${
+                    isFollowing
+                      ? followHover
+                        ? 'border-danger text-danger bg-transparent'
+                        : 'border-border-strong text-muted bg-transparent'
+                      : 'bg-brand text-base border-brand hover:brightness-110'
+                  }`}
+                >
+                  {isFollowing
+                    ? followHover
+                      ? <><UserPlus size={14} /> DEJAR DE SEGUIR</>
+                      : <><UserCheck size={14} /> SIGUIENDO</>
+                    : <><UserPlus size={14} /> SEGUIR</>
+                  }
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Botón Seguir / Siguiendo (solo si no es el propio perfil y está logueado) */}
-          {!isOwnProfile && user && (
-            <button
-              onClick={handleFollowToggle}
-              onMouseEnter={() => setFollowHover(true)}
-              onMouseLeave={() => setFollowHover(false)}
-              disabled={followBusy}
-              className={`flex items-center gap-2 px-4 py-2 rounded font-condensed font-bold text-[13px] tracking-widest border transition-colors cursor-pointer disabled:opacity-40 ${
-                isFollowing
-                  ? followHover
-                    ? 'border-danger text-danger bg-transparent'
-                    : 'border-border-strong text-muted bg-transparent'
-                  : 'bg-brand text-base border-brand hover:brightness-110'
-              }`}
-            >
-              {isFollowing
-                ? followHover
-                  ? <><UserPlus size={14} /> DEJAR DE SEGUIR</>
-                  : <><UserCheck size={14} /> SIGUIENDO</>
-                : <><UserPlus size={14} /> SEGUIR</>
-              }
-            </button>
+          {/* Botones — mobile: fila completa debajo */}
+          {!isOwnProfile && (
+            <div className="flex sm:hidden gap-2 mt-4">
+              <button
+                onClick={handleShare}
+                title="Copiar link del perfil"
+                className={`w-10 h-10 flex items-center justify-center rounded border bg-transparent transition-colors cursor-pointer shrink-0 ${shareCopied ? 'border-green text-green' : 'border-border-strong text-muted'}`}
+              >
+                {shareCopied ? <Check size={15} /> : <Share2 size={15} />}
+              </button>
+              <button
+                onClick={handleShareWhatsApp}
+                title="Compartir por WhatsApp"
+                className="w-10 h-10 flex items-center justify-center rounded border border-border-strong text-muted bg-transparent cursor-pointer shrink-0"
+                style={{ color: '#25d366', borderColor: '#25d36633' }}
+              >
+                <SiIcon icon={siWhatsapp} size={15} />
+              </button>
+              <button
+                onClick={user ? handleFollowToggle : () => setShowInviteModal(true)}
+                disabled={followBusy}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded font-condensed font-bold text-[13px] tracking-widest border transition-colors cursor-pointer disabled:opacity-40 ${
+                  isFollowing
+                    ? 'border-border-strong text-muted bg-transparent'
+                    : 'bg-brand text-base border-brand'
+                }`}
+              >
+                {isFollowing
+                  ? <><UserCheck size={14} /> SIGUIENDO</>
+                  : <><UserPlus size={14} /> SEGUIR</>
+                }
+              </button>
+            </div>
           )}
         </div>
 
@@ -867,6 +963,19 @@ export default function ProfileView() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-[#aaa] transition-colors bg-transparent border-0 cursor-pointer">
                     {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                   </button>
+                </div>
+
+                <label style={label}>BIO</label>
+                <div className="relative">
+                  <textarea
+                    className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow] resize-none"
+                    rows={2}
+                    maxLength={200}
+                    placeholder="Contá algo sobre vos..."
+                    value={editBio}
+                    onChange={e => setEditBio(e.target.value)}
+                  />
+                  <span className="absolute bottom-2 right-3 text-[10px] text-dim font-mono">{editBio.length}/200</span>
                 </div>
 
                 <label style={label}>MAIL</label>
@@ -1004,7 +1113,110 @@ export default function ProfileView() {
           );
         })()}
 
-        {/* Estadísticas avanzadas — premium: datos reales; free: imagen placeholder con blur */}
+        {/* Últimos partidos */}
+        {recent_matches?.length > 0 && (
+          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">ÚLTIMOS PARTIDOS</div>
+              <span className="font-mono text-[10px] text-dim">{recent_matches.length} registrados</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {(showAllMatches ? recent_matches : recent_matches.slice(0, 5)).map((m) => {
+                const win  = m.result === 'win';
+                const draw = m.result === 'draw';
+                const color = win ? '#4af07a' : draw ? '#e8f04a' : '#f07a4a';
+                const firstName = (n) => n?.split(' ')[0] ?? '?';
+                return (
+                  <div key={m.id} onClick={() => navigate(`/cat/${m.group_id}/torneo/${m.tournament_id}`)}
+                    className="bg-base rounded-lg px-3 py-2.5 border border-border-strong flex items-center gap-3 cursor-pointer hover:border-border-mid transition-colors">
+                    <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center font-condensed font-black text-[13px]"
+                      style={{ background: `${color}18`, color, border: `1px solid ${color}44` }}>
+                      {win ? 'V' : draw ? 'E' : 'D'}
+                    </div>
+                    <div className="shrink-0 font-condensed font-black text-[20px] leading-none w-12 text-center"
+                      style={{ color }}>
+                      {m.my_score}<span className="text-[#fff] font-normal text-[20px]"> - </span>{m.opp_score}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] text-white font-mono truncate">
+                        <span className="text-muted">con </span>{firstName(m.partner_name)}
+                      </div>
+                      <div className="text-[12px] font-mono truncate" style={{ color: '#888' }}>
+                        <span className="text-[#444]">vs </span>
+                        {firstName(m.opp1_name)} & {firstName(m.opp2_name)}
+                      </div>
+                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate">{m.tournament_name}</div>
+                    </div>
+                    <div className="shrink-0 text-[10px] text-dim font-mono">
+                      {m.played_at ? `${m.played_at.slice(8, 10)}/${m.played_at.slice(5, 7)}` : ''}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {recent_matches.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setShowAllMatches(v => !v)}
+                className="mt-3 w-full text-center text-[11px] font-mono text-dim hover:text-white transition-colors cursor-pointer bg-transparent border-none py-1"
+              >
+                {showAllMatches ? '▲ Ver menos' : `▼ Ver todos (${recent_matches.length})`}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Compañeros frecuentes */}
+        {frequent_partners?.length > 0 && (
+          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">COMPAÑEROS FRECUENTES</div>
+            <div className="rounded-lg overflow-hidden border border-border-strong">
+              {frequent_partners.map((p, i) => (
+                <div key={i}
+                  onClick={() => p.username && navigate(`/u/${p.username}`)}
+                  className={`flex items-center gap-3 px-4 py-3 border-b border-border-strong last:border-b-0 transition-colors ${p.username ? 'cursor-pointer hover:bg-surface' : ''}`}
+                  style={{ background: '#0d0d0d' }}>
+                  <div className="shrink-0 font-condensed font-black text-[13px] w-4 text-center" style={{ color: '#333' }}>
+                    {i + 1}
+                  </div>
+                  <PlayerAvatar name={p.name} src={p.avatar_url} size={32} premium={p.is_premium} />
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[13px] font-mono truncate ${p.username ? 'text-white' : 'text-muted'}`}>
+                      {p.name}
+                    </div>
+                    {p.username && (
+                      <div className="text-[10px] font-mono text-dim">@{p.username}</div>
+                    )}
+                  </div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <div className="text-right">
+                      <div className="font-condensed font-black text-[18px] text-white leading-none">{p.partidos_juntos}</div>
+                      <div className="text-[10px] font-mono text-dim">{p.partidos_juntos === 1 ? 'partido' : 'partidos'}</div>
+                    </div>
+                    {p.username && (
+                      <ChevronUp size={13} className="text-dim rotate-90 shrink-0" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Categorías */}
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">CATEGORÍAS PROPIAS</div>
+        {groups.length === 0 && (
+          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
+            {isOwnProfile ? 'Todavía no creaste ninguna categoría.' : 'Este usuario no tiene categorías públicas.'}
+          </div>
+        )}
+        <div className="flex flex-col gap-2.5 mb-6">
+          {groups.map((g, i) => (
+            <GroupCard key={g.id} g={g} delay={i * 60} onClick={() => navigate(`/cat/${g.id}`)} />
+          ))}
+        </div>
+
+        {/* Estadísticas avanzadas — al fondo para no interrumpir el flujo */}
         {isOwnProfile && stats?.partidos > 0 && (
           owner.is_premium ? (
             <AdvancedStats stats={stats} monthlyStats={monthly_stats ?? []} dailyActivity={data.daily_activity ?? []} />
@@ -1037,112 +1249,6 @@ export default function ProfileView() {
             </div>
           )
         )}
-
-        {/* Últimos partidos */}
-        {recent_matches?.length > 0 && (
-          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">ÚLTIMOS 5 PARTIDOS</div>
-            <div className="flex flex-col gap-2">
-              {recent_matches.map((m) => {
-                const win  = m.result === 'win';
-                const draw = m.result === 'draw';
-                const color = win ? '#4af07a' : draw ? '#e8f04a' : '#f07a4a';
-                const firstName = (n) => n?.split(' ')[0] ?? '?';
-                return (
-                  <div key={m.id} onClick={() => navigate(`/cat/${m.group_id}/torneo/${m.tournament_id}`)}
-                    className="bg-base rounded-lg px-3 py-2.5 border border-border-strong flex items-center gap-3 cursor-pointer hover:border-border-mid transition-colors">
-                    {/* Result badge */}
-                    <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center font-condensed font-black text-[13px]"
-                      style={{ background: `${color}18`, color, border: `1px solid ${color}44` }}>
-                      {win ? 'V' : draw ? 'E' : 'D'}
-                    </div>
-                    {/* Score */}
-                    <div className="shrink-0 font-condensed font-black text-[20px] leading-none w-12 text-center"
-                      style={{ color }}>
-                      {m.my_score}<span className="text-[#fff] font-normal text-[20px]"> - </span>{m.opp_score}
-                    </div>
-                    {/* Players */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[12px] text-white font-mono truncate">
-                        <span className="text-muted">con </span>{firstName(m.partner_name)}
-                      </div>
-                      <div className="text-[12px] font-mono truncate" style={{ color: '#888' }}>
-                        <span className="text-[#444]">vs </span>
-                        {firstName(m.opp1_name)} & {firstName(m.opp2_name)}
-                      </div>
-                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate">{m.tournament_name}</div>
-                    </div>
-                    {/* Date */}
-                    <div className="shrink-0 text-[10px] text-dim font-mono">
-                      {m.played_at ? `${m.played_at.slice(8, 10)}/${m.played_at.slice(5, 7)}` : ''}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Compañeros frecuentes */}
-        {frequent_partners?.length > 0 && (
-          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">COMPAÑEROS FRECUENTES</div>
-            <div className="rounded-lg overflow-hidden border border-border-strong">
-              {frequent_partners.map((p, i) => (
-                <div key={i}
-                  onClick={() => p.username && navigate(`/u/${p.username}`)}
-                  className={`flex items-center gap-3 px-4 py-3 border-b border-border-strong last:border-b-0 transition-colors ${p.username ? 'cursor-pointer hover:bg-surface' : ''}`}
-                  style={{ background: '#0d0d0d' }}>
-                  <div className="shrink-0 font-condensed font-black text-[13px] w-4 text-center" style={{ color: '#333' }}>
-                    {i + 1}
-                  </div>
-                  <PlayerAvatar name={p.name} src={p.avatar_url} size={32} premium={p.is_premium} />
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-[13px] font-mono truncate ${p.username ? 'text-white' : 'text-muted'}`}>
-                      {p.name}
-                    </div>
-                    {p.username && (
-                      <div className="text-[10px] font-mono text-dim">@{p.username}</div>
-                    )}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-condensed font-black text-[18px] text-white leading-none">{p.partidos_juntos}</div>
-                    <div className="text-[10px] font-mono text-dim">{p.partidos_juntos === 1 ? 'partido' : 'partidos'}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Categorías */}
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">CATEGORÍAS PROPIAS</div>
-        {groups.length === 0 && (
-          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
-            Este usuario no tiene categorías públicas.
-          </div>
-        )}
-        <div className="flex flex-col gap-2.5">
-          {groups.map((g, i) => (
-            <FadeInCard key={g.id} delay={i * 60}
-              className="border border-border-mid rounded-lg cursor-pointer hover:border-border-strong transition-colors overflow-hidden"
-              style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
-              onClick={() => navigate(`/cat/${g.id}`)}>
-              {g.emojis?.length > 0 && (
-                <div className="inline-flex px-3 pt-2 pb-1.5 text-base border-b border-r bg-surface border-border-mid rounded-br-lg leading-none">
-                  {g.emojis.join(' ')}
-                </div>
-              )}
-              <div className="px-5 py-4">
-                <div className="font-condensed font-bold text-[18px] text-white mb-1">{g.name}</div>
-                {g.description && <div className="text-[13px] text-[#666] mb-1.5">{g.description}</div>}
-                <div className="text-[11px] text-dim font-mono">
-                  {g.player_count} jugadores · {g.tournament_count} torneos
-                </div>
-              </div>
-            </FadeInCard>
-          ))}
-        </div>
       </div>
 
       {cropFile && (
@@ -1154,6 +1260,45 @@ export default function ProfileView() {
       )}
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+
+      {showInviteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-5"
+          style={{ background: 'rgba(0,0,0,0.8)' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowInviteModal(false); }}
+        >
+          <div className="bg-surface border border-border-strong rounded-xl w-full max-w-sm p-6 relative">
+            <button
+              onClick={() => setShowInviteModal(false)}
+              className="absolute top-4 right-4 text-muted hover:text-white transition-colors bg-transparent border-none cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+            <div className="flex flex-col items-center text-center gap-3">
+              <PlayerAvatar name={owner.name} src={displayAvatar} size={64} premium={owner.is_premium} />
+              <div>
+                <div className="font-condensed font-bold text-[22px] text-white">{owner.name}</div>
+                <div className="text-xs font-mono text-muted">@{owner.username}</div>
+              </div>
+              <p className="text-sm text-secondary leading-relaxed">
+                Seguí a <span className="text-white font-semibold">{owner.name}</span>, llevá tus estadítisticas de pádel y competí en torneos con tus amigos.
+              </p>
+              <button
+                onClick={() => navigate('/register')}
+                className="w-full bg-brand text-base border-0 py-3 font-condensed font-bold text-[15px] tracking-widest rounded-lg cursor-pointer hover:brightness-110 transition"
+              >
+                CREAR CUENTA GRATIS
+              </button>
+              <button
+                onClick={() => navigate('/login')}
+                className="w-full bg-transparent border border-border-strong text-muted py-2.5 font-condensed font-bold text-[13px] tracking-widest rounded-lg cursor-pointer hover:text-white hover:border-border-mid transition"
+              >
+                Ya tengo cuenta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {followModal && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-5">

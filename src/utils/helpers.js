@@ -4,8 +4,7 @@ export const uid = () => Math.random().toString(36).slice(2, 9);
 // Un set tiene ganador cuando alguien llegó a 6+ (o 7 en tiebreak) y va ganando.
 export function setWinner(s) {
   if (!s || s.s1 === s.s2) return null;
-  if (s.s1 >= 6 || s.s2 >= 6) return s.s1 > s.s2 ? 1 : 2;
-  return null;
+  return s.s1 > s.s2 ? 1 : 2;
 }
 
 export function setsWon(sets) {
@@ -36,7 +35,7 @@ export const fmt = (d) => {
   });
 };
 
-export const normalize = (s) => s.trim().toLowerCase();
+export const normalize = (s) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 export function calcStandings(players, matches) {
   const s = {};
@@ -93,6 +92,7 @@ export function adaptMatch(m) {
     date:        m.played_at?.slice(0, 10) ?? m.date ?? '',
     sets:        m.sets ?? [],
     sets_format: m.sets_format ?? null,
+    court:       m.court ?? null,
   };
 }
  
@@ -198,6 +198,7 @@ export const emptyForm = () => ({
   score2: 0,
   date: localDateStr(),
   duration_seconds: null,
-  sets_format: 1,
-  sets: [{ s1: 0, s2: 0 }],
+  sets_format: null,
+  sets: [],
+  court: null,
 });

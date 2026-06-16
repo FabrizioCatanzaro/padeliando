@@ -7,6 +7,7 @@ import logoUrl from '../../assets/padeleando.ico'
 import logoTxtUrl from '../../assets/padeleando-txt.png'
 import PlayerAvatar from './PlayerAvatar'
 
+
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000);
@@ -124,31 +125,23 @@ export default function Header() {
   }
 
   return (
-    <div className="px-6 py-4 flex justify-between items-center border-b border-border bg-base">
+    <div className="px-5 py-3 flex justify-between items-center border-b border-border bg-base">
+      {/* Logo */}
       <div
-        className="flex flex-row gap-2 items-center font-condensed font-black text-xl tracking-widest text-white cursor-pointer"
+        className="flex flex-row gap-2 items-center cursor-pointer"
         onClick={() => location.pathname === '/' ? navigate(0) : navigate('/')}
       >
-        <img className='max-w-8 hidden md:block' src={logoUrl} />
-        <img className='max-h-10' src={logoTxtUrl} />
+        <img className="w-8 hidden md:block" src={logoUrl} />
+        <img className="h-9" src={logoTxtUrl} />
       </div>
 
       <div className="flex items-center gap-2">
-        <Link
-          to="/tutorial"
-          className="bg-transparent border border-border-strong p-2 rounded text-[#555] hover:text-white hover:border-[#555] transition-colors"
-          aria-label="Ayuda"
-          title="Ayuda"
-        >
-          <CircleHelp size={18} />
-        </Link>
-
         {/* Bell — notificaciones */}
         {isLoggedIn && (
           <div className="relative" ref={notifRef}>
             <button
               onClick={openNotifications}
-              className="relative bg-transparent border border-border-strong p-2 rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors"
+              className="relative bg-transparent border border-border-strong p-2 rounded-lg cursor-pointer text-muted hover:text-soft hover:border-border-mid transition-colors"
               aria-label="Notificaciones"
             >
               <Bell size={18} />
@@ -160,13 +153,13 @@ export default function Header() {
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-[#111] border border-border-strong rounded z-50 overflow-hidden shadow-xl" style={{ width: 320 }}>
-                <div className="px-4 py-2.5 flex items-center justify-between border-b border-border-mid">
-                  <span className="text-[10px] font-mono tracking-[3px] text-muted">NOTIFICACIONES</span>
+              <div className="absolute right-0 top-full mt-2 bg-surface border border-border-strong rounded-xl z-50 overflow-hidden shadow-2xl" style={{ width: 340 }}>
+                <div className="px-4 py-3 flex items-center justify-between border-b border-border-mid">
+                  <span className="text-[10px] font-mono tracking-widest text-muted">NOTIFICACIONES</span>
                   <Link
                     to="/notifications"
                     onClick={() => setNotifOpen(false)}
-                    className="text-[10px] font-mono text-dim hover:text-white transition-colors"
+                    className="text-[10px] font-mono text-dim hover:text-soft transition-colors"
                   >
                     Ver todas
                   </Link>
@@ -191,7 +184,7 @@ export default function Header() {
                   )}
                 </div>
 
-                <div className="border-t border-border-mid px-4 py-2.5">
+                <div className="border-t border-border-mid px-4 py-3">
                   <Link
                     to="/notifications"
                     onClick={() => setNotifOpen(false)}
@@ -209,51 +202,78 @@ export default function Header() {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => { setNotifOpen(false); setMenuOpen(o => !o); }}
-            className={`relative flex items-center bg-transparent rounded cursor-pointer text-[#555] hover:text-white hover:border-[#555] transition-colors ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong'}`}
+            className={`relative flex items-center bg-transparent rounded-full cursor-pointer transition-opacity hover:opacity-80 ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong text-muted hover:text-soft rounded-lg'}`}
           >
             {isLoggedIn
-              ? <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={40} premium={user?.subscription?.plan === 'premium'} />
-              : <User className='text-gray-200' size={18} />}
+              ? <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={46} premium={user?.subscription?.plan === 'premium'} />
+              : <User size={18} />}
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-surface-alt border border-border-strong rounded min-w-40 z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 bg-surface-alt border border-border-strong rounded-xl min-w-56 z-50 overflow-hidden shadow-2xl">
               {isLoggedIn ? (
                 <>
-                  <div className="px-4 py-2.5 text-[11px] text-gray-500 font-mono border-b border-border-mid">
-                    @{user?.username}
-                  </div>
-                  <button onClick={() => go(`/u/${user?.username}`)}
-                    className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
-                    Mi perfil
-                  </button>
-                  <button onClick={() => go('/')}
-                    className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
-                    Mis categorías
-                  </button>
-                  <button onClick={() => go('/subscription/manage')}
-                    className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
-                    Mi plan
-                  </button>
-                  {user?.role === 'admin' && (
-                    <button onClick={() => go('/admin')}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:brightness-110 transition-colors cursor-pointer bg-transparent border-0 font-sans">
-                      Admin
-                    </button>
-                  )}
-                  <div className="border-t border-border-mid" />
-                  <button
-                    onClick={() => { setMenuOpen(false); logout(); navigate('/'); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-red-700 hover:bg-border-mid hover:text-red-500 transition-colors cursor-pointer bg-transparent border-0"
+                  {/* Header del menú — avatar + nombre */}
+                  <div
+                    className="flex items-center gap-3 px-4 py-3 border-b border-border-mid cursor-pointer hover:bg-border-mid transition-colors"
+                    onClick={() => go(`/u/${user?.username}`)}
                   >
-                    Cerrar sesión
-                  </button>
+                    <PlayerAvatar name={user?.name} src={user?.avatar_url ?? null} size={38} premium={user?.subscription?.plan === 'premium'} />
+                    <div className="min-w-0">
+                      <div className="text-sm text-white font-sans font-semibold truncate">{user?.name}</div>
+                      <div className="text-[11px] font-mono text-dim truncate">@{user?.username}</div>
+                    </div>
+                  </div>
+
+                  <div className="py-1">
+                    <button onClick={() => go('/')}
+                      className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                      Mis categorías
+                    </button>
+                    <button onClick={() => go('/subscription/manage')}
+                      className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                      Mi plan
+                    </button>
+                    <Link
+                      to="/tutorial"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors font-sans"
+                    >
+                      <CircleHelp size={14} className="text-dim shrink-0" />
+                      Ayuda
+                    </Link>
+                    {user?.role === 'admin' && (
+                      <button onClick={() => go('/admin')}
+                        className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                        Admin
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="border-t border-border-mid py-1">
+                    <button
+                      onClick={() => { setMenuOpen(false); logout(); navigate('/'); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-danger hover:bg-border-mid transition-colors cursor-pointer bg-transparent border-0 font-sans"
+                    >
+                      Cerrar sesión
+                    </button>
+                  </div>
                 </>
               ) : (
-                <button onClick={() => go('/login')}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#ccc] hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0">
-                  Iniciar sesión
-                </button>
+                <div className="py-1">
+                  <button onClick={() => go('/login')}
+                    className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
+                    Iniciar sesión
+                  </button>
+                  <Link
+                    to="/tutorial"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors font-sans"
+                  >
+                    <CircleHelp size={14} className="text-dim shrink-0" />
+                    Ayuda
+                  </Link>
+                </div>
               )}
             </div>
           )}

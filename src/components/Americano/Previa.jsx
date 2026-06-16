@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef } from "react";
-import { expandPair, emptyForm, localDateStr, getPairLabel } from "../../utils/helpers";
+import { expandPair, emptyForm, localDateStr, getPairLabel, visibleSetsCount } from "../../utils/helpers";
 import MatchCard from "../Matches/MatchCard";
 import MatchForm from "../Matches/MatchForm";
 import Modal from "../shared/Modal";
@@ -74,6 +74,7 @@ export default function Previa({
     return {
       team1Label: getPairLabel(form.team1Pair, pairs, players),
       team2Label: getPairLabel(form.team2Pair, pairs, players),
+      court: form.court ?? null,
     };
   }
 
@@ -85,7 +86,16 @@ export default function Previa({
       const nowRunning = m.timer.startedAt !== null && !m.timer.stoppedAt;
       return wasIdle && nowRunning;
     });
-    if (newlyStarted) {
+
+    // Detectar si cambió la cancha en partidos que ya están en vivo (no sincronizar por cambios en score)
+    const liveFormChanged = liveMatches.some((m) => {
+      if (m.timer.startedAt === null) return false;
+      const prevMatch = prev.find((p) => p.id === m.id);
+      if (!prevMatch) return false;
+      return prevMatch.form.court !== m.form.court;
+    });
+
+    if (newlyStarted || liveFormChanged) {
       const labels = liveMatches
         .filter((m) => m.timer.startedAt !== null)
         .map((m) => ({ ...resolveTeamLabels(m.form), phase: 'previa' }));
@@ -125,12 +135,28 @@ export default function Previa({
     const liveMatch = liveMatches.find(m => m.id === liveId);
     if (!liveMatch) return;
     const { form } = liveMatch;
-    const s1 = parseInt(form.score1), s2 = parseInt(form.score2);
+
+    let s1, s2;
+    if (form.sets_format && form.sets?.[0]) {
+      s1 = parseInt(form.sets[0].s1);
+      s2 = parseInt(form.sets[0].s2);
+    } else {
+      s1 = parseInt(form.score1);
+      s2 = parseInt(form.score2);
+    }
+
     if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) return alert("Ingresá un marcador válido");
     if (!form.team1Pair || !form.team2Pair) return alert("Seleccioná las dos parejas");
     const team1 = expandPair(form.team1Pair, tournament.pairs);
     const team2 = expandPair(form.team2Pair, tournament.pairs);
-    const matchData = { team1, team2, score1: s1, score2: s2, date: form.date, duration_seconds: form.duration_seconds };
+
+    // Si el cronómetro está corriendo, detenerlo y calcular la duración
+    let duration = form.duration_seconds;
+    if (liveMatch.timer.startedAt !== null && liveMatch.timer.stoppedAt === null) {
+      duration = Math.floor((Date.now() - liveMatch.timer.startedAt) / 1000);
+    }
+
+    const matchData = { team1, team2, score1: s1, score2: s2, date: form.date, duration_seconds: duration, court: form.court ?? null };
 
     const remaining = liveMatches.filter(m => m.id !== liveId);
     if (remaining.length === 0) localStorage.removeItem(getLiveKey(tournament.id));
@@ -149,12 +175,22 @@ export default function Previa({
 
   async function handleSaveEdit() {
     if (!editId || !editForm) return;
-    const s1 = parseInt(editForm.score1), s2 = parseInt(editForm.score2);
+
+    let s1, s2;
+    if (editForm.sets_format && editForm.sets?.[0]) {
+      s1 = parseInt(editForm.sets[0].s1);
+      s2 = parseInt(editForm.sets[0].s2);
+    } else {
+      s1 = parseInt(editForm.score1);
+      s2 = parseInt(editForm.score2);
+    }
+
     if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) return alert("Ingresá un marcador válido");
     if (!editForm.team1Pair || !editForm.team2Pair) return alert("Seleccioná las dos parejas");
     const team1 = expandPair(editForm.team1Pair, tournament.pairs);
     const team2 = expandPair(editForm.team2Pair, tournament.pairs);
-    await onEditMatch(editId, { team1, team2, score1: s1, score2: s2, date: editForm.date });
+    const nv = editForm.sets_format ? visibleSetsCount(editForm.sets_format, editForm.sets) : 0;
+    await onEditMatch(editId, { team1, team2, score1: s1, score2: s2, date: editForm.date, duration_seconds: editForm.duration_seconds ?? null, sets_format: editForm.sets_format ?? null, sets: nv > 0 ? (editForm.sets ?? []).slice(0, nv) : [], court: editForm.court ?? null });
     setEditId(null);
     setEditForm(null);
   }
@@ -173,6 +209,10 @@ export default function Previa({
       score1: String(m.score1),
       score2: String(m.score2),
       date: m.date || localDateStr(),
+      duration_seconds: m.duration_seconds ?? null,
+      sets_format: m.sets_format ?? null,
+      sets: m.sets ?? [],
+      court: m.court ?? null,
     });
     setEditId(m.id);
   }

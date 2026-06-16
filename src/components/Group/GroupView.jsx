@@ -6,9 +6,12 @@ import { api } from '../../utils/api';
 import { adaptTournament, fmt } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import Loader from '../Loader/Loader';
+import { useToast } from '../../context/useToast';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, MapPin, Smile, Check, X, Loader2 } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, MapPin, Smile, Check, X, Loader2, Users, User, Flame } from 'lucide-react';
+import Btn from '../shared/Btn';
+import Badge from '../shared/Badge';
+import { Skeleton, CardSkeleton } from '../shared/Skeleton';
 import FadeInCard from '../shared/FadeInCard';
 import { HistoricalStats } from '../Stats/Stats';
 import PremiumModal from '../shared/PremiumModal';
@@ -17,10 +20,11 @@ const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣',
 
 export default function GroupView() {
   const { groupId } = useParams();
-  const [group,   setGroup]   = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [group, setGroup] = useState(null);
   const [deleteModal,      setDeleteModal]      = useState(false);
+  const [deleteInput,      setDeleteInput]      = useState('');
   const [editingGroup,     setEditingGroup]     = useState(false);
+  const [saving,           setSaving]           = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [allTournaments, setAllTournaments] = useState([]);
 
@@ -45,6 +49,7 @@ export default function GroupView() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   async function handleAllTournaments() {
     try {
@@ -56,7 +61,7 @@ export default function GroupView() {
   }
 
   useEffect(() => {
-    api.groups.get(groupId).then(setGroup).finally(() => setLoading(false));
+    api.groups.get(groupId).then(setGroup);
     handleAllTournaments();
   }, [groupId]);
 
@@ -120,22 +125,46 @@ export default function GroupView() {
   }
 
   async function handleSaveGroup() {
-    const updated = await api.groups.update(groupId, {
-      name:          editName.trim(),
-      description:   editDesc.trim(),
-      is_public:     editIsPublic,
-      emojis:        editEmojis,
-      location_name: editLocation || null,
-      place_id:      editPlaceId || null,
-      lat:           editLat ?? null,
-      lon:           editLon ?? null,
-    });
-    setGroup(prev => ({ ...prev, ...updated }));
-    setEditingGroup(false);
+    setSaving(true);
+    try {
+      const updated = await api.groups.update(groupId, {
+        name:          editName.trim(),
+        description:   editDesc.trim(),
+        is_public:     editIsPublic,
+        emojis:        editEmojis,
+        location_name: editLocation || null,
+        place_id:      editPlaceId || null,
+        lat:           editLat ?? null,
+        lon:           editLon ?? null,
+      });
+      setGroup(prev => ({ ...prev, ...updated }));
+      setEditingGroup(false);
+      showToast('Categoría guardada');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  if (loading) return <Loader />;
-  if (!group)  return null;
+  if (!group) return (
+    <div className="bg-base text-content font-sans pb-15">
+      <div className="px-6 pt-6 pb-5 border-b border-border flex flex-col gap-3">
+        <Skeleton className="h-7 w-20" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-32" />
+      </div>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-7 w-32" />
+        </div>
+        <div className="flex flex-col gap-3">
+          <CardSkeleton lines={3} />
+          <CardSkeleton lines={2} />
+          <CardSkeleton lines={2} />
+        </div>
+      </div>
+    </div>
+  );
 
   const isOwner = !!user && String(group.user_id) === String(user.id);
 
@@ -147,13 +176,7 @@ export default function GroupView() {
           <div className="font-condensed font-bold text-2xl text-white tracking-wide mb-1">Categoría privada</div>
           <div className="text-muted text-sm">Solo el dueño puede ver esta categoría.</div>
         </div>
-        <div
-          onClick={() => navigate('/')}
-          className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans mt-2"
-        >
-          <ChevronLeft size={15} />
-          <span>Volver al inicio</span>
-        </div>
+        <Btn size="sm" icon={ChevronLeft} onClick={() => navigate('/')} className="mt-2">Volver al inicio</Btn>
       </div>
     );
   }
@@ -167,10 +190,7 @@ export default function GroupView() {
     <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex flex-col gap-3 border-b border-border">
         <div className="flex justify-between items-center">
-          <div onClick={() => navigate('/')} className="flex flex-row gap-2 items-center w-fit bg-transparent text-muted border border-border-strong px-3 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans">
-            <ChevronLeft size={15} />
-            <span>Volver</span>
-          </div>
+          <Btn size="sm" icon={ChevronLeft} onClick={() => navigate('/')}>Volver</Btn>
 
           {isOwner && !editingGroup && (
             <div className="flex items-center gap-3 flex-wrap">
@@ -187,12 +207,8 @@ export default function GroupView() {
                   </div>
                   }
               </span>
-              <div className="bg-transparent border border-[#333] px-3 py-2 text-danger hover:bg-red-600 hover:text-gray-300 cursor-pointer rounded-sm" onClick={() => setDeleteModal(true)}>
-                <Trash2 size={15} />
-              </div>
-              <div onClick={startEdit} className="bg-transparent border border-[#333] px-3 py-2 cursor-pointer text-yellow-200 rounded-sm font-sans hover:bg-yellow-200 hover:text-gray-700">
-                <Pencil size={15} />
-              </div>
+              <Btn variant="danger" size="sm" icon={Trash2} onClick={() => { setDeleteModal(true); setDeleteInput(''); }} />
+              <Btn size="sm" icon={Pencil} onClick={startEdit} />
             </div>
           )}
 
@@ -317,14 +333,8 @@ export default function GroupView() {
 
               {/* Acciones */}
               <div className="flex gap-2 pt-1">
-                <button onClick={handleSaveGroup}
-                  className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold text-[13px] cursor-pointer rounded-sm tracking-wide">
-                  ✓ GUARDAR
-                </button>
-                <button onClick={() => setEditingGroup(false)}
-                  className="bg-transparent text-muted border border-border-strong px-4 py-2 font-condensed text-[13px] cursor-pointer rounded-sm">
-                  ✕ CANCELAR
-                </button>
+                <Btn variant="primary" size="sm" icon={Check} onClick={handleSaveGroup} loading={saving}>GUARDAR</Btn>
+                <Btn size="sm" icon={X} onClick={() => setEditingGroup(false)}>CANCELAR</Btn>
               </div>
             </div>
           ) : (
@@ -348,13 +358,13 @@ export default function GroupView() {
       </div>
 
       <div className="p-6">
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">TORNEOS</div>
-        {(!group.tournaments || group.tournaments.length === 0) && !isOwner && (
-          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
-        )}
-        <div className="flex flex-col gap-2.5 mb-10">
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">TORNEOS</div>
           {isOwner && (
-            <div
+            <Btn
+              variant="primary"
+              size="sm"
+              icon={Plus}
               onClick={() => {
                 if (user?.subscription?.plan !== 'premium') {
                   const now = new Date();
@@ -369,33 +379,77 @@ export default function GroupView() {
                 }
                 navigate(`/cat/${groupId}/torneo/new`);
               }}
-              className="border-dashed border-brand border-2 rounded-sm p-2 cursor-pointer flex flex-col items-center justify-center min-h-full transition-[background] duration-200 hover:border-solid hover:bg-surface"
             >
-              <Plus className='text-brand' size={20} />
-              <span className='font-condensed font-bold text-xl text-brand tracking-wide'>NUEVO TORNEO</span>
-            </div>
+              NUEVO TORNEO
+            </Btn>
           )}
-          {group.tournaments?.map((t, i) => (
+        </div>
+        {(!group.tournaments || group.tournaments.length === 0) && !isOwner && (
+          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
+        )}
+        <div className="flex flex-col gap-2.5 mb-10">
+          {group.tournaments?.map((t, i) => {
+            const isAmericano = t.format === 'americano';
+            const fmtColor = isAmericano ? '#e8f04a' : '#63b3ed';
+            const fmtBg    = isAmericano ? 'rgba(232,240,74,0.07)' : 'rgba(99,179,237,0.07)';
+            const fmtBorder = isAmericano ? 'rgba(232,240,74,0.18)' : 'rgba(99,179,237,0.18)';
+            const count = isAmericano ? t.pair_count : t.player_count;
+            const CountIcon = isAmericano ? Users : User;
+            return (
             <FadeInCard key={t.id} delay={i * 60}
-              className="border border-border-mid rounded-lg px-5 py-4.5 cursor-pointer hover:border-border-strong transition-colors"
-              style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #222222 100%)' }}
+              className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link"
+              style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #1c1c1c 100%)' }}
               onClick={() => { navigate(`/cat/${groupId}/torneo/${t.id}`); }}>
-              <div className="flex justify-between items-center">
-                <div className="font-condensed font-bold text-[18px] text-white">{t.name}</div>
-                <span className={`text-[11px] font-mono ${t.status === 'active' ? 'text-green' : 'text-muted'}`}>
-                  {t.status === 'active' ? 'EN CURSO' : 'FINALIZADO'}
-                </span>
-              </div>
-              <div className="text-[11px] text-dim font-mono mt-1">
-                {fmt(t.created_at)} · {t.match_count} partidos
-              </div>
-              {t.status === 'finished' && t.winner_label && (
-                <div className="flex items-center gap-2 text-[12px] text-brand font-mono mt-1.5">
-                  <Trophy size={13} /> {t.winner_label}
-                </div>
+              {t.status === 'active' && (
+                <div className="h-px bg-gradient-to-r from-green/50 via-green/20 to-transparent" />
               )}
+              <div className="flex min-w-0">
+                <div
+                  className="flex items-center justify-center shrink-0 w-7"
+                  style={{ background: fmtBg, borderRight: `1px solid ${fmtBorder}` }}
+                >
+                  <span
+                    className="font-mono font-bold tracking-widest select-none"
+                    style={{ fontSize: 8, color: fmtColor, writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.2em' }}
+                  >
+                    {isAmericano ? 'AMERICANO' : 'LIGA'}
+                  </span>
+                </div>
+                <div className="px-4 py-3.5 flex-1 min-w-0">
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <div className="font-condensed font-bold text-[17px] text-white leading-tight">{t.name}</div>
+                    <Badge variant="status" color={t.status === 'active' ? 'green' : 'default'}>
+                      {t.status === 'active' ? 'EN CURSO' : 'FINALIZADO'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {count > 0 && (
+                      <span className="flex items-center gap-1 font-mono text-[11px] text-dim">
+                        <CountIcon size={11} />{count}
+                      </span>
+                    )}
+                    {t.match_count > 0 && (
+                      <span className="flex items-center gap-1 font-mono text-[11px] text-dim">
+                        <Flame size={11} />{t.match_count}
+                      </span>
+                    )}
+                    {!isAmericano && t.mode && (
+                      <span className="font-mono text-[11px] text-dim">
+                        {t.mode === 'pairs' ? 'parejas' : 'libre'}
+                      </span>
+                    )}
+                    <span className="font-mono text-[11px] text-dim ml-auto">{fmt(t.created_at)}</span>
+                  </div>
+                  {t.status === 'finished' && t.winner_label && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-brand font-mono mt-2">
+                      <Trophy size={11} /> {t.winner_label}
+                    </div>
+                  )}
+                </div>
+              </div>
             </FadeInCard>
-          ))}
+            );
+          })}
         </div>
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS HISTÓRICAS</div>
         <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} />
@@ -443,10 +497,7 @@ export default function GroupView() {
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => setShowEmojiModal(false)}
-              style={{ width: '100%', background: '#e8f04a', color: '#0a0e1a', border: 'none', padding: '12px', fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 15, letterSpacing: 2, borderRadius: 4, cursor: 'pointer' }}>
-              CONFIRMAR
-            </button>
+            <Btn variant="primary" full size="md" onClick={() => setShowEmojiModal(false)}>CONFIRMAR</Btn>
           </div>
         </div>
       )}
@@ -456,12 +507,26 @@ export default function GroupView() {
       {deleteModal && (
         <Modal
           title={`¿Eliminar "${group.name}"?`}
-          message="Se eliminará la categoría y todos sus torneos. Los jugadores quedan en la base de datos."
-          confirmText="Sí, eliminar"
+          confirmText="Eliminar para siempre"
           confirmDanger
+          confirmDisabled={deleteInput !== group.name}
           onConfirm={handleDelete}
-          onCancel={() => setDeleteModal(false)}
-        />
+          onCancel={() => { setDeleteModal(false); setDeleteInput(''); }}
+        >
+          <p className="text-secondary text-sm leading-relaxed mb-4">
+            Se eliminará la categoría y <strong className="text-white">todos sus torneos</strong>. Los jugadores quedan en la base de datos para estadísticas históricas. <strong className="text-white">Esta acción no se puede deshacer.</strong>
+          </p>
+          <label className="block text-[11px] font-mono tracking-widest text-muted mb-2">
+            ESCRIBÍ <span className="text-danger font-bold">{group.name}</span> PARA CONFIRMAR
+          </label>
+          <input
+            className="w-full bg-base border border-border-strong text-white px-3 py-2 rounded text-sm font-sans outline-none focus:border-danger/60 transition-colors"
+            placeholder={group.name}
+            value={deleteInput}
+            onChange={e => setDeleteInput(e.target.value)}
+            autoFocus
+          />
+        </Modal>
       )}
     </div>
   );

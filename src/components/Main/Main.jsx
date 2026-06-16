@@ -10,8 +10,10 @@ import Management   from "../Management/Management";
 import Previa       from "../Americano/Previa";
 import Bracket      from "../Americano/Bracket";
 import PhotoGallery from "../Photos/PhotoGallery";
-import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split } from "lucide-react";
-import Loader from "../Loader/Loader";
+import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split, User, Users } from "lucide-react";
+import Badge from "../shared/Badge";
+import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
+import Btn from "../shared/Btn";
 
 const LIGA_TABS = [
   { id: "standings",  label: "TABLA",         icon: Trophy              },
@@ -59,7 +61,17 @@ export default function Main() {
     }
   }, [loading, tournament, isOwner, tournamentId, navigate]);
 
-  if (loading) return <Loader />;
+  if (loading) return (
+    <div className="bg-base text-content font-sans pb-24 sm:pb-15">
+      <TournamentHeaderSkeleton />
+      <TabsSkeleton count={5} />
+      <div className="p-6 flex flex-col gap-3">
+        <CardSkeleton lines={3} />
+        <CardSkeleton lines={2} />
+        <CardSkeleton lines={2} />
+      </div>
+    </div>
+  );
   if (error || !tournament) return (
     <div className="bg-base text-content font-sans flex items-center justify-center">
       <div className="text-danger p-10">{error ?? "Error cargando torneo"}</div>
@@ -122,18 +134,14 @@ export default function Main() {
   };
 
   return (
-    <div className="bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-24 sm:pb-15">
       <div className="px-6 pt-5 pb-5 border-b border-border bg-gradient-to-b from-surface/25 to-transparent">
         {/* Breadcrumbs + acciones principales */}
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <div
-              onClick={() => navigate(`/cat/${groupId}`)}
-              className="flex flex-row gap-1.5 items-center text-muted border border-border-strong px-2.5 py-1 text-[11px] cursor-pointer rounded-sm font-sans hover:text-white transition-colors"
-            >
-              <ChevronLeft size={14} />
-              <span>Volver</span>
-            </div>
+            <Btn size="sm" onClick={() => navigate(`/cat/${groupId}`)} icon={ChevronLeft}>
+              Volver
+            </Btn>
             {groupName && (
               <div
                 onClick={() => navigate(`/cat/${groupId}`)}
@@ -146,22 +154,9 @@ export default function Main() {
               </div>
             )}
           </div>
-          <div
-            onClick={copyLink}
-            className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold tracking-wide text-[13px] cursor-pointer rounded-sm inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
-          >
-            {copied ? (
-              <>
-                <Check size={14} />
-                <span>COPIADO!</span>
-              </>
-            ) : (
-              <>
-                <Share2 size={14} />
-                <span>COMPARTIR</span>
-              </>
-            )}
-          </div>
+          <Btn variant="primary" size="sm" onClick={copyLink} icon={copied ? Check : Share2}>
+            {copied ? 'COPIADO!' : 'COMPARTIR'}
+          </Btn>
         </div>
 
         {/* Título + edit */}
@@ -177,12 +172,8 @@ export default function Main() {
               }}
               className="bg-surface border border-border-mid text-white px-2.5 py-1 font-condensed font-bold text-[28px] tracking-wide rounded-sm outline-none flex-1 min-w-0 max-w-md"
             />
-            <div onClick={() => { if (nameInput.trim()) { handleUpdateName(nameInput.trim()); } setEditingName(false); }} className="bg-brand text-base border-0 px-2 py-2 font-condensed font-bold text-[12px] cursor-pointer rounded-sm">
-              <Check size={15} />
-            </div>
-            <div onClick={() => setEditingName(false)} className="bg-transparent text-muted border border-border-strong px-2 py-2 font-condensed text-[12px] cursor-pointer rounded-sm">
-              <X size={15} />
-            </div>
+            <Btn variant="primary" size="sm" onClick={() => { if (nameInput.trim()) { handleUpdateName(nameInput.trim()); } setEditingName(false); }} icon={Check} />
+            <Btn size="sm" onClick={() => setEditingName(false)} icon={X} />
           </div>
         ) : (
           <div className="flex items-center gap-2 mb-2">
@@ -202,36 +193,24 @@ export default function Main() {
 
         {/* Estado + ganador */}
         <div className="flex items-center gap-3 flex-wrap mb-3">
-          <span className={`text-[11px] font-mono ${tournament.status === 'active' ? 'text-green' : 'text-muted'}`}>
-            {tournament.status === 'active' ? '● EN CURSO' : '■ FINALIZADA'}
-          </span>
+          <Badge variant="status" color={tournament.status === 'active' ? 'green' : 'default'}>
+            {tournament.status === 'active' ? 'EN CURSO' : 'FINALIZADA'}
+          </Badge>
           {winnerLabel && (
-            <span className="inline-flex items-center gap-1.5 text-[13px] text-brand font-mono">
-              <Trophy size={13} /> {winnerLabel}
-            </span>
+            <Badge variant="chip" color="brand" icon={Trophy}>{winnerLabel}</Badge>
           )}
         </div>
 
-        {/* Chips con datos de la torneo */}
+        {/* Chips con datos del torneo */}
         <div className="flex gap-1.5 flex-wrap">
-          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
-            {fmt(tournament.createdAt)}
-          </span>
-          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
-            {isAmericano ? `${tournament.pairs.length} parejas` : `${tournament.players.filter((p) => !p.removed).length} jugadores`}
-          </span>
-          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono text-muted">
-            {playedCount} partidos
-          </span>
-          <span className="inline-flex items-center bg-surface border border-border-mid rounded-full px-2.5 py-0.5 text-[11px] font-mono">
-            {isAmericano ? (
-              <span className="text-brand">americano</span>
-            ) : (
-              <span className={tournament.mode === "pairs" ? "text-cyan" : "text-brand"}>
-                {tournament.mode === "pairs" ? "parejas fijas" : "equipos libres"}
-              </span>
-            )}
-          </span>
+          <Badge>{fmt(tournament.createdAt)}</Badge>
+          <Badge icon={isAmericano ? Users : User}>
+            {isAmericano ? `${tournament.pairs.length}` : `${tournament.players.filter((p) => !p.removed).length}`}
+          </Badge>
+          <Badge icon={Flame}>{playedCount} PJ</Badge>
+          <Badge color={isAmericano ? 'brand' : tournament.mode === 'pairs' ? 'cyan' : 'brand'}>
+            {isAmericano ? 'americano' : tournament.mode === 'pairs' ? 'parejas fijas' : 'equipos libres'}
+          </Badge>
         </div>
       </div>
 
@@ -239,22 +218,38 @@ export default function Main() {
 
       {isOwner && isAmericano && tournament.status === 'active' && tournament.bracket?.final?.winner_id && (
         <div className="px-6 py-3 border-b border-border bg-surface-alt flex items-center justify-between gap-3">
-          <span className="text-muted font-mono text-[12px]">La final fue jugada. ¿Querés cerrar la torneo?</span>
-          <button
-            onClick={handleToggleStatus}
-            className="bg-brand text-base border-0 px-4 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap"
-          >
-            ■ FINALIZAR TORNEO
-          </button>
+          <span className="text-muted font-mono text-[12px]">La final fue jugada. ¿Querés cerrar el torneo?</span>
+          <Btn variant="primary" size="sm" onClick={handleToggleStatus}>FINALIZAR TORNEO</Btn>
         </div>
       )}
 
-      <div className="flex border-b border-border px-4 items-center overflow-x-auto">
+      {/* Tabs — desktop (sm+) */}
+      <div className="hidden sm:flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (
           <div key={t.id} onClick={() => setTab(t.id)}
             className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${activeTab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
              <t.icon size={14} className="inline mr-1.5" />{t.label}
           </div>
+        ))}
+      </div>
+
+      {/* Bottom nav — mobile only */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-base border-t border-border flex">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 bg-transparent border-0 cursor-pointer transition-colors ${activeTab === t.id ? 'text-brand' : 'text-muted'}`}
+          >
+            <t.icon size={20} />
+            <span className="text-[9px] font-mono tracking-wide leading-none">
+              {t.id === 'standings'  ? 'TABLA'    :
+               t.id === 'matches'   ? 'PARTIDOS' :
+               t.id === 'previa'    ? 'PREVIA'   :
+               t.id === 'bracket'   ? 'CUADRO'   :
+               t.id === 'stats'     ? 'STATS'    : 'GESTIÓN'}
+            </span>
+          </button>
         ))}
       </div>
 
