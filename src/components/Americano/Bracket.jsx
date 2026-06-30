@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CircleStop, CirclePlay, Play, Trophy } from "lucide-react";
 import { PairAvatar } from "../shared/PlayerAvatar";
+import { courtLabel } from "../../utils/helpers";
 
 // ── Chip de seed con color según posición ──────────────────────────────────────
 const SEED_TONE = {
@@ -208,10 +209,10 @@ function BracketMatchCard({
       </div>
 
       {/* Cancha */}
-      {match.court != null && (
+      {courtLabel(tournament, match.court) != null && (
         <div className="text-center py-1">
           <span className="text-[10px] font-mono font-bold text-brand border border-brand/40 px-1.5 py-0.5 rounded-sm">
-            CANCHA {match.court}
+            CANCHA {courtLabel(tournament, match.court)}
           </span>
         </div>
       )}

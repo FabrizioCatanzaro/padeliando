@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fmt, calcStandings } from "../../utils/helpers";
+import { fmt, calcStandings, courtLabel } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
 import Stats from "../Stats/Stats";
 import MatchCard from "../Matches/MatchCard";
@@ -317,8 +317,8 @@ export default function ReadonlyView() {
                     {{ previa: 'FASE PREVIA', octavos: 'OCTAVOS', cuartos: 'CUARTOS', semis: 'SEMIS', final: 'FINAL' }[m.phase] ?? m.phase.toUpperCase()}
                   </Badge>
                 )}
-                {m.court != null && (
-                  <Badge variant="label" color="brand" className="whitespace-nowrap">CANCHA {m.court}</Badge>
+                {courtLabel(tournament, m.court) != null && (
+                  <Badge variant="label" color="brand" className="whitespace-nowrap">CANCHA {courtLabel(tournament, m.court)}</Badge>
                 )}
               </div>
               <div className="flex flex-col gap-0.5 min-w-0">
