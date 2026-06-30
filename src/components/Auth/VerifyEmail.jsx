@@ -9,6 +9,7 @@ export default function VerifyEmail() {
   const { login }  = useAuth()
   const [status, setStatus] = useState('loading') // loading | ok | error
   const [error,  setError]  = useState(null)
+  const [countdown, setCountdown] = useState(10)
   const ran = useRef(false)
 
   useEffect(() => {
@@ -19,13 +20,20 @@ export default function VerifyEmail() {
         const { user } = await api.auth.verifyEmail(token)
         login(user)
         setStatus('ok')
-        setTimeout(() => navigate('/'), 1500)
       } catch (e) {
         setError(e.message)
         setStatus('error')
       }
     })()
-  }, [token, login, navigate])
+  }, [token, login])
+
+  // Cuenta regresiva tras confirmar — redirige al terminar (el usuario puede saltearla con el botón)
+  useEffect(() => {
+    if (status !== 'ok') return
+    if (countdown <= 0) { navigate('/'); return }
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [status, countdown, navigate])
 
   return (
     <div className="bg-base flex items-start justify-center pt-16 px-4">
@@ -43,7 +51,13 @@ export default function VerifyEmail() {
           <>
             <div className="text-green text-4xl mb-4">✓</div>
             <p className="text-white font-semibold mb-2">Email confirmado</p>
-            <p className="text-[#555] text-sm">Te estamos llevando a tu cuenta...</p>
+            <p className="text-[#555] text-sm mb-6">
+              Tu cuenta ya está activa. Te llevaremos a tu cuenta en {countdown}s.
+            </p>
+            <button onClick={() => navigate('/')}
+              className="bg-brand text-base font-[Barlow_Condensed] font-black tracking-widest px-6 py-2.5 rounded text-sm cursor-pointer">
+              IR A MI CUENTA
+            </button>
           </>
         )}
 
