@@ -1,5 +1,5 @@
 import { Clock, Pencil, Trash2 } from "lucide-react";
-import { fmt, getPairLabel, setWinner, visibleSetsCount } from "../../utils/helpers";
+import { fmt, getPairLabel, setWinner, visibleSetsCount, courtLabel } from "../../utils/helpers";
 import Badge from "../shared/Badge";
 export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete, matchNum }) {
   const { team1, team2, score1, score2, date, createdAt, sets = [], sets_format } = match;
@@ -27,8 +27,8 @@ export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete
         <div className="text-xs text-muted font-mono">
           {matchNum != null && <span className="mr-1.5">#{matchNum} ·</span>}{fmt(date || createdAt)}
         </div>
-        {match.court != null && (
-          <Badge variant="label" color="brand">CANCHA {match.court}</Badge>
+        {courtLabel(tournament, match.court) != null && (
+          <Badge variant="label" color="brand">CANCHA {courtLabel(tournament, match.court)}</Badge>
         )}
       </div>
       <div className="flex items-center gap-3 flex-wrap">

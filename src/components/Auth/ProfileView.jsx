@@ -748,7 +748,7 @@ export default function ProfileView() {
   }
 
   const label = { display: 'block', fontSize: 11, letterSpacing: 2, color: '#555',
-                  fontFamily: "'Kode Mono',monospace", marginBottom: 6, marginTop: 16 };
+                  fontFamily: "'Albert Sans',monospace", marginBottom: 6, marginTop: 16 };
 
   return (
     <div className="bg-base text-content font-sans pb-15">
@@ -987,7 +987,7 @@ export default function ProfileView() {
                 <SocialLinksEditor value={socialLinks} onChange={setSocialLinks} />
 
                 <div style={{ borderTop: '1px solid #222', marginTop: 20, paddingTop: 4 }}>
-                  <div style={{ fontSize: 11, color: '#444', fontFamily: "'Kode Mono',monospace", marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, color: '#444', fontFamily: "'Albert Sans',monospace", marginBottom: 4 }}>
                     Dejá en blanco si no querés cambiar la contraseña
                   </div>
                   <label style={label}>CONTRASEÑA ACTUAL</label>
@@ -1000,19 +1000,19 @@ export default function ProfileView() {
                   <label style={label}>REPETIR NUEVA CONTRASEÑA</label>
                   <PasswordInput value={newPass2} onChange={e => setNewPass2(e.target.value)} />
                   {newPass2 && newPass !== newPass2 && (
-                    <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Kode Mono',monospace", marginTop: 4 }}>
+                    <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Albert Sans',monospace", marginTop: 4 }}>
                       Las contraseñas no coinciden
                     </div>
                   )}
                 </div>
 
                 {saveError && (
-                  <div style={{ fontSize: 12, color: '#e05252', fontFamily: "'Kode Mono',monospace", marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: '#e05252', fontFamily: "'Albert Sans',monospace", marginTop: 12 }}>
                     {saveError}
                   </div>
                 )}
                 {saveOk && (
-                  <div style={{ fontSize: 12, color: '#4af07a', fontFamily: "'Kode Mono',monospace", marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: '#4af07a', fontFamily: "'Albert Sans',monospace", marginTop: 12 }}>
                     ✓ Guardado
                   </div>
                 )}

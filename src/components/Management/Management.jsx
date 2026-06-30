@@ -2,13 +2,63 @@ import { useState } from "react";
 import Modal from "../shared/Modal";
 import PlayerManager from "./PlayerManager";
 import PairManager from "./PairManager";
+import ClubSelector from "../shared/ClubSelector";
 import Btn from "../shared/Btn";
-import { Play, RotateCcw, TicketCheck, Trash2 } from "lucide-react";
+import { clubCourts } from "../../utils/helpers";
+import { Play, RotateCcw, TicketCheck, Trash2, Check } from "lucide-react";
+
+function ClubEventEditor({ tournament, onSave }) {
+  const initialClub = tournament.club_id
+    ? { id: tournament.club_id, name: tournament.club_name, location_name: tournament.club_location_name }
+    : null;
+  const [club, setClub]   = useState(initialClub);
+  const [date, setDate]   = useState(tournament.event_date ? String(tournament.event_date).slice(0, 10) : "");
+  const [saving, setSaving] = useState(false);
+
+  const clubChanged = (club?.id ?? null) !== (tournament.club_id ?? null);
+  const dirty = clubChanged
+    || (date || null) !== (tournament.event_date ? String(tournament.event_date).slice(0, 10) : null);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const payload = { club_id: club?.id ?? null, event_date: date || null };
+      // Al cambiar de club, las canchas del torneo pasan a ser las del nuevo club.
+      if (clubChanged) payload.number_of_courts = clubCourts(club);
+      await onSave(payload);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-surface border border-border-mid rounded-lg p-4 mt-6">
+      <div className="font-condensed font-bold text-[11px] tracking-[2px] text-muted mb-3">CLUB Y FECHA</div>
+      <div className="flex flex-col gap-3">
+        <div>
+          <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">CLUB</label>
+          <ClubSelector value={club} onChange={setClub} />
+        </div>
+        <div>
+          <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">FECHA DEL EVENTO</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full bg-surface border border-border-mid text-white px-3 py-2 rounded-sm text-sm outline-none font-sans"
+          />
+        </div>
+        <Btn variant="primary" size="sm" icon={Check} onClick={save} loading={saving} disabled={!dirty}>GUARDAR</Btn>
+      </div>
+    </div>
+  );
+}
+
 export default function Management({
   tournament, isOwner,
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
-  onResetScores, onDeleteTournament, onToggleStatus, onUpdateMode,
+  onResetScores, onDeleteTournament, onToggleStatus, onUpdateMode, onUpdateClubEvent,
 }) {
   const [resetModal, setResetModal]   = useState(false);
   const [resetInput, setResetInput]   = useState('');
@@ -64,6 +114,8 @@ export default function Management({
           )}
         </div>
       )}
+
+      {isOwner && <ClubEventEditor tournament={tournament} onSave={onUpdateClubEvent} />}
 
       {tournament.mode === "pairs" && (
         <PairManager

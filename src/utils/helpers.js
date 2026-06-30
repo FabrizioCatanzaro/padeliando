@@ -173,6 +173,23 @@ function patchBracketNames(bracket, pairs, players) {
   };
 }
 
+// Cantidad de canchas que aporta un club para un torneo.
+// Sin club → 1 (default). Club sin canchas cargadas → 0 (los partidos quedan con cancha "-").
+export function clubCourts(club) {
+  if (!club) return 1;
+  const n = Number(club.courts);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+// Etiqueta de cancha a mostrar para un partido.
+// - Si el torneo se juega en un club sin canchas cargadas (number_of_courts === 0) → '-'.
+// - Si el partido tiene cancha asignada → su número.
+// - Si no, null (no se muestra badge).
+export function courtLabel(tournament, court) {
+  if (tournament?.number_of_courts === 0) return '-';
+  return court != null ? String(court) : null;
+}
+
 export function adaptTournament(t) {
   const players = (t.players ?? []).map(p => ({ ...p, name: p.linked_name ?? p.name }));
   const pairs   = (t.pairs   ?? []).map(adaptPair);
@@ -189,6 +206,22 @@ export function adaptTournament(t) {
 export const localDateStr = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Estado a mostrar de un torneo, derivado de su estado, fecha de juego y si ya tiene partidos.
+// 'upcoming' = fecha futura y SIN partidos jugados; apenas hay un partido o la fecha no es futura → 'active'.
+export function tournamentDisplayStatus({ status, event_date, hasPlayed }) {
+  if (status === 'finished') return 'finished';
+  if (hasPlayed) return 'active';
+  const ed = event_date ? String(event_date).slice(0, 10) : null;
+  if (ed && ed > localDateStr()) return 'upcoming';
+  return 'active';
+}
+
+export const TOURNAMENT_STATUS_META = {
+  upcoming: { label: 'PRÓXIMAMENTE', color: 'cyan' },
+  active:   { label: 'EN CURSO',     color: 'green' },
+  finished: { label: 'FINALIZADO',   color: 'default' },
 };
 
 export const emptyForm = () => ({

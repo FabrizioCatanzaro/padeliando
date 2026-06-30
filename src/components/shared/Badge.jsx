@@ -33,7 +33,7 @@ export default function Badge({
 }) {
   if (variant === 'status') {
     return (
-      <span className={`inline-flex items-center gap-1 text-[11px] font-mono ${COLOR_STATUS[color]} ${className}`}>
+      <span className={`inline-flex items-center gap-1 text-sm font-mono ${COLOR_STATUS[color]} ${className}`}>
         <span>{STATUS_DOT[color]}</span>
         {children}
       </span>

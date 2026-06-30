@@ -1,47 +1,37 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { uid } from "../../utils/helpers";
+import { uid, clubCourts } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import PlayerInput from "./PlayerInput";
 import PairBuilder from "./PairBuilder";
-import PremiumModal from "../shared/PremiumModal";
-import { ChevronLeft, Check, Lock } from "lucide-react";
+import ClubSelector from "../shared/ClubSelector";
+import { ChevronLeft, Check } from "lucide-react";
 import Btn from "../shared/Btn";
 
-function CourtsInput({ isPremium, value, onChange, onOpenPremium }) {
+function EventMeta({ club, setClub, eventDate, setEventDate }) {
+  const courts = club ? clubCourts(club) : null;
   return (
-    <div className="mt-5">
-      <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">
-        CANTIDAD DE CANCHAS
-        {!isPremium && <span className="ml-2 text-brand font-mono text-[10px]">PREMIUM</span>}
-      </label>
-      {isPremium ? (
-        <div className="flex gap-2 flex-wrap">
-          {[1,2,3,4,5,6,7,8].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => onChange(n)}
-              className={`w-10 h-10 rounded-sm border font-mono font-bold text-[14px] cursor-pointer transition-colors ${
-                value === n
-                  ? 'bg-brand text-base border-brand'
-                  : 'bg-surface border-border-mid text-muted hover:border-border-strong'
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onOpenPremium}
-          className="flex items-center gap-2 bg-surface border border-border-mid text-muted px-3.5 py-2.5 rounded-sm text-[13px] font-sans cursor-pointer hover:border-brand/50 transition-colors w-full"
-        >
-          <Lock size={13} className="text-brand shrink-0" />
-          <span>1 cancha (gratis) — desbloqueá más con Premium</span>
-        </button>
-      )}
+    <div className="mt-5 flex flex-col gap-5">
+      <div>
+        <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">CLUB (opcional)</label>
+        <ClubSelector value={club} onChange={setClub} />
+        {club && (
+          <p className="text-[11px] font-mono mt-2 text-dim">
+            {courts > 0
+              ? <>Este club tiene <span className="text-brand">{courts} {courts === 1 ? 'cancha' : 'canchas'}</span> — vas a poder asignar la cancha en cada partido.</>
+              : <>Este club no tiene canchas cargadas — los partidos quedarán con cancha <span className="text-brand">"-"</span>.</>}
+          </p>
+        )}
+      </div>
+      <div>
+        <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">FECHA DEL EVENTO (opcional)</label>
+        <input
+          type="date"
+          value={eventDate}
+          onChange={(e) => setEventDate(e.target.value)}
+          className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[14px] rounded-sm outline-none"
+        />
+      </div>
     </div>
   );
 }
@@ -81,7 +71,7 @@ function StepBar({ steps, currentIdx }) {
 export default function Setup() {
   const { groupId } = useParams();
   const navigate = useNavigate();
-  const { handleCreate: createTournament, groupOwnerIsPremium } = useTournament(groupId, null);
+  const { handleCreate: createTournament } = useTournament(groupId, null);
   const [format, setFormat]       = useState("liga");
   const [name, setName]           = useState("");
   const [playerNames, setPlayerNames] = useState(["", "", "", ""]);
@@ -89,8 +79,8 @@ export default function Setup() {
   const [pairs, setPairs]         = useState([]);
   const [step, setStep]           = useState("formato");
   const [error, setError]         = useState(false);
-  const [numberOfCourts, setNumberOfCourts] = useState(1);
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [club, setClub]           = useState(null);
+  const [eventDate, setEventDate] = useState("");
   const [creating, setCreating]   = useState(false);
 
   const [directPairs, setDirectPairs] = useState(() =>
@@ -160,7 +150,10 @@ export default function Setup() {
   async function onCreate(tournamentName, players, pairsInput, fmt) {
     setCreating(true);
     try {
-      const tId = await createTournament(tournamentName, players, pairsInput, fmt, numberOfCourts);
+      const tId = await createTournament(tournamentName, players, pairsInput, fmt, clubCourts(club), {
+        club_id: club?.id ?? null,
+        event_date: eventDate || null,
+      });
       navigate(`/cat/${groupId}/torneo/${tId}`);
     } finally {
       setCreating(false);
@@ -198,7 +191,6 @@ export default function Setup() {
 
   return (
     <div className="bg-base text-content font-sans pb-15">
-      {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
       <div className="max-w-125 mx-auto px-4 sm:px-7 py-8 sm:py-10">
 
         {/* Volver unificado */}
@@ -251,7 +243,7 @@ export default function Setup() {
               autoFocus
             />
 
-            <CourtsInput isPremium={groupOwnerIsPremium} value={numberOfCourts} onChange={setNumberOfCourts} onOpenPremium={() => setShowPremiumModal(true)} />
+            <EventMeta club={club} setClub={setClub} eventDate={eventDate} setEventDate={setEventDate} />
 
             <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1 mt-5">
               JUGADORES <span className="text-muted">(mínimo 4)</span>
@@ -331,7 +323,7 @@ export default function Setup() {
               autoFocus
             />
 
-            <CourtsInput isPremium={groupOwnerIsPremium} value={numberOfCourts} onChange={setNumberOfCourts} onOpenPremium={() => setShowPremiumModal(true)} />
+            <EventMeta club={club} setClub={setClub} eventDate={eventDate} setEventDate={setEventDate} />
 
             <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1 mt-5">
               PAREJAS <span className="text-muted">(mínimo 8, máximo 16)</span>

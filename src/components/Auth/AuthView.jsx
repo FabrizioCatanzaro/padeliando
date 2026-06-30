@@ -7,6 +7,8 @@ import { useAuth } from '../../context/useAuth'
 
 let googleInitialized = false
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 function validatePassword(p) {
   if (p.length < 8)       return 'Mínimo 8 caracteres'
   if (!/[A-Z]/.test(p))   return 'Al menos una mayúscula'
@@ -48,12 +50,12 @@ function PasswordInput({ value, onChange, placeholder = '········', onKe
         onChange={onChange}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none pr-10 font-[Barlow]"
+        className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none pr-10 font-condensed"
       />
       <button
         type="button"
         onClick={() => setShow(v => !v)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-[#aaa] transition-colors"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-[#aaa] hover:cursor-pointer transition-colors"
       >
         {show ? <EyeOff size={15} /> : <Eye size={15} />}
       </button>
@@ -64,6 +66,8 @@ function PasswordInput({ value, onChange, placeholder = '········', onKe
 export default function AuthView({ mode: initialMode }) {
   const [mode,      setMode]      = useState(initialMode)
   const [name,      setName]      = useState('')
+  const [username,  setUsername]  = useState('')
+  const [usernameStatus, setUsernameStatus] = useState(null) // null | 'checking' | 'available' | 'taken' | 'invalid'
   const [email,     setEmail]     = useState('')
   const [password,  setPassword]  = useState('')
   const [password2, setPassword2] = useState('')
@@ -82,6 +86,39 @@ export default function AuthView({ mode: initialMode }) {
   const sessionExpired = searchParams.get('expired') === '1'
   const isRegister = mode === 'register'
   const googleDivRef = useRef(null)
+  const usernameEdited = useRef(false) // true cuando el usuario editó el username manualmente
+
+  // Sugerir un username libre a partir del nombre (mientras no lo haya editado a mano)
+  useEffect(() => {
+    if (!isRegister || usernameEdited.current) return
+    const n = name.trim()
+    if (n.length < 3) { setUsername(''); setUsernameStatus(null); return }
+    const t = setTimeout(async () => {
+      try {
+        const { username: sug } = await api.auth.suggestUsername(n)
+        if (!usernameEdited.current) { setUsername(sug); setUsernameStatus('available') }
+      } catch { /* ignorar — el usuario puede escribirlo a mano */ }
+    }, 500)
+    return () => clearTimeout(t)
+  }, [name, isRegister])
+
+  // Verificar disponibilidad cuando el usuario edita el username a mano
+  useEffect(() => {
+    if (!isRegister || !usernameEdited.current) return
+    const u = username.trim().toLowerCase()
+    if (!u) { setUsernameStatus(null); return }
+    if (u.length < 3 || u.length > 20 || !/^[a-z0-9_]+$/.test(u)) {
+      setUsernameStatus('invalid'); return
+    }
+    setUsernameStatus('checking')
+    const t = setTimeout(async () => {
+      try {
+        const { available } = await api.auth.checkUsername(u)
+        setUsernameStatus(available ? 'available' : 'taken')
+      } catch { setUsernameStatus(null) }
+    }, 500)
+    return () => clearTimeout(t)
+  }, [username, isRegister])
 
   useEffect(() => {
     function initGoogle() {
@@ -117,6 +154,11 @@ export default function AuthView({ mode: initialMode }) {
 
   function getFormError() {
     if (!isRegister) return null
+    const u = username.trim().toLowerCase()
+    if (!u) return 'Elegí un nombre de usuario'
+    if (u.length < 3 || u.length > 20 || !/^[a-z0-9_]+$/.test(u))
+      return 'El nombre de usuario solo puede tener 3-20 letras, números o guiones bajos'
+    if (usernameStatus === 'taken') return 'Ese nombre de usuario ya está en uso'
     const pwErr = validatePassword(password)
     if (pwErr) return pwErr
     if (password !== password2) return 'Las contraseñas no coinciden'
@@ -131,7 +173,7 @@ export default function AuthView({ mode: initialMode }) {
     setLoading(true)
     try {
       if (isRegister) {
-        const res = await api.auth.register({ name, email, password })
+        const res = await api.auth.register({ name, email, password, username: username.trim().toLowerCase() })
         if (res.pending_verification) {
           setVerificationSent(res.email ?? email)
         } else if (res.user) {
@@ -163,10 +205,13 @@ export default function AuthView({ mode: initialMode }) {
   }
 
   async function handleForgot() {
-    if (!forgotEmail.trim()) return
+    setError(null)
+    const value = forgotEmail.trim()
+    if (!value) { setError('Ingresá tu correo electrónico'); return }
+    if (!EMAIL_RE.test(value)) { setError('Ingresá un correo electrónico válido'); return }
     setLoading(true)
     try {
-      await api.auth.forgotPassword(forgotEmail)
+      await api.auth.forgotPassword(value)
       setForgotSent(true)
     } catch (e) {
       setError(e.message)
@@ -178,9 +223,10 @@ export default function AuthView({ mode: initialMode }) {
   function switchMode(m) {
     setMode(m); setError(null); setPassword(''); setPassword2(''); setShowForgot(false)
     setVerificationSent(null); setNeedsVerification(false); setResendStatus(null)
+    setUsername(''); setUsernameStatus(null); usernameEdited.current = false
   }
 
-  const label = 'block text-[11px] tracking-widest text-[#555] font-mono mb-1.5 mt-4'
+  const label = 'block text-[11px] tracking-widest text-secondary font-mono mb-1.5 mt-4'
 
   // Vista de "confirmá tu email" (tras registrarse)
   if (verificationSent) {
@@ -230,18 +276,18 @@ export default function AuthView({ mode: initialMode }) {
             </div>
           ) : (
             <>
-              <p className="text-[#555] text-sm mt-1 mb-8">Recuperá tu contraseña</p>
+              <p className="text-secondary text-sm mt-1 mb-8">Recuperá tu contraseña</p>
               <label className={label}>EMAIL</label>
               <input
                 type="email"
                 placeholder="tu@email.com"
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
-                className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]"
+                className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-condensed"
               />
               {error && <p className="text-danger text-xs font-mono mt-2">{error}</p>}
               <button onClick={handleForgot} disabled={loading}
-                className="w-full mt-6 bg-brand text-base font-[Barlow_Condensed] font-black tracking-widest py-3 rounded text-sm disabled:opacity-50">
+                className="w-full mt-6 bg-brand text-base font-condensed cursor-pointer font-black tracking-widest py-3 rounded text-sm disabled:opacity-50">
                 {loading ? 'ENVIANDO...' : 'ENVIAR ENLACE'}
               </button>
               <button onClick={() => setShowForgot(false)}
@@ -272,13 +318,40 @@ export default function AuthView({ mode: initialMode }) {
           <>
             <label className={label}>NOMBRE</label>
             <input placeholder="Tu nombre" value={name} onChange={e => setName(e.target.value)} minLength={6} maxLength={20}
-              className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" />
+              className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-condensed" />
+
+            <label className={label}>NOMBRE DE USUARIO</label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#555] text-sm font-condensed pointer-events-none">@</span>
+              <input
+                placeholder="tu_usuario"
+                value={username}
+                onChange={e => { usernameEdited.current = true; setUsername(e.target.value.toLowerCase()) }}
+                minLength={3}
+                maxLength={20}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                className="w-full bg-surface border border-border-mid text-white pl-7 pr-3.5 py-2.5 rounded text-sm outline-none font-condensed" />
+            </div>
+            {usernameStatus === 'checking' && (
+              <p className="text-[#555] text-xs font-mono mt-1">Verificando disponibilidad...</p>
+            )}
+            {usernameStatus === 'available' && username.trim() && (
+              <p className="text-green text-xs font-mono mt-1">✓ Disponible</p>
+            )}
+            {usernameStatus === 'taken' && (
+              <p className="text-danger text-xs font-mono mt-1">Ese nombre de usuario ya está en uso</p>
+            )}
+            {usernameStatus === 'invalid' && (
+              <p className="text-danger text-xs font-mono mt-1">Usá 3-20 letras, números o guiones bajos</p>
+            )}
           </>
         )}
 
         <label className={label}>EMAIL</label>
         <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)}
-          className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]" />
+          className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-condensed" />
 
         <label className={label}>CONTRASEÑA</label>
         <PasswordInput value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()}/>
@@ -301,7 +374,7 @@ export default function AuthView({ mode: initialMode }) {
         {!isRegister && (
           <div className="text-right mt-1">
             <button onClick={() => setShowForgot(true)}
-              className="text-[#555] text-xs hover:text-[#aaa] font-mono transition-colors cursor-pointer">
+              className="text-secondary text-xs hover:text-[#aaa] font-mono transition-colors cursor-pointer">
               ¿Olvidaste tu contraseña?
             </button>
           </div>
@@ -321,15 +394,15 @@ export default function AuthView({ mode: initialMode }) {
         )}
 
         <button onClick={handleSubmit} disabled={loading}
-          className="w-full mt-5 bg-brand text-base font-[Barlow_Condensed] font-black tracking-widest py-3 rounded text-sm disabled:opacity-50 transition-opacity cursor-pointer">
+          className="w-full mt-5 bg-brand text-base font-condensed font-black tracking-widest py-3 rounded text-sm disabled:opacity-50 transition-opacity cursor-pointer">
           {loading ? 'CARGANDO...' : isRegister ? 'REGISTRARSE' : 'INGRESAR'}
         </button>
 
-        <div className="text-center my-4 text-[#333] text-xs font-mono">— o —</div>
+        <div className="text-center my-4 text-secondary text-xs font-mono">— o —</div>
 
         <div ref={googleDivRef} className="w-full flex justify-center" />
 
-        <p className="text-center mt-5 text-sm text-[#555]">
+        <p className="text-center mt-5 text-sm text-secondary font-mono">
           {isRegister ? (
             <>¿Ya tenés cuenta?{' '}
               <button onClick={() => switchMode('login')} className="text-brand hover:underline cursor-pointer">Ingresá</button>

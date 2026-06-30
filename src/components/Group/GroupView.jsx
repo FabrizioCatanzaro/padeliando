@@ -1,14 +1,13 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
-import MapPicker from '../shared/MapPicker';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt } from '../../utils/helpers';
+import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, MapPin, Smile, Check, X, Loader2, Users, User, Flame } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2 } from 'lucide-react';
 import Btn from '../shared/Btn';
 import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
@@ -33,19 +32,9 @@ export default function GroupView() {
   const [editDesc,     setEditDesc]     = useState('');
   const [editIsPublic, setEditIsPublic] = useState(true);
   const [editEmojis,   setEditEmojis]   = useState([]);
-  const [editLocation, setEditLocation] = useState('');
-  const [editPlaceId,  setEditPlaceId]  = useState('');
-  const [editLat,      setEditLat]      = useState(null);
-  const [editLon,      setEditLon]      = useState(null);
-
-  // location autocomplete
-  const [locationSuggestions, setLocationSuggestions] = useState([]);
-  const [locationLoading,     setLocationLoading]     = useState(false);
-  const locationAbortRef = useRef(null);
 
   // modals
   const [showEmojiModal, setShowEmojiModal] = useState(false);
-  const [showMapPicker,  setShowMapPicker]  = useState(false);
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -65,47 +54,6 @@ export default function GroupView() {
     handleAllTournaments();
   }, [groupId]);
 
-  // Photon autocomplete
-  useEffect(() => {
-    if (!editingGroup || !editLocation.trim() || editLocation.length < 2 || editPlaceId || editLat !== null) {
-      setLocationSuggestions([]);
-      return;
-    }
-    const t = setTimeout(() => {
-      locationAbortRef.current?.abort();
-      const controller = new AbortController();
-      locationAbortRef.current = controller;
-      setLocationLoading(true);
-      const params = new URLSearchParams({ q: editLocation, limit: 5 });
-      fetch(`https://photon.komoot.io/api/?${params}`, { signal: controller.signal })
-        .then(r => r.json())
-        .then(data => setLocationSuggestions(data.features ?? []))
-        .catch(() => {})
-        .finally(() => setLocationLoading(false));
-    }, 400);
-    return () => clearTimeout(t);
-  }, [editLocation, editPlaceId, editLat, editingGroup]);
-
-  function selectPlace(feature) {
-    const p = feature.properties;
-    const [fLon, fLat] = feature.geometry.coordinates;
-    const parts = [p.name, p.street, p.city, p.state].filter(Boolean);
-    setEditLocation([...new Set(parts)].join(', '));
-    setEditPlaceId(`${p.osm_type}:${p.osm_id}`);
-    setEditLat(fLat);
-    setEditLon(fLon);
-    setLocationSuggestions([]);
-  }
-
-  function handleMapConfirm(pickedLat, pickedLon, displayName) {
-    setEditLat(pickedLat);
-    setEditLon(pickedLon);
-    if (displayName) setEditLocation(displayName);
-    setEditPlaceId('');
-    setLocationSuggestions([]);
-    setShowMapPicker(false);
-  }
-
   function toggleEmoji(e) {
     setEditEmojis(prev =>
       prev.includes(e) ? prev.filter(x => x !== e) : prev.length < 2 ? [...prev, e] : prev
@@ -117,10 +65,6 @@ export default function GroupView() {
     setEditDesc(group.description ?? '');
     setEditIsPublic(group.is_public);
     setEditEmojis(group.emojis ?? []);
-    setEditLocation(group.location_name ?? '');
-    setEditPlaceId(group.place_id ?? '');
-    setEditLat(group.lat ?? null);
-    setEditLon(group.lon ?? null);
     setEditingGroup(true);
   }
 
@@ -132,10 +76,6 @@ export default function GroupView() {
         description:   editDesc.trim(),
         is_public:     editIsPublic,
         emojis:        editEmojis,
-        location_name: editLocation || null,
-        place_id:      editPlaceId || null,
-        lat:           editLat ?? null,
-        lon:           editLon ?? null,
       });
       setGroup(prev => ({ ...prev, ...updated }));
       setEditingGroup(false);
@@ -213,8 +153,8 @@ export default function GroupView() {
           )}
 
           {!isOwner && (
-            <span style={{ fontSize: 11, color: '#444', fontFamily: "'Kode Mono',monospace" }}>
-              Dueño: <span className='hover:text-white underline cursor-pointer' onClick={() => navigate(`/u/${group.owner_username}`)}>@{group.owner_username ?? '—'}</span>
+            <span className="flex gap-2 items-center border border-border-mid rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
+              <User2 className="text-secondary" size={16}/><span className='text-md text-secondary font-mono'>@{group.owner_username ?? '—'}</span>
             </span>
           )}
         </div>
@@ -243,53 +183,6 @@ export default function GroupView() {
                   placeholder="Descripción (opcional)"
                   className="w-full bg-surface border border-border-mid text-white px-2.5 py-1.5 font-sans text-[13px] rounded-sm outline-none"
                 />
-              </div>
-
-              {/* Ubicación */}
-              <div>
-                <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">LUGAR / CLUB (opcional)</label>
-                <div className="relative">
-                  {locationLoading
-                    ? <Loader2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#555] pointer-events-none animate-spin" />
-                    : <MapPin size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#555] pointer-events-none" />
-                  }
-                  <input
-                    className="w-full bg-surface border border-border-mid text-white pl-7 pr-20 py-2 rounded-sm text-sm outline-none font-sans"
-                    placeholder="ej: Padel Club Palermo..."
-                    value={editLocation}
-                    onChange={(e) => { setEditLocation(e.target.value); setEditPlaceId(''); setEditLat(null); setEditLon(null); }}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowMapPicker(true)}
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono border transition-colors cursor-pointer bg-transparent ${editLat ? 'border-brand text-brand' : 'border-border-mid text-[#555] hover:border-border-strong hover:text-white'}`}
-                  >
-                    <MapPin size={10} />
-                    {editLat ? 'PIN ✓' : 'MAPA'}
-                  </button>
-                  {locationSuggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-50 border border-border-mid border-t-0 rounded-b overflow-hidden" style={{ background: '#111827' }}>
-                      {locationSuggestions.map((f, i) => {
-                        const p = f.properties;
-                        const primary = p.name || p.street || '';
-                        const secondary = [p.city, p.state].filter(Boolean).join(', ');
-                        return (
-                          <div key={i}
-                            onMouseDown={(e) => { e.preventDefault(); selectPlace(f); }}
-                            className="flex items-start gap-2 px-3 py-2.5 cursor-pointer border-b border-border-mid last:border-0 hover:bg-surface transition-colors"
-                          >
-                            <MapPin size={11} className="text-[#444] mt-0.5 shrink-0" />
-                            <div>
-                              <div className="text-sm text-white leading-snug">{primary}</div>
-                              {secondary && <div className="text-xs text-[#555] mt-0.5">{secondary}</div>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
               </div>
 
               {/* Privacidad */}
@@ -346,12 +239,6 @@ export default function GroupView() {
               {group.description && (
                 <div className="font-condensed text-[14px] text-gray-500 tracking-wide mt-0.5">{group.description}</div>
               )}
-              {group.location_name && (
-                <div className="flex items-center gap-1 font-mono text-xs text-gray-600 mt-1.5">
-                  <MapPin size={11} />
-                  <span className="truncate">{group.location_name}</span>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -395,6 +282,9 @@ export default function GroupView() {
             const fmtBorder = isAmericano ? 'rgba(232,240,74,0.18)' : 'rgba(99,179,237,0.18)';
             const count = isAmericano ? t.pair_count : t.player_count;
             const CountIcon = isAmericano ? Users : User;
+            const statusMeta = TOURNAMENT_STATUS_META[tournamentDisplayStatus({
+              status: t.status, event_date: t.event_date, hasPlayed: (t.match_count ?? 0) > 0,
+            })];
             return (
             <FadeInCard key={t.id} delay={i * 60}
               className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link"
@@ -417,31 +307,37 @@ export default function GroupView() {
                 </div>
                 <div className="px-4 py-3.5 flex-1 min-w-0">
                   <div className="flex justify-between items-start gap-2 mb-2">
-                    <div className="font-condensed font-bold text-[17px] text-white leading-tight">{t.name}</div>
-                    <Badge variant="status" color={t.status === 'active' ? 'green' : 'default'}>
-                      {t.status === 'active' ? 'EN CURSO' : 'FINALIZADO'}
+                    <div className="font-condensed font-bold text-lg text-content leading-tight">{t.name}</div>
+                    <Badge variant="status" color={statusMeta.color}>
+                      {statusMeta.label}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-3 flex-wrap">
                     {count > 0 && (
-                      <span className="flex items-center gap-1 font-mono text-[11px] text-dim">
+                      <span className="flex items-center gap-1 font-mono text-sm text-dim">
                         <CountIcon size={11} />{count}
                       </span>
                     )}
                     {t.match_count > 0 && (
-                      <span className="flex items-center gap-1 font-mono text-[11px] text-dim">
+                      <span className="flex items-center gap-1 font-mono text-sm text-dim">
                         <Flame size={11} />{t.match_count}
                       </span>
                     )}
                     {!isAmericano && t.mode && (
-                      <span className="font-mono text-[11px] text-dim">
-                        {t.mode === 'pairs' ? 'parejas' : 'libre'}
+                      <span className="font-mono text-sm text-dim">
+                        {t.mode === 'pairs' ? '(en parejas)' : '(equipos libres)'}
                       </span>
                     )}
-                    <span className="font-mono text-[11px] text-dim ml-auto">{fmt(t.created_at)}</span>
+                    <span className="font-mono text-sm text-dim ml-auto">{fmt(t.event_date ?? t.created_at)}</span>
                   </div>
+                  {t.club_name && (
+                    <div className="flex items-center gap-1.5 text-sm text-secondary font-mono mt-2">
+                      <Building2 size={11} className="shrink-0" />
+                      <span className="truncate">{t.club_name}</span>
+                    </div>
+                  )}
                   {t.status === 'finished' && t.winner_label && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-brand font-mono mt-2">
+                    <div className="flex items-center gap-1.5 text-sm text-brand font-mono mt-2">
                       <Trophy size={11} /> {t.winner_label}
                     </div>
                   )}
@@ -455,16 +351,6 @@ export default function GroupView() {
         <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} />
       </div>
 
-      {/* Modal mapa */}
-      {showMapPicker && (
-        <MapPicker
-          initialLat={editLat}
-          initialLon={editLon}
-          onConfirm={handleMapConfirm}
-          onClose={() => setShowMapPicker(false)}
-        />
-      )}
-
       {/* Modal emojis */}
       {showEmojiModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
@@ -472,7 +358,7 @@ export default function GroupView() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowEmojiModal(false); }}>
           <div className="bg-surface border border-border-mid rounded-t-2xl sm:rounded-xl w-full sm:max-w-sm p-5">
             <div className="flex items-center justify-between mb-4">
-              <div className="font-mono text-[11px] text-[#555] tracking-widest">ÍCONOS · máx. 2</div>
+              <div className="font-mono text-sm text-[#555] tracking-widest">ÍCONOS · máx. 2</div>
               <button type="button" onClick={() => setShowEmojiModal(false)}
                 className="bg-transparent border-none text-[#555] hover:text-white cursor-pointer transition-colors">
                 <X size={18} />

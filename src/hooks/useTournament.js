@@ -52,7 +52,7 @@ export function useTournament(groupId, tournamentId) {
   function flash() { setSaved(true); setTimeout(() => setSaved(false), 1500); }
  
   // ── Crear torneo ────────────────────────────────────────────────────
-  async function handleCreate(name, playerNames, pairsInput, format = 'liga', numberOfCourts = 1) {
+  async function handleCreate(name, playerNames, pairsInput, format = 'liga', numberOfCourts = 1, extra = {}) {
 
     const t = await api.tournaments.create({
       groupId,
@@ -62,6 +62,8 @@ export function useTournament(groupId, tournamentId) {
       playerNames:      playerNames.filter(Boolean),
       pairs:            pairsInput ?? [],
       number_of_courts: numberOfCourts ?? 1,
+      club_id:          extra.club_id ?? null,
+      event_date:       extra.event_date ?? null,
     });
     setTournament(adaptTournament(t));
     return t.id; // para que App.js pueda navegar al torneo
@@ -199,6 +201,12 @@ export function useTournament(groupId, tournamentId) {
     showToast('Nombre actualizado');
   }
 
+  async function handleUpdateClubEvent({ club_id, event_date, number_of_courts }) {
+    await api.tournaments.update(tournament.id, { club_id, event_date, number_of_courts });
+    await reload();
+    showToast('Club y fecha actualizados');
+  }
+
   async function handleSetLiveMatch(data) {
     await api.tournaments.setLive(tournament.id, data ?? null);
     await reload();
@@ -239,7 +247,7 @@ export function useTournament(groupId, tournamentId) {
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch,
+    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
     handleUpdateMode,
   };
