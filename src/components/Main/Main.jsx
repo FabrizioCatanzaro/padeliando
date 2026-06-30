@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fmt, calcStandings } from "../../utils/helpers";
+import { fmt, calcStandings, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import { useAuth } from "../../context/useAuth";
 import Standings    from "../Standings/Standings";
@@ -10,7 +10,7 @@ import Management   from "../Management/Management";
 import Previa       from "../Americano/Previa";
 import Bracket      from "../Americano/Bracket";
 import PhotoGallery from "../Photos/PhotoGallery";
-import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split, User, Users } from "lucide-react";
+import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split, User, Users, Building2, Calendar } from "lucide-react";
 import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
@@ -42,7 +42,7 @@ export default function Main() {
     handleAddPlayer, handleEditPlayer, handleDeletePlayer,
     handleAddPair, handleEditPair, handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName, handleSetLiveMatch,
+    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
     handleUpdateMode,
   } = useTournament(groupId, tournamentId);
@@ -89,6 +89,9 @@ export default function Main() {
       .filter(m => m.winner_id != null).length
     : 0;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
+  const statusMeta = TOURNAMENT_STATUS_META[tournamentDisplayStatus({
+    status: tournament.status, event_date: tournament.event_date, hasPlayed: playedCount > 0,
+  })];
 
   // Ganador(es) de la torneo — solo cuando está finalizada
   let winnerLabel = null;
@@ -193,8 +196,8 @@ export default function Main() {
 
         {/* Estado + ganador */}
         <div className="flex items-center gap-3 flex-wrap mb-3">
-          <Badge variant="status" color={tournament.status === 'active' ? 'green' : 'default'}>
-            {tournament.status === 'active' ? 'EN CURSO' : 'FINALIZADA'}
+          <Badge variant="status" color={statusMeta.color}>
+            {statusMeta.label}
           </Badge>
           {winnerLabel && (
             <Badge variant="chip" color="brand" icon={Trophy}>{winnerLabel}</Badge>
@@ -203,7 +206,7 @@ export default function Main() {
 
         {/* Chips con datos del torneo */}
         <div className="flex gap-1.5 flex-wrap">
-          <Badge>{fmt(tournament.createdAt)}</Badge>
+          <Badge icon={Calendar}>{fmt(tournament.event_date ?? tournament.createdAt)}</Badge>
           <Badge icon={isAmericano ? Users : User}>
             {isAmericano ? `${tournament.pairs.length}` : `${tournament.players.filter((p) => !p.removed).length}`}
           </Badge>
@@ -212,6 +215,19 @@ export default function Main() {
             {isAmericano ? 'americano' : tournament.mode === 'pairs' ? 'parejas fijas' : 'equipos libres'}
           </Badge>
         </div>
+
+        {/* Club */}
+        {tournament.club_id && (
+          <div className="flex gap-1.5 flex-wrap mt-2.5">
+            <button
+              onClick={() => navigate(`/club/${tournament.club_id}`)}
+              className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 cursor-pointer hover:border-brand transition-colors text-[11px] font-mono text-muted"
+            >
+              <Building2 size={11} className="text-brand" />
+              <span className="truncate max-w-[180px]">{tournament.club_name ?? 'Club'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {saved && <div className="bg-[#1a2e1a] text-green px-4 py-1.5 text-[12px] font-mono text-center">✓ Guardado</div>}
@@ -298,6 +314,7 @@ export default function Main() {
             onDeleteTournament={async () => { await handleDeleteTournament(); navigate(`/cat/${groupId}`); }}
             onToggleStatus={handleToggleStatus}
             onUpdateMode={handleUpdateMode}
+            onUpdateClubEvent={handleUpdateClubEvent}
           />
         )}
 

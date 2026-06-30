@@ -13,6 +13,9 @@ import AdminDashboard      from './components/Admin/AdminDashboard'
 import AdminUsers          from './components/Admin/AdminUsers'
 import AdminTournaments    from './components/Admin/AdminTournaments'
 import AdminNotifications  from './components/Admin/AdminNotifications'
+import AdminClubs          from './components/Admin/AdminClubs'
+import AdminClubRequests   from './components/Admin/AdminClubRequests'
+import ClubProfileView     from './components/Club/ClubProfileView'
 import Setup        from './components/Setup/Setup'
 import MainView     from './components/Main/Main'
 import ReadonlyView    from './components/ReadonlyView/ReadonlyView'
@@ -90,6 +93,7 @@ export default function App() {
         <Route path="/reset-password/:token"                     element={<ResetPassword />} />
         <Route path="/verify-email/:token"                       element={<VerifyEmail />} />
         <Route path="/u/:username"                               element={<ProfileView />} />
+        <Route path="/club/:id"                                  element={<ClubProfileView />} />
         <Route path="/readonly/:id"                              element={<ReadonlyView />} />
         <Route path="/cat/:groupId"                           element={<GroupView />} />
         <Route path="/cat/:groupId/torneo/new"            element={<PrivateRoute><Setup /></PrivateRoute>} />
@@ -106,6 +110,8 @@ export default function App() {
         <Route path="/admin/users"                               element={<AdminRoute><AdminUsers /></AdminRoute>} />
         <Route path="/admin/tournaments"                         element={<AdminRoute><AdminTournaments /></AdminRoute>} />
         <Route path="/admin/notifications"                       element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+        <Route path="/admin/clubs"                               element={<AdminRoute><AdminClubs /></AdminRoute>} />
+        <Route path="/admin/clubs/requests"                      element={<AdminRoute><AdminClubRequests /></AdminRoute>} />
         <Route path="/subscription/success"                      element={<PrivateRoute><SubscriptionSuccess /></PrivateRoute>} />
         <Route path="/subscription/failure"                      element={<PrivateRoute><SubscriptionFailure /></PrivateRoute>} />
         <Route path="/subscription/pending"                      element={<PrivateRoute><SubscriptionPending /></PrivateRoute>} />
