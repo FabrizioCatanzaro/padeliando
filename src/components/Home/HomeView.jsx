@@ -479,7 +479,7 @@ export default function HomeView() {
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <h2 className="font-condensed font-bold text-sm tracking-widest text-muted">PARTICIPANDO EN</h2>
-                  <span className="font-mono text-[10px] text-dim border border-border-strong px-2 py-0.5 rounded-full">{partGroups.length}</span>
+                  <span className="font-mono text-xs text-secondary border border-dim px-2 py-0.5 rounded-full">{partGroups.length}</span>
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
                   {partGroups.map((g, i) => (

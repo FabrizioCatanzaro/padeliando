@@ -18,13 +18,13 @@ export default function GroupCard({ g, delay = 0, badge = null, onClick }) {
             <span className="font-condensed font-bold text-[19px] text-white leading-tight line-clamp-2">{g.name}</span>
           </div>
           {g.owner_username && (
-            <div className="font-mono text-[11px] text-dim">@{g.owner_username}</div>
+            <div className="font-mono text-xs text-muted">@{g.owner_username}</div>
           )}
           {g.description && (
-            <div className="font-sans text-[12px] text-secondary mt-1 line-clamp-2">{g.description}</div>
+            <div className="font-sans text-sm text-secondary mt-1 line-clamp-2">{g.description}</div>
           )}
           {g.location_name && (
-            <div className="flex items-center gap-1 font-mono text-[11px] text-dim mt-1.5">
+            <div className="flex items-center gap-1 font-mono text-[11px] text-secondary mt-1.5">
               <MapPin size={10} className="shrink-0" />
               <span className="truncate">{g.location_name}</span>
             </div>
@@ -44,12 +44,12 @@ export default function GroupCard({ g, delay = 0, badge = null, onClick }) {
       {(g.player_count != null || g.tournament_count != null || g.distance_km != null) && (
         <div className="px-4 py-2.5 border-t border-border flex items-center gap-4 bg-surface/40">
           {g.player_count != null && (
-            <span className="flex items-center gap-1 font-mono text-[11px] text-dim">
+            <span className="flex items-center gap-1 font-mono text-[11px] text-muted">
               <Users size={11} className="shrink-0" />{g.player_count}
             </span>
           )}
           {g.tournament_count != null && (
-            <span className="flex items-center gap-1 font-mono text-[11px] text-dim">
+            <span className="flex items-center gap-1 font-mono text-[11px] text-muted">
               <Trophy size={11} className="shrink-0" />{g.tournament_count} {g.tournament_count === 1 ? 'torneo' : 'torneos'}
             </span>
           )}

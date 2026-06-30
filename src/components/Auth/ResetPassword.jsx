@@ -109,7 +109,7 @@ export default function ResetPassword() {
             <label className={label}>REPETIR CONTRASEÑA</label>
             <PasswordInput value={password2} onChange={e => setPassword2(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()}/>
             {password2 && password !== password2 && (
-              <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Kode Mono',monospace", marginTop: 4 }}>
+              <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Albert Sans',monospace", marginTop: 4 }}>
                 Las contraseñas no coinciden
               </div>
             )}
