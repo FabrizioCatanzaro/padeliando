@@ -181,17 +181,19 @@ function CurrentStats({ tournament }) {
   return (
     <>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
-        <div className="bg-surface border border-secondary/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
-          <div className="text-4xl mb-2 text-secondary flex justify-center"><Swords size={30} /></div>
-          <div className="font-condensed font-bold text-3xl text-white mb-1">{played.length}</div>
-          <div className="text-sm text-muted font-sans">Partidos jugados</div>
+        <div className="flex flex-col bg-surface border border-secondary/27 rounded-lg text-center overflow-hidden">
+          <div className="bg-secondary text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-secondary/15">Partidos jugados</div>
+          <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+            <Swords size={30} className="text-secondary" />
+            <div className="font-condensed font-bold text-[26px] text-white">{played.length}</div>
+          </div>
         </div>
         {isAmericano && tournament.bracket?.final?.winner_id &&(
-          <div className="bg-surface border border-amber-500/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
-            <div className="text-4xl mb-2 flex justify-center text-amber-500"><Trophy size={30} /></div>
-            <div className="font-condensed font-bold text-2xl text-amber-500 mb-1 leading-tight">{tournament.bracket?.final?.winner_name}</div>
-            <div className="text-sm text-muted font-sans">
-              C A M P E O N E S
+          <div className="flex flex-col bg-surface border border-amber-500/27 rounded-lg text-center overflow-hidden">
+            <div className="bg-amber-500 text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-amber-500/15">Campeones</div>
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+              <Trophy size={30} className="text-amber-500" />
+              <div className="font-condensed font-bold text-xl text-amber-500 leading-tight">{tournament.bracket?.final?.winner_name}</div>
             </div>
           </div>
         )}
@@ -200,26 +202,32 @@ function CurrentStats({ tournament }) {
             Se muestra la mejor pareja en su lugar. En modo libre se muestra el MVP individual. */}
         {isPairs ? (
           topPairLabel && (
-            <div className="bg-surface border border-brand/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
-              <div className="text-4xl mb-2 flex justify-center text-brand"><Flame size={30} /></div>
-              <div className="font-condensed font-bold text-2xl text-brand mb-1 leading-tight">{topPairLabel}</div>
-              <div className="text-sm text-muted font-sans">
-                {topPairIsTied ? `Rendimiento por parejas ${'\n'} Empatado` : "Mejor pareja"} · {topPairWinRate}% ({topPairRecord})
+            <div className="flex flex-col bg-surface border border-brand/27 rounded-lg text-center overflow-hidden">
+              <div className="bg-brand text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-brand/15">
+                {topPairIsTied ? "Mejor pareja · Empate" : "Mejor pareja"}
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+                <Flame size={30} className="text-brand" />
+                <div className={`font-condensed font-bold ${topPairIsTied ? 'text-lg' : 'text-xl'} text-brand leading-tight`}>{topPairLabel}</div>
+                <div className="text-[14px] text-secondary font-mono">{topPairWinRate}% ({topPairRecord})</div>
               </div>
             </div>
           )
         ) : (
           leaders.length > 0 && (
-            <div className="bg-surface border border-brand/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
-              <div className="text-4xl mb-2 flex justify-center text-brand"><Trophy size={30} /></div>
-              <div
-                className={`font-condensed font-bold text-3xl text-brand mb-1 leading-tight ${leaders.length === 1 && leaders[0].linked_username ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
-                onClick={() => leaders.length === 1 && leaders[0].linked_username && navigate(`/u/${leaders[0].linked_username}`)}
-              >
-                {mvpLabel}
+            <div className="flex flex-col bg-surface border border-brand/27 rounded-lg text-center overflow-hidden">
+              <div className="bg-brand text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-brand/15">
+                {leaders.length > 1 ? "MVP · Empate" : "MVP"}
               </div>
-              <div className="text-sm text-muted font-sans">
-                {leaders.length > 1 ? "MVP Empatado" : "MVP"} · {topPg} {topPg === 1 ? "victoria" : "victorias"}
+              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+                <Trophy size={30} className="text-brand" />
+                <div
+                  className={`font-condensed font-bold text-xl text-brand leading-tight ${leaders.length === 1 && leaders[0].linked_username ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
+                  onClick={() => leaders.length === 1 && leaders[0].linked_username && navigate(`/u/${leaders[0].linked_username}`)}
+                >
+                  {mvpLabel}
+                </div>
+                <div className="text-[14px] text-secondary font-mono">{topPg} {topPg === 1 ? "victoria" : "victorias"}</div>
               </div>
             </div>
           )
@@ -227,13 +235,16 @@ function CurrentStats({ tournament }) {
 
         {/* En modo libre se muestra la mejor pareja dinámica además del MVP */}
         {!isPairs && topPlayed >= 1 && (
-          <div className="bg-surface border border-cyan/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
-            <div className="text-4xl mb-2 flex justify-center text-cyan"><Handshake size={30} /></div>
-            <div className={`${tiedPartners.length > 1 ? 'text-lg' :'text-3xl'} font-condensed font-bold text-3xl text-cyan mb-1 leading-tight`}>
-              {topPairIsTied ? tiedPartnersLabel : topPartner.label}
+          <div className="flex flex-col bg-surface border border-cyan/27 rounded-lg text-center overflow-hidden">
+            <div className="bg-cyan text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-cyan/15">
+              {topPairIsTied ? "Mejor pareja · Empate" : "Mejor pareja"}
             </div>
-            <div className="text-sm text-muted font-sans">
-              {topPairIsTied ? `Rendimiento por parejas ${'\n'} Empatado` : "Mejor pareja"} · {topWinRate}% ({topWins}/{topPlayed})
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+              <Handshake size={30} className="text-cyan" />
+              <div className={`font-condensed font-bold ${topPairIsTied ? 'text-lg' : 'text-xl'} text-cyan leading-tight`}>
+                {topPairIsTied ? tiedPartnersLabel : topPartner.label}
+              </div>
+              <div className="text-[14px] text-secondary font-mono">{topWinRate}% ({topWins}/{topPlayed})</div>
             </div>
           </div>
         )}
@@ -245,44 +256,58 @@ function CurrentStats({ tournament }) {
           const winScore    = win1 ? biggestWin.score1 : biggestWin.score2;
           const loseScore   = win1 ? biggestWin.score2 : biggestWin.score1;
           return (
-            <div className="bg-surface border border-danger/27 rounded-lg p-4 text-center flex flex-col items-center justify-center">
-              <div className="text-3xl mb-2 flex justify-center text-danger"><Bomb size={30} /></div>
-              <div className="font-condensed font-bold text-3xl mb-1">
-                <span className="text-danger">{winScore}</span>
-                <span className="text-danger"> — </span>
-                <span className="text-danger">{loseScore}</span>
-              </div>
-              <div className="text-sm text-muted font-sans">
-                Partido más amplio · <span className="text-white">{winnerNames}</span>
-                <span className="text-muted"> vs {loserNames}</span>
+            <div className="flex flex-col bg-surface border border-danger/27 rounded-lg text-center overflow-hidden">
+              <div className="bg-danger text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-danger/15">Partido más amplio</div>
+              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+                <Bomb size={30} className="text-danger" />
+                <div className="font-condensed font-bold text-[26px] text-danger leading-tight">{winScore} — {loseScore}</div>
+                <div className="text-[13px] text-secondary font-mono">
+                  <span className="text-white">{winnerNames}</span> vs {loserNames}
+                </div>
               </div>
             </div>
           );
         })()}
-        {longestMatch && (
-          <div className="bg-surface border border-green/27 rounded-lg p-4 text-center">
-            <div className="text-3xl mb-2 flex justify-center text-green"><Clock size={30} /></div>
-            <div className="font-condensed font-bold text-3xl text-green mb-1">
-              {String(Math.floor(longestMatch.duration_seconds / 60)).padStart(2,"0")}:
-              {String(longestMatch.duration_seconds % 60).padStart(2,"0")}
+        {longestMatch && (() => {
+          const win1        = +longestMatch.score1 > +longestMatch.score2;
+          const winnerNames = (win1 ? longestMatch.team1 : longestMatch.team2).map(getPlayerName).join(" & ");
+          const loserNames  = (win1 ? longestMatch.team2 : longestMatch.team1).map(getPlayerName).join(" & ");
+          return (
+            <div className="flex flex-col bg-surface border border-green/27 rounded-lg text-center overflow-hidden">
+              <div className="bg-green text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-green/15">Partido más largo</div>
+              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+                <Clock size={30} className="text-green" />
+                <div className="font-condensed font-bold text-[26px] text-green leading-tight">
+                  {String(Math.floor(longestMatch.duration_seconds / 60)).padStart(2,"0")}:
+                  {String(longestMatch.duration_seconds % 60).padStart(2,"0")}
+                </div>
+                <div className="text-[13px] text-secondary font-mono">
+                  <span className="text-white">{winnerNames}</span> vs {loserNames}
+                </div>
+              </div>
             </div>
-            <div className="text-sm text-muted font-sans">
-              Partido más largo · {longestMatch.team1.map(getPlayerName).join(" & ")} vs {longestMatch.team2.map(getPlayerName).join(" & ")}
+          );
+        })()}
+        {shortestMatch && shortestMatch != longestMatch && (() => {
+          const win1        = +shortestMatch.score1 > +shortestMatch.score2;
+          const winnerNames = (win1 ? shortestMatch.team1 : shortestMatch.team2).map(getPlayerName).join(" & ");
+          const loserNames  = (win1 ? shortestMatch.team2 : shortestMatch.team1).map(getPlayerName).join(" & ");
+          return (
+            <div className="flex flex-col bg-surface border border-secondary/27 rounded-lg text-center overflow-hidden">
+              <div className="bg-secondary text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-secondary/15">Partido más rápido</div>
+              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+                <Clock size={30} className="text-secondary" />
+                <div className="font-condensed font-bold text-[26px] text-secondary leading-tight">
+                  {String(Math.floor(shortestMatch.duration_seconds / 60)).padStart(2,"0")}:
+                  {String(shortestMatch.duration_seconds % 60).padStart(2,"0")}
+                </div>
+                <div className="text-[13px] text-secondary font-mono">
+                  <span className="text-white">{winnerNames}</span> vs {loserNames}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-        {shortestMatch && shortestMatch != longestMatch && (
-          <div className="bg-surface border border-secondary/27 rounded-lg p-4 text-center">
-            <div className="text-3xl mb-2 flex justify-center text-secondary"><Clock size={30} /></div>
-            <div className="font-condensed font-bold text-3xl text-secondary mb-1">
-              {String(Math.floor(shortestMatch.duration_seconds / 60)).padStart(2,"0")}:
-              {String(shortestMatch.duration_seconds % 60).padStart(2,"0")}
-            </div>
-            <div className="text-sm text-muted font-sans">
-              Partido más rápido · {shortestMatch.team1.map(getPlayerName).join(" & ")} vs {shortestMatch.team2.map(getPlayerName).join(" & ")}
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {!isPairs && !isAmericano && <PerPlayerTable standings={standings} />}
@@ -292,7 +317,7 @@ function CurrentStats({ tournament }) {
   );
 }
 
-function buildIndividualRows(tournaments) {
+function buildIndividualRows(tournaments, sortBy = 'winrate') {
   const playerMap = {};
   tournaments.forEach((t) => {
     const nameById = Object.fromEntries(t.players.map((p) => [p.id, p.name]));
@@ -319,12 +344,16 @@ function buildIndividualRows(tournaments) {
     .sort((a, b) => {
       const pctA = a.pj > 0 ? a.pg / a.pj : 0;
       const pctB = b.pj > 0 ? b.pg / b.pj : 0;
+      // 'wins': prioriza partidos ganados sin importar el porcentaje.
+      if (sortBy === 'wins') return b.pg - a.pg || pctB - pctA || (b.sf - b.sc) - (a.sf - a.sc);
+      // 'winrate' (default): prioriza el porcentaje de victorias.
       return pctB - pctA || b.pg - a.pg;
     });
 }
 
 export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [rankMode, setRankMode] = useState('winrate'); // 'winrate' | 'wins'
   const navigate = useNavigate();
 
   if (tournaments.length === 0)
@@ -335,14 +364,17 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
 
   // ── Standings individuales + movimiento de ranking ──────────────────────
   const sortedByDate = [...tournaments].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  // Base por rendimiento (%): se usa para las tarjetas y gráficos (mejor jugador, etc.).
   const individualRows = buildIndividualRows(sortedByDate);
+  // Orden del ranking según el switch (rendimiento % o partidos ganados).
+  const rankedRows = rankMode === 'wins' ? buildIndividualRows(sortedByDate, 'wins') : individualRows;
 
   const movementMap = (() => {
     if (sortedByDate.length < 2) return {};
-    const prevRows = buildIndividualRows(sortedByDate.slice(0, -1));
+    const prevRows = buildIndividualRows(sortedByDate.slice(0, -1), rankMode);
     const prevRank = Object.fromEntries(prevRows.map((r, i) => [r.name, i + 1]));
     return Object.fromEntries(
-      individualRows.map((r, i) => {
+      rankedRows.map((r, i) => {
         const prev = prevRank[r.name];
         const curr = i + 1;
         if (!prev) return [r.name, 'new'];
@@ -436,22 +468,29 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
     <>
       {/* ── BÁSICAS (siempre visibles) ── */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
-        <div className="flex flex-col items-center gap-1 bg-surface border border-cyan/27 rounded-lg p-4 text-center">
-          <CalendarDays size={30} className="mb-2 text-cyan" />
-          <div className="font-condensed font-bold text-[26px] text-white mb-1">{tournaments.length}</div>
-          <div className="text-[12px] text-muted font-sans">Torneos jugados</div>
+        <div className="bg-surface border border-cyan/27 rounded-lg text-center overflow-hidden">
+          <div className="text-surface text-[11px] bg-cyan font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-cyan/15">Torneos jugados</div>
+          <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
+            <CalendarDays size={30} className="text-cyan" />
+            <div className="font-condensed font-bold text-[26px] text-white">{tournaments.length}</div>
+          </div>
         </div>
-        <div className="flex flex-col items-center gap-1 bg-surface border border-border-mid rounded-lg p-4 text-center">
-          <Swords size={30} className="text-secondary mb-2" />
-          <div className="font-condensed font-bold text-[26px] text-white mb-1">{totalMatches}</div>
-          <div className="text-[12px] text-muted font-sans">Partidos en total</div>
+        <div className="bg-surface border border-secondary/27 rounded-lg text-center overflow-hidden">
+          <div className="bg-secondary text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-secondary/15">Partidos en total</div>
+          <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
+            <Swords size={30} className="text-secondary" />
+            <div className="font-condensed font-bold text-[26px] text-white">{totalMatches}</div>
+          </div>
         </div>
         {champLabel && (
-          <div className="flex flex-col items-center gap-1 bg-surface border border-amber-500/27 rounded-lg p-4 text-center">
-            <Trophy size={30} className="mb-2 text-amber-500" />
-            <div className={`font-condensed font-bold text-amber-500 mb-1 leading-tight ${topChamps.length > 1 ? 'text-lg' : 'text-[26px]'}`}>{champLabel}</div>
-            <div className="text-[12px] text-muted font-sans">
-              {topChamps.length > 1 ? "Empate · Más veces campeones · " : "Más veces campeón · "}{topChampCount} {topChampCount === 1 ? "torneo" : "torneos"}
+          <div className="bg-surface border border-amber-500/27 rounded-lg text-center overflow-hidden">
+            <div className="bg-amber-500 text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-amber-500/15">
+              {topChamps.length > 1 ? "Empate · Más veces campeones" : "Más veces campeón"}
+            </div>
+            <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
+              <Trophy size={30} className="text-amber-500" />
+              <div className={`font-condensed font-bold text-amber-500 leading-tight ${topChamps.length > 1 ? 'text-lg' : 'text-xl'}`}>{champLabel}</div>
+              <div className="text-[14px] text-secondary font-mono">{topChampCount} {topChampCount === 1 ? "torneo" : "torneos"}</div>
             </div>
           </div>
         )}
@@ -465,36 +504,65 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
             {individualRows[0] && (() => {
               const best = individualRows[0];
               return (
-                <div className="flex flex-col items-center gap-1 bg-surface border border-brand/27 rounded-lg p-4 text-center">
-                  <Crown size={30} className="mb-2 text-brand" />
-                  <div
-                    className={`font-condensed font-bold text-[26px] text-brand mb-1 ${best.linked_username ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
-                    onClick={() => best.linked_username && navigate(`/u/${best.linked_username}`)}
-                  >
-                    {best.name}
+                <div className="bg-surface border border-brand/27 rounded-lg text-center overflow-hidden">
+                  <div className="bg-brand text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-brand/15">Mejor jugador histórico</div>
+                  <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
+                    <Crown size={30} className="text-brand" />
+                    <div
+                      className={`font-condensed font-bold text-xl text-brand leading-tight ${best.linked_username ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
+                      onClick={() => best.linked_username && navigate(`/u/${best.linked_username}`)}
+                    >
+                      {best.name}
+                    </div>
+                    <div className="text-[14px] text-secondary font-mono">{best.pg}V</div>
                   </div>
-                  <div className="text-[12px] text-muted font-sans">Mejor jugador histórico · {best.pg}V</div>
                 </div>
               );
             })()}
             {hasPairMode && bestPairLabel && (
-              <div className="flex flex-col items-center gap-1 bg-surface border border-green/27 rounded-lg p-4 text-center">
-                <Handshake size={30} className="mb-2 text-green" />
-                <div className="font-condensed font-bold text-xl text-green mb-1 leading-tight">{bestPairLabel}</div>
-                <div className="text-[12px] text-muted font-sans">
-                  {bestPairIsTied ? "Empate · Mejor pareja histórica" : `Mejor pareja histórica${bestPairRecord ? ` · ${bestPairRecord}` : ""}`}
+              <div className="bg-surface border border-green/27 rounded-lg text-center overflow-hidden">
+                <div className="bg-green text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-green/15">
+                  {bestPairIsTied ? "Empate · Mejor pareja histórica" : "Mejor pareja histórica"}
+                </div>
+                <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
+                  <Handshake size={30} className="text-green" />
+                  <div className="font-condensed font-bold text-xl text-green leading-tight">{bestPairLabel}</div>
+                  {!bestPairIsTied && bestPairRecord && (
+                    <div className="text-[14px] text-secondary font-mono">{bestPairRecord}</div>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
           <div className="mb-6">
-            <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">
-              {showPairTable ? "RANKING HISTÓRICO POR PAREJAS" : "RANKING HISTÓRICO"}
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">
+                {showPairTable ? "RANKING HISTÓRICO POR PAREJAS" : "RANKING HISTÓRICO"}
+              </div>
+              {!showPairTable && (
+                <div className="flex bg-surface border border-border-mid rounded-md p-0.5">
+                  {[
+                    { id: 'winrate', label: 'Por rendimiento' },
+                    { id: 'wins',    label: 'Por ganados' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setRankMode(opt.id)}
+                      className={`px-2.5 py-1 text-[11px] font-condensed font-bold tracking-wide rounded-sm transition-colors cursor-pointer ${
+                        rankMode === opt.id ? 'bg-brand text-base' : 'bg-transparent text-muted hover:text-white'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {showPairTable
               ? <PerPlayerTable standings={pairRows} useLabelKey />
-              : <PerPlayerTable standings={individualRows} movementMap={movementMap} />
+              : <PerPlayerTable standings={rankedRows} movementMap={movementMap} sortBy={rankMode} />
             }
           </div>
 
@@ -628,8 +696,9 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   );
 }
 
-function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {} }) {
+function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {}, sortBy = 'winrate' }) {
   const navigate = useNavigate();
+  const winsActive = sortBy === 'wins';
   return (
     <div className="mt-4">
       {!showTourneys && !useLabelKey && (
@@ -641,7 +710,7 @@ function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {}
         <div className="flex-1 min-w-0 text-[10px] font-mono tracking-[2px] text-dim">NOMBRE</div>
         <div className="shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-dim text-center">J</div>
         <div className="shrink-0 w-14 text-[10px] font-mono tracking-[2px] text-dim text-center">WIN RATE</div>
-        <div className="shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-dim text-center">G</div>
+        <div className={`shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-center ${winsActive ? 'text-brand' : 'text-dim'}`}>G</div>
         <div className="shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-dim text-center">P</div>
         <div className="shrink-0 w-9 text-[10px] font-mono tracking-[2px] text-dim text-right">%</div>
       </div>
@@ -673,7 +742,7 @@ function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {}
                     style={{ width: `${pct}%` }} />
                 </div>
               </div>
-              <div className="shrink-0 w-7 text-center font-mono text-soft text-[13px]">{p.pg}</div>
+              <div className={`shrink-0 w-7 text-center font-mono text-[13px] ${winsActive ? 'text-brand font-bold' : 'text-soft'}`}>{p.pg}</div>
               <div className="shrink-0 w-7 text-center font-mono text-soft text-[13px]">{p.pp}</div>
               <div className="shrink-0 w-9 text-right font-mono text-[13px]">
                 <span className={pct >= 50 ? "text-brand" : "text-danger"}>{pct}%</span>
