@@ -156,7 +156,7 @@ padeliando/
 | `Previa` | (tab in Main — Americano) | Match schedule |
 | `Management` | (tab in Main) | Admin: reset, finalize |
 | `PhotoGallery` | (tab in Main) | Tournament photos (premium upload) |
-| `ReadonlyView` | `/readonly/:id` | Public shareable view |
+| `ReadonlyView` | `/view/:id` | Public shareable view (old `/readonly/:id` redirects here) |
 | `InvitationsView` | `/invitations` | Pending invitations |
 | `TutorialView` | `/tutorial` | Help/onboarding guide |
 | `AdminDashboard` | `/admin` | Site stats — admin only |
@@ -176,7 +176,7 @@ padeliando/
 | `/reset-password/:token` | ResetPassword |
 | `/verify-email/:token` | VerifyEmail |
 | `/u/:username` | ProfileView |
-| `/readonly/:id` | ReadonlyView |
+| `/view/:id` | ReadonlyView (old `/readonly/:id` redirects here) |
 | `/tutorial` | TutorialView |
 | `/cat/:groupId` | GroupView |
 | `/cat/:groupId/torneo/:tournamentId` | Main (public — no RequireAuth) |
