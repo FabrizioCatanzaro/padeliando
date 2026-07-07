@@ -196,6 +196,10 @@ export function adaptTournament(t) {
   return {
     ...t,
     createdAt: t.created_at ?? t.createdAt,
+    // El americano siempre se juega por parejas. Si un dato viejo quedó con
+    // mode='free' (bug al agregar jugadores), lo normalizamos para que la
+    // sección de parejas, la tabla y el resto lo traten como corresponde.
+    mode: t.format === 'americano' ? 'pairs' : t.mode,
     players,
     pairs,
     matches: (t.matches ?? []).map(adaptMatch),
