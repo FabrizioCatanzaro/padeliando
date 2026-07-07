@@ -59,6 +59,7 @@ export default function Management({
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
   onResetScores, onDeleteTournament, onToggleStatus, onUpdateMode, onUpdateClubEvent,
+  onRefresh,
 }) {
   const [resetModal, setResetModal]   = useState(false);
   const [resetInput, setResetInput]   = useState('');
@@ -81,6 +82,7 @@ export default function Management({
         onAdd={onAddPlayer}
         onEdit={onEditPlayer}
         onDelete={onDeletePlayer}
+        onRefresh={onRefresh}
       />
 
       {showModeToggle && isOwner && (

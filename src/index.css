@@ -18,7 +18,7 @@
   --color-green: #4af07a;
   --color-danger: #f04a4a;
   --color-muted: #555555;
-  --color-dim: #444444;
+  --color-dim: #666666;
   --color-secondary: #888888;
   --color-soft: #aaaaaa;
   --color-content: #cccccc;
@@ -64,6 +64,38 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
 @keyframes fadeOutDown {
   from { opacity: 1; transform: translateY(0); }
   to   { opacity: 0; transform: translateY(8px); }
+}
+
+/* Barra de progreso (readonly): se llena de izquierda a derecha */
+@keyframes readonlyProgress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.readonly-progress {
+  transform-origin: left;
+  animation-name: readonlyProgress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* Ticker/carrusel de partidos (readonly): se desplaza en loop de derecha a izquierda.
+   Sólo cuando el contenido desborda se duplica el set y se anima (.ticker-animate),
+   trasladando -50% (una copia exacta) para un bucle sin cortes. */
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-75%); }
+}
+.ticker-track {
+  width: max-content;
+}
+.ticker-track.ticker-animate {
+  animation: tickerScroll linear infinite;
+}
+.ticker-mask:hover .ticker-track.ticker-animate {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track.ticker-animate { animation: none; }
 }
 
 /* Card clickeable con glow de brand en hover */

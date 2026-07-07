@@ -34,12 +34,14 @@ export default function ClubSelector({ value, onChange }) {
 
   if (value) {
     return (
-      <div className="flex items-center justify-between gap-2 bg-surface border border-brand/50 rounded-sm px-3 py-2.5">
+      <div className={`flex items-center justify-between gap-2 bg-surface border rounded-sm px-3 py-2.5 ${value.pending ? 'border-yellow-400/50' : 'border-brand/50'}`}>
         <div className="flex items-center gap-2 min-w-0">
-          <Building2 size={14} className="text-brand shrink-0" />
+          <Building2 size={14} className={`shrink-0 ${value.pending ? 'text-yellow-400' : 'text-brand'}`} />
           <div className="min-w-0">
             <div className="text-sm text-white truncate">{value.name}</div>
-            {value.location_name && (
+            {value.pending ? (
+              <div className="text-[11px] text-yellow-400/80 font-mono truncate">Pendiente de aprobación</div>
+            ) : value.location_name && (
               <div className="flex items-center gap-1 text-[11px] text-dim font-mono truncate">
                 <MapPin size={9} />{value.location_name}
               </div>
@@ -97,6 +99,7 @@ export default function ClubSelector({ value, onChange }) {
         <ClubRequestModal
           initialName={query}
           onClose={() => setShowRequest(false)}
+          onSubmitted={(created) => onChange({ pending: true, request_id: created.id, name: created.name })}
         />
       )}
     </div>

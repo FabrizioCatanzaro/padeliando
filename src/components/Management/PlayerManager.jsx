@@ -6,7 +6,7 @@ import { Pencil, Trash2, UserPlus, X, Clock, Check } from "lucide-react";
 import { api } from "../../utils/api";
 import { useAuth } from "../../context/useAuth";
 
-export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDelete }) {
+export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDelete, onRefresh }) {
   const [newName, setNewName]           = useState("");
   const [editId, setEditId]             = useState(null);
   const [editName, setEditName]         = useState("");
@@ -51,8 +51,8 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
     try {
       await api.invitations.send(player.id, tournament.group_id, state.identifier.trim());
       closeInvite(player.id);
-      // Forzar recarga del torneo para ver el estado de la invitación
-      window.location.reload();
+      // Refrescar el torneo (sin recargar la página) para ver el estado de la invitación
+      await onRefresh?.();
     } catch (e) {
       setInviteState(s => ({ ...s, [player.id]: { ...s[player.id], sending: false, error: e.message } }));
     }
@@ -62,7 +62,7 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
     if (!player.invitation_id) return;
     try {
       await api.invitations.cancel(player.invitation_id);
-      window.location.reload();
+      await onRefresh?.();
     } catch {
       // intentionally ignored
     }
@@ -71,7 +71,10 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
   return (
     <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
       <div className="flex justify-between items-center mb-3">
-        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">JUGADORES</div>
+        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">
+          JUGADORES
+          <span className="ml-2 text-brand">{tournament.players.filter((p) => !p.removed).length}</span>
+        </div>
         {isOwner && (
           <button onClick={() => setShowAdd(!showAdd)} className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap">
             {showAdd ? "Cancelar" : "+ Agregar"}
@@ -94,7 +97,7 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
       )}
 
       <div className="flex flex-col gap-1.5">
-        {tournament.players.filter((p) => !p.removed).map((p) => (
+        {tournament.players.filter((p) => !p.removed).map((p, i) => (
           <div key={p.id} className="flex flex-col bg-base border border-border-mid rounded-md px-3 py-2 gap-1.5">
             {editId === p.id ? (
               <div className="flex items-center gap-2">
@@ -110,6 +113,7 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
               </div>
             ) : (
               <div className="flex items-center gap-2">
+                <span className="text-dim text-[11px] font-mono w-4 shrink-0 text-right tabular-nums">{i + 1}</span>
                 <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} premium={p.is_premium ?? false} />
                 <span className="flex-1 text-content font-sans">{p.name}</span>
 

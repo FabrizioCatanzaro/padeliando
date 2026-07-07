@@ -1,11 +1,11 @@
 import { Globe, Lock, MapPin, Navigation, Users, Trophy } from 'lucide-react';
 import FadeInCard from './FadeInCard';
 
-export default function GroupCard({ g, delay = 0, badge = null, onClick }) {
+export default function GroupCard({ g, delay = 0, badge = null, onClick, className = '' }) {
   return (
     <FadeInCard
       delay={delay}
-      className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link flex flex-col"
+      className={`border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link flex flex-col ${className}`}
       style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #1c1c1c 100%)' }}
       onClick={onClick}
     >

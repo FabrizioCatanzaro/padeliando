@@ -20,7 +20,7 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
 }
 
-function NotifItemText({ n }) {
+function NotifItemText({ n, onNavigate }) {
   if (n.type === 'admin_message') return (
     <div>
       <div className="font-semibold text-white text-[12px]">{n.title}</div>
@@ -30,13 +30,22 @@ function NotifItemText({ n }) {
   const actor = <span className="font-semibold text-white">@{n.actor_username ?? n.actor_name}</span>;
   if (n.type === 'follow') return <>{actor} te empezó a seguir</>;
   if (n.type === 'invitation') return (
-    <>{actor} te invitó a <span className="text-white font-semibold">{n.group_name ?? 'un grupo'}</span>
+    <>{actor} te invitó a{' '}
+      {n.group_id ? (
+        <span
+          onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}`); }}
+          className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+        >{n.group_name ?? 'un grupo'}</span>
+      ) : (
+        <span className="text-white font-semibold">{n.group_name ?? 'un grupo'}</span>
+      )}
       {n.player_name ? <> como <span className="text-brand">{n.player_name}</span></> : null}</>
   );
   if (n.type === 'join_request') return (
     <>{actor} solicitó unirse al torneo{' '}
       <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span></>
   );
+  if (n.type === 'club_request') return <>{actor} {n.body}</>;
   return null;
 }
 
@@ -239,7 +248,6 @@ export default function Header() {
                       onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors font-sans"
                     >
-                      <CircleHelp size={14} className="text-dim shrink-0" />
                       Ayuda
                     </Link>
                     {user?.role === 'admin' && (
@@ -270,7 +278,6 @@ export default function Header() {
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors font-sans"
                   >
-                    <CircleHelp size={14} className="text-dim shrink-0" />
                     Ayuda
                   </Link>
                 </div>
@@ -311,8 +318,12 @@ function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation, onJoinReques
 
   return (
     <div
-      className={`flex items-start gap-3 px-4 py-3 border-b border-border-mid last:border-b-0 transition-colors ${unread ? 'bg-brand/5' : ''} ${n.type === 'admin_message' ? 'cursor-pointer hover:bg-white/5' : ''}`}
-      onClick={n.type === 'admin_message' ? () => onNavigate('/notifications') : undefined}
+      className={`flex items-start gap-3 px-4 py-3 border-b border-border-mid last:border-b-0 transition-colors ${unread ? 'bg-brand/5' : ''} ${(n.type === 'admin_message' || n.type === 'club_request') ? 'cursor-pointer hover:bg-white/5' : ''}`}
+      onClick={
+        n.type === 'admin_message' ? () => onNavigate('/notifications')
+          : n.type === 'club_request' ? () => onNavigate('/admin/clubs/requests')
+          : undefined
+      }
     >
       {unread && <div className="shrink-0 mt-2.5 w-1.5 h-1.5 rounded-full bg-brand flex-none" />}
       <div className={`shrink-0 ${unread ? '' : 'ml-[18px]'}`}>
@@ -329,7 +340,7 @@ function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation, onJoinReques
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[12px] text-secondary leading-snug">
-          <NotifItemText n={n} />
+          <NotifItemText n={n} onNavigate={onNavigate} />
         </div>
         <div className="text-[10px] font-mono text-dim mt-0.5">{timeAgo(n.created_at)}</div>
 

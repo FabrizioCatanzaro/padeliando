@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { uid, clubCourts } from "../../utils/helpers";
+import { api } from "../../utils/api";
 import { useTournament } from "../../hooks/useTournament";
 import PlayerInput from "./PlayerInput";
 import PairBuilder from "./PairBuilder";
@@ -83,6 +84,17 @@ export default function Setup() {
   const [eventDate, setEventDate] = useState("");
   const [creating, setCreating]   = useState(false);
 
+  // Heredar el club de la categoría como default (editable por torneo)
+  useEffect(() => {
+    api.groups.get(groupId).then((g) => {
+      if (g.club_id) {
+        setClub({ id: g.club_id, name: g.club_name, location_name: g.club_location_name, courts: g.club_courts, photo_url: g.club_photo_url });
+      } else if (g.pending_club_request_id) {
+        setClub({ pending: true, request_id: g.pending_club_request_id, name: g.pending_club_name });
+      }
+    }).catch(() => {});
+  }, [groupId]);
+
   const [directPairs, setDirectPairs] = useState(() =>
     Array.from({ length: 8 }, () => ({ id: uid(), p1Name: "", p2Name: "" }))
   );
@@ -151,8 +163,9 @@ export default function Setup() {
     setCreating(true);
     try {
       const tId = await createTournament(tournamentName, players, pairsInput, fmt, clubCourts(club), {
-        club_id: club?.id ?? null,
+        club_id: club?.pending ? null : (club?.id ?? null),
         event_date: eventDate || null,
+        pending_club_request_id: club?.pending ? club.request_id : null,
       });
       navigate(`/cat/${groupId}/torneo/${tId}`);
     } finally {

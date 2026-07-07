@@ -223,7 +223,16 @@ function NotifText({ n, navigate }) {
     return (
       <div className="text-[13px] text-secondary">
         {actorEl} te invitó a unirte a{' '}
-        <span className="text-white font-semibold">{n.group_name ?? 'un grupo'}</span>
+        {n.group_id ? (
+          <span
+            onClick={() => navigate(`/cat/${n.group_id}`)}
+            className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+          >
+            {n.group_name ?? 'un grupo'}
+          </span>
+        ) : (
+          <span className="text-white font-semibold">{n.group_name ?? 'un grupo'}</span>
+        )}
         {n.player_name ? <> como <span className="text-brand">{n.player_name}</span></> : null}
       </div>
     );
@@ -233,6 +242,19 @@ function NotifText({ n, navigate }) {
       <div className="text-[13px] text-secondary">
         {actorEl} solicitó unirse al torneo{' '}
         <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span>
+      </div>
+    );
+  }
+  if (n.type === 'club_request') {
+    return (
+      <div className="text-[13px] text-secondary">
+        {actorEl} {n.body}{' '}
+        <button
+          onClick={() => navigate('/admin/clubs/requests')}
+          className="text-brand hover:underline bg-transparent border-none cursor-pointer p-0 font-mono text-[12px]"
+        >
+          Ver →
+        </button>
       </div>
     );
   }

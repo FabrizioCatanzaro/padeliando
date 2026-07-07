@@ -6,10 +6,12 @@ import { clubToForm, formToClub } from './clubForm'
 import ClubFormFields from './ClubFormFields'
 import Btn from '../shared/Btn'
 
-// Modal para que un usuario solicite el alta de un club al admin.
-export default function ClubRequestModal({ initialName = '', onClose, onSubmitted }) {
+// Modal para solicitar al admin el alta de un club nuevo, o cambios sobre uno existente.
+// Si se pasa `club`, entra en modo edición: precarga los datos y envía club_id.
+export default function ClubRequestModal({ initialName = '', club = null, onClose, onSubmitted }) {
   const { showToast } = useToast()
-  const [form, setForm]       = useState(() => ({ ...clubToForm(), name: initialName }))
+  const isEdit = !!club
+  const [form, setForm]       = useState(() => isEdit ? clubToForm(club) : ({ ...clubToForm(), name: initialName }))
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
 
@@ -20,12 +22,18 @@ export default function ClubRequestModal({ initialName = '', onClose, onSubmitte
       setError('El nombre del club debe tener más de 2 caracteres')
       return
     }
+    if (form.lat == null || form.lon == null) {
+      setError('Marcá la ubicación del club en el mapa')
+      return
+    }
     setError(null)
     setSaving(true)
     try {
-      await api.clubs.requests.create(formToClub(form))
+      const body = formToClub(form)
+      if (isEdit) body.club_id = club.id
+      const created = await api.clubs.requests.create(body)
       showToast('Solicitud enviada. El equipo la revisará pronto.')
-      onSubmitted?.()
+      onSubmitted?.(created)
       onClose()
     } catch (e) {
       setError(e.message)
@@ -40,14 +48,16 @@ export default function ClubRequestModal({ initialName = '', onClose, onSubmitte
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="bg-surface border border-border-mid rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border-mid sticky top-0 bg-surface z-10">
-          <span className="font-mono text-[11px] text-[#555] tracking-widest">SOLICITAR CLUB</span>
+          <span className="font-mono text-[11px] text-[#555] tracking-widest">{isEdit ? 'SOLICITAR CAMBIOS' : 'SOLICITAR CLUB'}</span>
           <button onClick={onClose} className="bg-transparent border-none text-[#555] hover:text-white cursor-pointer transition-colors">
             <X size={18} />
           </button>
         </div>
         <div className="p-5">
           <p className="text-muted text-xs font-sans mb-4 leading-relaxed">
-            Completá los datos del club que no encontrás. Un administrador lo revisará y lo agregará.
+            {isEdit
+              ? 'Editá los datos que cambiaron (teléfono, canchas, horarios, etc.). Un administrador revisará y aplicará los cambios.'
+              : 'Completá los datos del club que no encontrás. Un administrador lo revisará y lo agregará.'}
           </p>
           <ClubFormFields form={form} patch={patch} />
           {error && <p className="text-danger text-xs font-mono mt-3">{error}</p>}

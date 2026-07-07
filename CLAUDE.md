@@ -133,7 +133,7 @@ Browser
 - Protected routes use the `<PrivateRoute>` component wrapper in `App.jsx`.
 - Admin-only routes use `<AdminRoute>` (checks `user.role === 'admin'`).
 - Group/tournament URLs use the `/cat/` prefix (e.g. `/cat/:groupId/torneo/:tournamentId`).
-- Public routes include: `/`, `/login`, `/register`, `/u/:username`, `/readonly/:id`, `/tutorial`, `/cat/:groupId`, `/verify-email/:token`, `/reset-password/:token`.
+- Public routes include: `/`, `/login`, `/register`, `/u/:username`, `/view/:id` (old `/readonly/:id` redirects here), `/tutorial`, `/cat/:groupId`, `/verify-email/:token`, `/reset-password/:token`.
 
 ### Tailwind CSS
 - Tailwind 4 is configured via the Vite plugin only — there is no `tailwind.config.js`.

@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Crown, ShieldCheck, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
+import { Search, Crown, ShieldCheck, ChevronLeft, ChevronRight, ArrowLeft, Trash2 } from 'lucide-react'
 import { api } from '../../utils/api'
+import { useAuth } from '../../context/useAuth'
 import Loader from '../Loader/Loader'
 import PlayerAvatar from '../shared/PlayerAvatar'
 import Modal from '../shared/Modal'
@@ -37,6 +38,7 @@ function PlanBadge({ plan, billingPeriod, endsAt }) {
 }
 
 export default function AdminUsers() {
+  const { user: me } = useAuth()
   const [users,    setUsers]    = useState([])
   const [total,    setTotal]    = useState(0)
   const [page,     setPage]     = useState(1)
@@ -47,6 +49,8 @@ export default function AdminUsers() {
   const [grantUser,    setGrantUser]    = useState(null)
   const [grantDays,    setGrantDays]    = useState(30)
   const [revokeUser,   setRevokeUser]   = useState(null)
+  const [deleteUser,   setDeleteUser]   = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
   const [modalError,   setModalError]   = useState(null)
 
   const fetchUsers = useCallback(async (opts) => {
@@ -104,6 +108,24 @@ export default function AdminUsers() {
     try {
       await api.admin.revokePremium(revokeUser.id)
       setRevokeUser(null)
+      await fetchUsers({ q, page, limit: PAGE_SIZE })
+    } catch (e) { setModalError(e.message) }
+    finally     { setBusyId(null) }
+  }
+
+  function openDeleteModal(user) {
+    setModalError(null)
+    setDeleteConfirm('')
+    setDeleteUser(user)
+  }
+
+  async function confirmDeleteUser() {
+    if (!deleteUser) return
+    setBusyId(deleteUser.id)
+    setModalError(null)
+    try {
+      await api.admin.deleteUser(deleteUser.id)
+      setDeleteUser(null)
       await fetchUsers({ q, page, limit: PAGE_SIZE })
     } catch (e) { setModalError(e.message) }
     finally     { setBusyId(null) }
@@ -188,23 +210,35 @@ export default function AdminUsers() {
                       <td className="py-2 px-3 hidden sm:table-cell text-center font-mono text-muted text-xs">{u.tournaments_count}</td>
                       <td className="py-2 px-3 hidden lg:table-cell text-muted font-mono text-xs">{fmtDate(u.created_at)}</td>
                       <td className="py-2 px-3 text-right">
-                        {isPremium ? (
-                          <button
-                            disabled={busyId === u.id}
-                            onClick={() => openRevokeModal(u)}
-                            className="text-[11px] font-condensed font-bold tracking-widest text-danger hover:bg-danger/10 cursor-pointer px-2 py-1 rounded disabled:opacity-50"
-                          >
-                            REVOCAR
-                          </button>
-                        ) : (
-                          <button
-                            disabled={busyId === u.id}
-                            onClick={() => openGrantModal(u)}
-                            className="text-[11px] font-condensed font-bold tracking-widest text-brand hover:bg-brand/10 cursor-pointer px-2 py-1 rounded disabled:opacity-50"
-                          >
-                            DAR PREMIUM
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {isPremium ? (
+                            <button
+                              disabled={busyId === u.id}
+                              onClick={() => openRevokeModal(u)}
+                              className="text-[11px] font-condensed font-bold tracking-widest text-danger hover:bg-danger/10 cursor-pointer px-2 py-1 rounded disabled:opacity-50"
+                            >
+                              REVOCAR
+                            </button>
+                          ) : (
+                            <button
+                              disabled={busyId === u.id}
+                              onClick={() => openGrantModal(u)}
+                              className="text-[11px] font-condensed font-bold tracking-widest text-brand hover:bg-brand/10 cursor-pointer px-2 py-1 rounded disabled:opacity-50"
+                            >
+                              DAR PREMIUM
+                            </button>
+                          )}
+                          {u.id !== me?.id && (
+                            <button
+                              disabled={busyId === u.id}
+                              onClick={() => openDeleteModal(u)}
+                              title="Borrar cuenta"
+                              className="text-muted hover:text-danger hover:bg-danger/10 cursor-pointer p-1.5 rounded disabled:opacity-50 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -270,6 +304,35 @@ export default function AdminUsers() {
             Se cancelará el plan premium de{' '}
             <span className="text-white font-semibold">{revokeUser.name}</span> y volverá a free de inmediato.
           </p>
+          {modalError && <p className="text-danger text-xs font-mono mt-3">{modalError}</p>}
+        </Modal>
+      )}
+
+      {deleteUser && (
+        <Modal
+          title="Borrar cuenta"
+          confirmText={busyId === deleteUser.id ? 'Borrando...' : 'Borrar cuenta'}
+          confirmDisabled={busyId === deleteUser.id || deleteConfirm.trim().toUpperCase() !== 'BORRAR'}
+          confirmDanger
+          onConfirm={confirmDeleteUser}
+          onCancel={() => setDeleteUser(null)}
+        >
+          <p className="mb-3">
+            Se borrará permanentemente la cuenta de{' '}
+            <span className="text-white font-semibold">{deleteUser.name}</span> (@{deleteUser.username}).
+            Sus grupos y torneos se conservan bajo una cuenta anónima; sus partidos en grupos ajenos
+            quedan sin vincular. Esta acción no se puede deshacer.
+          </p>
+          <label className="block text-[11px] tracking-widest text-muted font-mono mb-1.5">
+            ESCRIBÍ <span className="text-danger">BORRAR</span> PARA CONFIRMAR
+          </label>
+          <input
+            type="text"
+            value={deleteConfirm}
+            onChange={e => setDeleteConfirm(e.target.value)}
+            placeholder="BORRAR"
+            className="w-full bg-base border border-border-strong rounded text-white text-sm font-mono px-3 py-2 outline-none focus:border-danger"
+          />
           {modalError && <p className="text-danger text-xs font-mono mt-3">{modalError}</p>}
         </Modal>
       )}

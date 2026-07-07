@@ -67,8 +67,6 @@ export default function Previa({
     else                        localStorage.removeItem(key);
   }, [liveMatches, tournament.id]);
 
-  const prevLiveRef = useRef(liveMatches);
-
   function resolveTeamLabels(form) {
     const { players, pairs } = tournament;
     return {
@@ -78,30 +76,30 @@ export default function Previa({
     };
   }
 
+  function buildLivePayload(matches) {
+    return matches
+      .filter((m) => !!(m.form.team1Pair && m.form.team2Pair))
+      .map((m) => ({ ...resolveTeamLabels(m.form), phase: 'previa', startedAt: m.timer.startedAt }));
+  }
+
+  // Sincroniza live_match sólo si el payload cambió. Incluye partidos "cargados"
+  // (parejas elegidas) aunque el cronómetro no haya arrancado — el espectador los
+  // separa en EN VIVO (startedAt != null) y PRÓXIMOS (startedAt == null).
+  // Inicializamos el ref con el payload actual para no sincronizar en el montaje.
+  const lastSyncedRef = useRef(undefined);
+  if (lastSyncedRef.current === undefined) {
+    lastSyncedRef.current = JSON.stringify(buildLivePayload(liveMatches));
+  }
+  function syncLive(matches) {
+    const payload = buildLivePayload(matches);
+    const serialized = JSON.stringify(payload);
+    if (serialized === lastSyncedRef.current) return Promise.resolve();
+    lastSyncedRef.current = serialized;
+    return Promise.resolve(onSetLiveMatch?.(payload.length > 0 ? payload : null));
+  }
+
   useEffect(() => {
-    const prev = prevLiveRef.current;
-    const newlyStarted = liveMatches.some((m) => {
-      const prevMatch  = prev.find((p) => p.id === m.id);
-      const wasIdle    = !prevMatch?.timer.startedAt;
-      const nowRunning = m.timer.startedAt !== null && !m.timer.stoppedAt;
-      return wasIdle && nowRunning;
-    });
-
-    // Detectar si cambió la cancha en partidos que ya están en vivo (no sincronizar por cambios en score)
-    const liveFormChanged = liveMatches.some((m) => {
-      if (m.timer.startedAt === null) return false;
-      const prevMatch = prev.find((p) => p.id === m.id);
-      if (!prevMatch) return false;
-      return prevMatch.form.court !== m.form.court;
-    });
-
-    if (newlyStarted || liveFormChanged) {
-      const labels = liveMatches
-        .filter((m) => m.timer.startedAt !== null)
-        .map((m) => ({ ...resolveTeamLabels(m.form), phase: 'previa' }));
-      onSetLiveMatch?.(labels.length > 0 ? labels : null);
-    }
-    prevLiveRef.current = liveMatches;
+    syncLive(liveMatches);
   }, [liveMatches]);
 
   function handleTimerChange(liveId, newTimerState) {
@@ -121,14 +119,9 @@ export default function Previa({
   }
 
   function handleCancelMatch(liveId) {
-    setLiveMatches(prev => {
-      const remaining = prev.filter(m => m.id !== liveId);
-      const labels = remaining
-        .filter(m => m.timer.startedAt !== null)
-        .map(m => ({ ...resolveTeamLabels(m.form), phase: 'previa' }));
-      onSetLiveMatch?.(labels.length > 0 ? labels : null);
-      return remaining;
-    });
+    const remaining = liveMatches.filter(m => m.id !== liveId);
+    setLiveMatches(remaining);
+    syncLive(remaining);
   }
 
   async function handleSaveMatch(liveId) {
@@ -164,11 +157,11 @@ export default function Previa({
     setLiveMatches(remaining);
 
     // Sincronizar live_match en el servidor ANTES del reload para que el
-    // tournament recargado no traiga el partido en curso viejo.
-    const labels = remaining
-      .filter(m => m.timer.startedAt !== null)
-      .map(m => ({ ...resolveTeamLabels(m.form), phase: 'previa' }));
-    await onSetLiveMatch?.(labels.length > 0 ? labels : null);
+    // tournament recargado no traiga el partido en curso viejo. Fijamos el ref
+    // para que el efecto no vuelva a sincronizar el mismo payload.
+    const payload = buildLivePayload(remaining);
+    lastSyncedRef.current = JSON.stringify(payload);
+    await onSetLiveMatch?.(payload.length > 0 ? payload : null);
 
     await onAddMatch(matchData);
   }
@@ -258,6 +251,18 @@ export default function Previa({
 
   const MAX_PREVIA_MATCHES = 2;
 
+  // Partido en curso (cargado en liveMatches) que corresponde a una entrada del calendario
+  function findLiveForEntry(entry) {
+    const t1 = String(entry.team1.id), t2 = String(entry.team2.id);
+    return liveMatches.find(m => {
+      const a = String(m.form.team1Pair), b = String(m.form.team2Pair);
+      return (a === t1 && b === t2) || (a === t2 && b === t1);
+    }) ?? null;
+  }
+
+  // ¿Hay algún partido con el cronómetro corriendo? → bloquea regenerar el calendario
+  const anyLiveRunning = liveMatches.some(m => m.timer.startedAt !== null && m.timer.stoppedAt === null);
+
   return (
     <div>
       {confirmDelete && (
@@ -277,8 +282,9 @@ export default function Previa({
           <div className="flex gap-2">
             <button
               onClick={handleGenerateSchedule}
-              disabled={generating}
-              className="bg-transparent text-muted border border-border-strong px-3 py-2.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm disabled:opacity-50 whitespace-nowrap"
+              disabled={generating || anyLiveRunning}
+              title={anyLiveRunning ? 'No se puede regenerar el calendario con un partido en vivo' : undefined}
+              className="bg-transparent text-muted border border-border-strong px-3 py-2.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {generating ? '...' : '↺ AL AZAR'}
             </button>
@@ -312,7 +318,9 @@ export default function Previa({
                       const played  = findPlayedMatch(tournament, entry);
                       const key     = `${entry.team1.id}_${entry.team2.id}_r${entry.round}`;
                       const win1    = played && parseInt(played.score1) > parseInt(played.score2);
-                      const canLoad = !played
+                      const live    = played ? null : findLiveForEntry(entry);
+                      const liveRunning = !!live && live.timer.startedAt !== null && live.timer.stoppedAt === null;
+                      const canLoad = !played && !live
                         && (pairMatchCounts[entry.team1.id] ?? 0) < 2
                         && (pairMatchCounts[entry.team2.id] ?? 0) < 2;
                       return (
@@ -325,6 +333,15 @@ export default function Previa({
                               <span className={win1 ? 'text-brand' : 'text-muted'}>{played.score1}</span>
                               <span className="text-border-strong text-[13px]">—</span>
                               <span className={!win1 ? 'text-cyan' : 'text-muted'}>{played.score2}</span>
+                            </span>
+                          ) : liveRunning ? (
+                            <span className="shrink-0 flex items-center gap-1.5 font-mono font-bold text-[10px] tracking-[1px] text-green bg-green/10 border border-green/30 px-2 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />
+                              EN VIVO
+                            </span>
+                          ) : live ? (
+                            <span className="shrink-0 font-mono text-[10px] tracking-[1px] text-muted bg-base border border-border px-2 py-0.5 rounded-full">
+                              cargado
                             </span>
                           ) : (
                             <>

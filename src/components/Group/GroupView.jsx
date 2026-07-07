@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2 } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2 } from 'lucide-react';
 import Btn from '../shared/Btn';
 import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
@@ -26,6 +26,8 @@ export default function GroupView() {
   const [saving,           setSaving]           = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [allTournaments, setAllTournaments] = useState([]);
+  const [copied,           setCopied]           = useState(false);
+  const [visibleCount,     setVisibleCount]     = useState(5);
 
   // edit fields
   const [editName,     setEditName]     = useState('');
@@ -52,6 +54,7 @@ export default function GroupView() {
   useEffect(() => {
     api.groups.get(groupId).then(setGroup);
     handleAllTournaments();
+    setVisibleCount(5);
   }, [groupId]);
 
   function toggleEmoji(e) {
@@ -66,6 +69,24 @@ export default function GroupView() {
     setEditIsPublic(group.is_public);
     setEditEmojis(group.emojis ?? []);
     setEditingGroup(true);
+  }
+
+  async function copyLink() {
+    const shareLink = `${window.location.origin}/cat/${groupId}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: group.name,
+          text: `¡Mirá la categoría "${group.name}" en Padeleando!`,
+          url: shareLink,
+        });
+      } catch { /* usuario canceló */ }
+    } else {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      showToast('Enlace copiado');
+      setTimeout(() => setCopied(false), 2000);
+    }
   }
 
   async function handleSaveGroup() {
@@ -147,15 +168,21 @@ export default function GroupView() {
                   </div>
                   }
               </span>
+              {group.is_public && (
+                <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} />
+              )}
               <Btn variant="danger" size="sm" icon={Trash2} onClick={() => { setDeleteModal(true); setDeleteInput(''); }} />
               <Btn size="sm" icon={Pencil} onClick={startEdit} />
             </div>
           )}
 
           {!isOwner && (
-            <span className="flex gap-2 items-center border border-border-mid rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
-              <User2 className="text-secondary" size={16}/><span className='text-md text-secondary font-mono'>@{group.owner_username ?? '—'}</span>
-            </span>
+            <div className="flex items-center gap-2">
+              <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} />
+              <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
+                <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
+              </span>
+            </div>
           )}
         </div>
 
@@ -181,6 +208,7 @@ export default function GroupView() {
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                   placeholder="Descripción (opcional)"
+                  maxLength={50}
                   className="w-full bg-surface border border-border-mid text-white px-2.5 py-1.5 font-sans text-[13px] rounded-sm outline-none"
                 />
               </div>
@@ -237,7 +265,7 @@ export default function GroupView() {
                 <div className="font-condensed font-bold text-[28px] text-white tracking-wide">{group.name}</div>
               </div>
               {group.description && (
-                <div className="font-condensed text-[14px] text-gray-500 tracking-wide mt-0.5">{group.description}</div>
+                <div className="font-condensed text-[14px] text-gray-500 tracking-wide mt-0.5 wrap-break-word whitespace-normal">{group.description}</div>
               )}
             </>
           )}
@@ -274,8 +302,8 @@ export default function GroupView() {
         {(!group.tournaments || group.tournaments.length === 0) && !isOwner && (
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
         )}
-        <div className="flex flex-col gap-2.5 mb-10">
-          {group.tournaments?.map((t, i) => {
+        <div className="flex flex-col gap-2.5">
+          {group.tournaments?.slice(0, visibleCount).map((t, i) => {
             const isAmericano = t.format === 'americano';
             const fmtColor = isAmericano ? '#e8f04a' : '#63b3ed';
             const fmtBg    = isAmericano ? 'rgba(232,240,74,0.07)' : 'rgba(99,179,237,0.07)';
@@ -286,7 +314,7 @@ export default function GroupView() {
               status: t.status, event_date: t.event_date, hasPlayed: (t.match_count ?? 0) > 0,
             })];
             return (
-            <FadeInCard key={t.id} delay={i * 60}
+            <FadeInCard key={t.id} delay={Math.min(i, 5) * 60}
               className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link"
               style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #1c1c1c 100%)' }}
               onClick={() => { navigate(`/cat/${groupId}/torneo/${t.id}`); }}>
@@ -347,7 +375,14 @@ export default function GroupView() {
             );
           })}
         </div>
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS HISTÓRICAS</div>
+        {group.tournaments && visibleCount < group.tournaments.length && (
+          <div className="flex justify-center mt-4">
+            <Btn size="sm" onClick={() => setVisibleCount(c => c + 10)}>
+              CARGAR MÁS ({group.tournaments.length - visibleCount} restantes)
+            </Btn>
+          </div>
+        )}
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border mt-10">ESTADÍSTICAS HISTÓRICAS</div>
         <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} />
       </div>
 
