@@ -12,6 +12,7 @@ import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
 import FadeInCard from '../shared/FadeInCard';
 import GroupCard from '../shared/GroupCard';
 import PremiumModal from '../shared/PremiumModal';
+import Modal from '../shared/Modal';
 import statsPreview from '../../assets/advanced-stats-preview.svg';
 import Loader from '../Loader/Loader';
 import PlayerAvatar from '../shared/PlayerAvatar';
@@ -181,7 +182,7 @@ function PasswordInput({ value, onChange, placeholder = '* * * * * * *' }) {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none pr-10 font-[Barlow]"
+        className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none pr-10 font-mono"
       />
       <button type="button" onClick={() => setShow(v => !v)}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-[#aaa] transition-colors bg-transparent border-0 cursor-pointer">
@@ -512,7 +513,7 @@ export default function ProfileView() {
   const [error,   setError]   = useState(null);
   const { username } = useParams();
   const navigate = useNavigate();
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
 
   const [isFollowing,      setIsFollowing]      = useState(false);
   const [followBusy,       setFollowBusy]       = useState(false);
@@ -545,6 +546,11 @@ export default function ProfileView() {
   const [avatarError, setAvatarError] = useState(null);
   const [cropFile,    setCropFile]    = useState(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword,  setDeletePassword]  = useState('');
+  const [deleteBusy,      setDeleteBusy]      = useState(false);
+  const [deleteError,     setDeleteError]     = useState(null);
 
   useEffect(() => {
     api.groups.byUsername(username)
@@ -703,6 +709,19 @@ export default function ProfileView() {
       setSaveError(e.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await api.auth.deleteMe(deletePassword);
+      await logout();
+      navigate('/', { replace: true });
+    } catch (e) {
+      setDeleteError(e.message);
+      setDeleteBusy(false);
     }
   }
 
@@ -1030,6 +1049,25 @@ export default function ProfileView() {
                     Cancelar
                   </button>
                 </div>
+
+                {/* Zona de peligro */}
+                <div style={{ borderTop: '1px solid #3a1a1a', marginTop: 24, paddingTop: 16 }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Trash2 size={13} className="text-danger" />
+                    <span className="font-condensed font-bold text-sm tracking-[3px] text-danger">ELIMINAR CUENTA</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#777', fontFamily: "'Albert Sans',monospace", marginBottom: 12 }}>
+                    Se borra tu cuenta de forma permanente. Tus grupos y torneos se conservan bajo una cuenta anónima
+                    y tus partidos en grupos de otros quedan sin vincular. No se puede deshacer.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setDeletePassword(''); setDeleteError(null); setShowDeleteModal(true); }}
+                    className="bg-transparent border border-danger/50 text-danger px-4 py-2 text-xs rounded cursor-pointer hover:bg-danger/10 transition-colors font-condensed font-bold tracking-widest"
+                  >
+                    ELIMINAR MI CUENTA
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1133,9 +1171,9 @@ export default function ProfileView() {
                       style={{ background: `${color}18`, color, border: `1px solid ${color}44` }}>
                       {win ? 'V' : draw ? 'E' : 'D'}
                     </div>
-                    <div className="shrink-0 font-condensed font-black text-[20px] leading-none w-12 text-center"
+                    <div className="shrink-0 font-condensed font-black text-[20px] leading-none w-14 text-center"
                       style={{ color }}>
-                      {m.my_score}<span className="text-[#fff] font-normal text-[20px]"> - </span>{m.opp_score}
+                      {m.my_score}<span className="text-white font-normal text-[20px]"> - </span>{m.opp_score}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-[12px] text-white font-mono truncate">
@@ -1260,6 +1298,31 @@ export default function ProfileView() {
       )}
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+
+      {showDeleteModal && (
+        <Modal
+          title="Eliminar cuenta"
+          confirmText={deleteBusy ? 'Eliminando...' : 'Eliminar cuenta'}
+          confirmDisabled={deleteBusy || !deletePassword.trim()}
+          confirmDanger
+          onConfirm={handleDeleteAccount}
+          onCancel={() => { if (!deleteBusy) setShowDeleteModal(false); }}
+        >
+          <p className="mb-3">
+            Esta acción es permanente y no se puede deshacer. Tus grupos y torneos se conservan bajo una
+            cuenta anónima; tus partidos en grupos de otros quedan sin vincular.
+          </p>
+          <label className="block text-[11px] tracking-widest text-muted font-mono mb-1.5">
+            CONTRASEÑA
+          </label>
+          <PasswordInput
+            value={deletePassword}
+            onChange={e => setDeletePassword(e.target.value)}
+            placeholder="Tu contraseña (o escribí BORRAR si usás Google)"
+          />
+          {deleteError && <p className="text-danger text-xs font-mono mt-3">{deleteError}</p>}
+        </Modal>
+      )}
 
       {showInviteModal && (
         <div
