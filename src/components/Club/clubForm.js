@@ -91,3 +91,36 @@ export function scheduleLines(schedule) {
   if (!Array.isArray(schedule)) return []
   return schedule.map((s) => (typeof s === 'string' ? s : s.text ?? '')).filter(Boolean)
 }
+
+// Compara los datos actuales de un club con los propuestos y devuelve
+// [{ label, before, after }] solo para los campos que cambiaron.
+export function clubChanges(current = {}, proposed = {}) {
+  const changes = []
+  const norm = (v) => (v == null || v === '' ? '' : String(v))
+  const simple = [
+    ['name',             'Nombre'],
+    ['location_name',    'Ubicación'],
+    ['contact_phone',    'Teléfono'],
+    ['contact_whatsapp', 'WhatsApp'],
+    ['courts',           'Canchas'],
+  ]
+  for (const [key, label] of simple) {
+    const before = norm(current[key])
+    const after  = norm(proposed[key])
+    if (before !== after) changes.push({ label, before, after })
+  }
+  // Redes: comparar plataforma por plataforma para no mezclar cambios distintos.
+  const socialLabels = { instagram: 'Instagram', facebook: 'Facebook', website: 'Sitio web' }
+  const getUrl = (arr, platform) => (Array.isArray(arr) ? arr : []).find((s) => s?.platform === platform)?.url ?? ''
+  for (const platform of Object.keys(socialLabels)) {
+    const before = norm(getUrl(current.social_links, platform))
+    const after  = norm(getUrl(proposed.social_links, platform))
+    if (before !== after) changes.push({ label: socialLabels[platform], before, after })
+  }
+
+  const beforeSched = scheduleLines(current.schedule).join(' · ')
+  const afterSched  = scheduleLines(proposed.schedule).join(' · ')
+  if (beforeSched !== afterSched) changes.push({ label: 'Horarios', before: beforeSched, after: afterSched })
+
+  return changes
+}

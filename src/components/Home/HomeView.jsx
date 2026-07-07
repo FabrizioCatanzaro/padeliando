@@ -3,35 +3,42 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../../utils/api';
 import { useNavigate } from 'react-router-dom'
 import { useAuth }     from '../../context/useAuth'
-import { Globe, Lock, Plus, X, Search, MapPin, Smile, Check, Loader2 } from 'lucide-react';
+import { Globe, Lock, Plus, X, Search, MapPin, Smile, Check, Loader2, Trophy, ChevronLeft, ChevronRight, BarChart3, Radio, UserRound, Building2, Navigation } from 'lucide-react';
 import logoUrl from '../../assets/padeleando.ico'
 import FadeInCard from '../shared/FadeInCard'
 import GroupCard from '../shared/GroupCard'
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
-import MapPicker from '../shared/MapPicker';
+import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
 import { useToast } from '../../context/useToast';
 import Btn from '../shared/Btn';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
-const NEARBY_CACHE_KEY = 'nearby_v1';
+const FEATURES = [
+  { icon: Trophy,     title: 'Torneos Americanos o Ligas', desc: 'Elegí el formato, con parejas fijas o jugadores libres, y armá el fixture en minutos.' },
+  { icon: Radio,      title: 'Partidos en vivo',         desc: 'Cargá los resultados al toque, llevá el tiempo del partido y compartí el torneo con un link público.' },
+  { icon: BarChart3,  title: 'Tablas de posiciones y estadísticas', desc: 'Posiciones, estadísticas de rendimiento y mucho más.' },
+  { icon: UserRound,  title: 'Tu perfil de padelero',    desc: 'Historial, rachas, estadísticas personales y tus compañeros más frecuentes.' },
+]
+
+const NEARBY_CACHE_KEY = 'nearby_clubs_v1';
 const NEARBY_TTL       = 10 * 60 * 1000; // 10 min
-const NEARBY_INITIAL   = 3;
-const NEARBY_PAGE_SIZE = 5;
+const NEARBY_INITIAL   = 4;
+const NEARBY_PAGE_SIZE = 6;
 
 function readNearbyCache() {
   try {
     const raw = localStorage.getItem(NEARBY_CACHE_KEY);
     if (!raw) return null;
-    const { groups, ts } = JSON.parse(raw);
+    const { items, ts } = JSON.parse(raw);
     if (Date.now() - ts > NEARBY_TTL) { localStorage.removeItem(NEARBY_CACHE_KEY); return null; }
-    return groups;
+    return items;
   } catch { return null; }
 }
 
-function writeNearbyCache(groups) {
-  try { localStorage.setItem(NEARBY_CACHE_KEY, JSON.stringify({ groups, ts: Date.now() })); } catch {
+function writeNearbyCache(items) {
+  try { localStorage.setItem(NEARBY_CACHE_KEY, JSON.stringify({ items, ts: Date.now() })); } catch {
     /* */
   }
 }
@@ -47,33 +54,36 @@ export default function HomeView() {
   const [showNew,      setShowNew]      = useState(false);
   const [selectedEmojis, setSelectedEmojis] = useState([]);
   const [showEmojiModal, setShowEmojiModal] = useState(false);
-  const [location,           setLocation]           = useState('');
-  const [placeId,            setPlaceId]            = useState('');
-  const [lat,                setLat]                = useState(null);
-  const [lon,                setLon]                = useState(null);
-  const [locationSuggestions,setLocationSuggestions] = useState([]);
-  const [locationLoading,    setLocationLoading]    = useState(false);
-  const [showMapPicker,      setShowMapPicker]      = useState(false);
+  const [club,           setClub]           = useState(null);
   const [searchQ,        setSearchQ]        = useState('');
   const [searchUsers,    setSearchUsers]    = useState([]);
   const [searchGroups,   setSearchGroups]   = useState([]);
+  const [searchClubs,    setSearchClubs]    = useState([]);
   const [searching,      setSearching]      = useState(false);
   const [committedQ,     setCommittedQ]     = useState('');
   const [committedUsers, setCommittedUsers] = useState([]);
   const [committedGroups,setCommittedGroups]= useState([]);
+  const [committedClubs, setCommittedClubs] = useState([]);
   const [committing,     setCommitting]     = useState(false);
   const [error,             setError]             = useState(null)
   const [showPremiumModal,  setShowPremiumModal]  = useState(false)
   const [creating,          setCreating]          = useState(false)
 
-  const [nearbyGroups,   setNearbyGroups]   = useState([]);
-  const [nearbyStatus,   setNearbyStatus]   = useState('idle'); // idle | loading | done | denied | error
+  const [nearbyClubs,    setNearbyClubs]    = useState([]);
+  const [nearbyStatus,   setNearbyStatus]   = useState('idle'); // idle | loading | done | denied | error | unsupported
   const [nearbyPage,     setNearbyPage]     = useState(NEARBY_INITIAL);
+
+  const [featured,        setFeatured]        = useState([]);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
+  const featuredScrollRef = useRef(null);
+  const [canScrollL,  setCanScrollL]  = useState(false);
+  const [canScrollR,  setCanScrollR]  = useState(false);
+  const [scrollThumb, setScrollThumb] = useState(1); // proporción visible (0-1)
+  const [scrollPos,   setScrollPos]   = useState(0); // posición del pulgar (0-1)
 
   const { isLoggedIn, user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const locationAbortRef = useRef(null);
 
   const valsPrivacy = [
     { val: true, label: 'Público', icon: Globe },
@@ -88,69 +98,87 @@ export default function HomeView() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Clubes cercanos: usa cache, o auto-carga si el permiso de ubicación ya está concedido.
+  // Escucha cambios de permiso para reaccionar si el usuario lo habilita desde ajustes.
   useEffect(() => {
     const cached = readNearbyCache();
-    if (cached) { setNearbyGroups(cached); setNearbyStatus('done'); }
+    if (cached) { setNearbyClubs(cached); setNearbyStatus('done'); return; }
+    if (!navigator.geolocation) { setNearbyStatus('unsupported'); return; }
+    if (!navigator.permissions?.query) return;
+
+    let permStatus;
+    navigator.permissions.query({ name: 'geolocation' })
+      .then((res) => {
+        permStatus = res;
+        const apply = () => {
+          if (res.state === 'granted') fetchNearbyClubs();
+          else if (res.state === 'denied') setNearbyStatus('denied');
+          else setNearbyStatus('idle'); // 'prompt' → el botón puede mostrar el cartel nativo
+        };
+        apply();
+        res.onchange = apply;
+      })
+      .catch(() => {});
+
+    return () => { if (permStatus) permStatus.onchange = null; };
   }, []);
 
-  // Sugerencias de lugar con Photon (OpenStreetMap) — gratis, sin API key
+  // Categorías públicas destacadas para la vitrina de visitantes
   useEffect(() => {
-    if (!location.trim() || location.length < 2 || placeId || lat !== null) {
-      setLocationSuggestions([]);
-      return;
-    }
-    const t = setTimeout(() => {
-      locationAbortRef.current?.abort();
-      const controller = new AbortController();
-      locationAbortRef.current = controller;
-      setLocationLoading(true);
-      // bbox de Argentina para sesgar resultados
-      const params = new URLSearchParams({ q: location, limit: 5, lat: -34.646194, lon: -58.566583 });
-      fetch(`https://photon.komoot.io/api/?${params}`, { signal: controller.signal })
-        .then(r => r.json())
-        .then(data => setLocationSuggestions(data.features ?? []))
-        .catch(() => {})
-        .finally(() => setLocationLoading(false));
-    }, 400);
-    return () => clearTimeout(t);
-  }, [location, placeId, lat]);
+    if (isLoggedIn) return;
+    setFeaturedLoading(true);
+    api.groups.featured(10)
+      .then(setFeatured)
+      .catch(() => setFeatured([]))
+      .finally(() => setFeaturedLoading(false));
+  }, [isLoggedIn]);
 
-  function selectPlace(feature) {
-    const p = feature.properties;
-    const [fLon, fLat] = feature.geometry.coordinates;
-    const parts = [p.name, p.street, p.city, p.state].filter(Boolean);
-    const display = [...new Set(parts)].join(', ');
-    setLocation(display);
-    setPlaceId(`${p.osm_type}:${p.osm_id}`);
-    setLat(fLat);
-    setLon(fLon);
-    setLocationSuggestions([]);
+  function updateFeaturedScroll() {
+    const el = featuredScrollRef.current;
+    if (!el) return;
+    const { scrollLeft, clientWidth, scrollWidth } = el;
+    const maxScroll = scrollWidth - clientWidth;
+    setCanScrollL(scrollLeft > 4);
+    setCanScrollR(scrollLeft < maxScroll - 4);
+    setScrollThumb(scrollWidth > 0 ? clientWidth / scrollWidth : 1);
+    setScrollPos(maxScroll > 0 ? scrollLeft / maxScroll : 0);
   }
 
-  function handleMapConfirm(pickedLat, pickedLon, displayName) {
-    setLat(pickedLat);
-    setLon(pickedLon);
-    if (displayName) setLocation(displayName);
-    setPlaceId('');
-    setLocationSuggestions([]);
-    setShowMapPicker(false);
+  // Sincroniza flechas y barra de progreso con el scroll de la vitrina
+  useEffect(() => {
+    const el = featuredScrollRef.current;
+    if (!el) return;
+    updateFeaturedScroll();
+    el.addEventListener('scroll', updateFeaturedScroll, { passive: true });
+    window.addEventListener('resize', updateFeaturedScroll);
+    return () => {
+      el.removeEventListener('scroll', updateFeaturedScroll);
+      window.removeEventListener('resize', updateFeaturedScroll);
+    };
+  }, [featured.length]);
+
+  function scrollFeatured(dir) {
+    featuredScrollRef.current?.scrollBy({ left: dir * 290, behavior: 'smooth' });
   }
 
-  // Búsqueda de perfiles y torneos con debounce
+  // Búsqueda de perfiles, categorías y clubes con debounce
   useEffect(() => {
-    if (!searchQ.trim() || searchQ.length < 2) { setSearchUsers([]); setSearchGroups([]); return; }
+    if (!searchQ.trim() || searchQ.length < 2) { setSearchUsers([]); setSearchGroups([]); setSearchClubs([]); return; }
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const [users, groups] = await Promise.all([
+        const [users, groups, clubs] = await Promise.all([
           api.auth.search(searchQ),
           api.groups.search(searchQ),
+          api.clubs.list(searchQ),
         ]);
         setSearchUsers(users);
         setSearchGroups(groups);
+        setSearchClubs(clubs);
       } catch {
         setSearchUsers([]);
         setSearchGroups([]);
+        setSearchClubs([]);
       } finally { setSearching(false); }
     }, 300);
     return () => clearTimeout(t);
@@ -167,18 +195,22 @@ export default function HomeView() {
     if (q.length < 2) return;
     setCommitting(true);
     try {
-      const [users, groups] = await Promise.all([
+      const [users, groups, clubs] = await Promise.all([
         api.auth.search(q),
         api.groups.search(q),
+        api.clubs.list(q),
       ]);
       setCommittedQ(q);
       setCommittedUsers(users);
       setCommittedGroups(groups);
+      setCommittedClubs(clubs);
       setSearchUsers([]);
       setSearchGroups([]);
+      setSearchClubs([]);
     } catch {
       setCommittedUsers([]);
       setCommittedGroups([]);
+      setCommittedClubs([]);
     } finally { setCommitting(false); }
   }
 
@@ -187,34 +219,49 @@ export default function HomeView() {
     setCommittedQ('');
     setCommittedUsers([]);
     setCommittedGroups([]);
+    setCommittedClubs([]);
     setSearchUsers([]);
     setSearchGroups([]);
+    setSearchClubs([]);
   }
 
-  function handleNearby() {
-    const cached = readNearbyCache();
-    if (cached) {
-      setNearbyGroups(cached);
-      setNearbyStatus('done');
-      setNearbyPage(NEARBY_INITIAL);
-      return;
-    }
-    if (!navigator.geolocation) { setNearbyStatus('error'); return; }
+  function fetchNearbyClubs() {
+    if (!navigator.geolocation) { setNearbyStatus('unsupported'); return; }
     setNearbyStatus('loading');
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         try {
-          const data = await api.groups.nearby(coords.latitude, coords.longitude);
+          const data = await api.clubs.nearby(coords.latitude, coords.longitude);
           writeNearbyCache(data);
-          setNearbyGroups(data);
+          setNearbyClubs(data);
           setNearbyStatus('done');
           setNearbyPage(NEARBY_INITIAL);
         } catch {
           setNearbyStatus('error');
         }
       },
-      () => setNearbyStatus('denied'),
-      { timeout: 8000 }
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          // Distinguir descarte temporal (se puede volver a pedir) de bloqueo real.
+          if (navigator.permissions?.query) {
+            navigator.permissions.query({ name: 'geolocation' })
+              .then((res) => {
+                if (res.state === 'denied') {
+                  setNearbyStatus('denied');
+                  showToast('La ubicación está bloqueada. Habilitala desde los ajustes del sitio en tu navegador.');
+                } else {
+                  setNearbyStatus('idle'); // solo lo cerró → el botón vuelve a pedir permiso
+                }
+              })
+              .catch(() => setNearbyStatus('denied'));
+          } else {
+            setNearbyStatus('denied');
+          }
+        } else {
+          setNearbyStatus('error');
+        }
+      },
+      { timeout: 8000, maximumAge: 5 * 60 * 1000 }
     );
   }
 
@@ -227,10 +274,8 @@ export default function HomeView() {
         description: desc,
         is_public: isPublic,
         emojis: selectedEmojis,
-        location_name: location || null,
-        place_id: placeId || null,
-        lat: lat ?? null,
-        lon: lon ?? null,
+        club_id: club?.pending ? null : (club?.id ?? null),
+        pending_club_request_id: club?.pending ? club.request_id : null,
       });
       showToast('Categoría creada');
       navigate(`/cat/${g.id}`);
@@ -249,10 +294,7 @@ export default function HomeView() {
     setDesc('');
     setIsPublic(true);
     setSelectedEmojis([]);
-    setLocation('');
-    setPlaceId('');
-    setLat(null);
-    setLon(null);
+    setClub(null);
     setError(null);
     setShowNew(true);
   }
@@ -274,21 +316,58 @@ export default function HomeView() {
     </div>
   );
 
-  const ownGroupIds = new Set(groups.map(g => g.id));
-  const nearbyVisible = nearbyGroups.filter(g => !ownGroupIds.has(g.id));
+  const nearbyVisible = nearbyClubs;
 
   return (
     <div className="bg-base text-content font-sans pb-16">
       <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto">
 
+        {/* ── Hero (visitante no logueado) ── */}
+        {!isLoggedIn && !committedQ && (
+          <div className="text-center pt-6 pb-12 sm:pt-12 sm:pb-16">
+            <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-border-mid">
+              <img src={logoUrl} className="w-4 h-4" alt="" />
+              <span className="font-mono text-[11px] tracking-widest text-secondary">PADELEANDO</span>
+            </div>
+            <h1 className="font-condensed font-bold text-3xl sm:text-5xl leading-[1.1] text-white max-w-2xl mx-auto">
+              Organizá y llevá las estadísticas de tus<br className="hidden sm:block" /> torneos de <span className="text-brand">pádel</span>
+            </h1>
+            <p className="text-secondary text-sm font-sans mt-5 max-w-md mx-auto leading-relaxed">
+              Creá torneos Americanos o Ligas, cargá partidos en vivo y llevá estadísticas automáticas. <span className="text-brand">Gratis.</span>
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+              <Btn variant="primary" size="lg" icon={Trophy} onClick={() => navigate('/register')}>
+                CREAR TORNEO GRATIS
+              </Btn>
+              <Btn variant="secondary" size="lg" onClick={() => navigate('/tutorial')}>
+                Ver cómo funciona
+              </Btn>
+            </div>
+            <p className="font-mono text-[11px] text-dim mt-6">
+              ¿Ya tenés cuenta?{' '}
+              <button
+                onClick={() => navigate('/login')}
+                className="text-secondary hover:text-brand transition-colors underline underline-offset-2 bg-transparent border-none cursor-pointer p-0"
+              >
+                Iniciá sesión
+              </button>
+            </p>
+          </div>
+        )}
+
         {/* ── Buscador ── */}
         <div className="relative mb-8">
+          {!committedQ && (
+            <h2 className="font-condensed font-bold text-sm tracking-widest text-muted mb-2.5">
+              {isLoggedIn ? 'BUSCADOR' : 'ENCONTRÁ JUGADORES, CATEGORÍAS Y CLUBES'}
+            </h2>
+          )}
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
               <input
                 className="w-full bg-surface border border-border-mid text-white pl-10 pr-4 py-3 rounded-lg text-sm outline-none font-sans placeholder:text-muted focus:border-border-strong transition-colors"
-                placeholder="Buscar jugadores o categorías..."
+                placeholder="Buscar jugadores, categorías o clubes..."
                 value={searchQ}
                 onChange={(e) => setSearchQ(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
@@ -304,12 +383,12 @@ export default function HomeView() {
           </div>
 
           {/* Dropdown de sugerencias */}
-          {searchQ.trim().length >= 2 && (searching || searchUsers.length > 0 || searchGroups.length > 0) && (
+          {searchQ.trim().length >= 2 && (searching || searchUsers.length > 0 || searchGroups.length > 0 || searchClubs.length > 0) && (
             <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-surface-alt border border-border-strong rounded-lg overflow-hidden shadow-xl max-h-72 overflow-y-auto">
               {searching && (
                 <div className="px-4 py-3 text-xs font-mono text-muted">Buscando...</div>
               )}
-              {!searching && searchUsers.length === 0 && searchGroups.length === 0 && (
+              {!searching && searchUsers.length === 0 && searchGroups.length === 0 && searchClubs.length === 0 && (
                 <div className="px-4 py-3 text-xs font-mono text-muted">Sin resultados</div>
               )}
               {!searching && searchUsers.length > 0 && (
@@ -317,7 +396,7 @@ export default function HomeView() {
                   <div className="px-4 pt-3 pb-1 text-[10px] font-mono text-dim tracking-widest border-b border-border-mid">PERFILES</div>
                   {searchUsers.map((u) => (
                     <div key={u.id}
-                      onClick={() => { navigate(`/u/${u.username}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); }}
+                      onClick={() => { navigate(`/u/${u.username}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); setSearchClubs([]); }}
                       className="flex flex-col px-4 py-2.5 cursor-pointer border-b border-border-mid last:border-0 hover:bg-surface transition-colors"
                     >
                       <span className="font-condensed font-bold text-base text-white">{u.name}</span>
@@ -331,7 +410,7 @@ export default function HomeView() {
                   <div className="px-4 pt-3 pb-1 text-[10px] font-mono text-dim tracking-widest border-b border-border-mid">CATEGORÍAS</div>
                   {searchGroups.map((g) => (
                     <div key={g.id}
-                      onClick={() => { navigate(`/cat/${g.id}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); }}
+                      onClick={() => { navigate(`/cat/${g.id}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); setSearchClubs([]); }}
                       className="flex flex-col px-4 py-2.5 cursor-pointer border-b border-border-mid last:border-0 hover:bg-surface transition-colors"
                     >
                       <span className="font-condensed font-bold text-base text-white">
@@ -342,55 +421,177 @@ export default function HomeView() {
                   ))}
                 </>
               )}
+              {!searching && searchClubs.length > 0 && (
+                <>
+                  <div className="px-4 pt-3 pb-1 text-[10px] font-mono text-dim tracking-widest border-b border-border-mid">CLUBES</div>
+                  {searchClubs.map((c) => (
+                    <div key={c.id}
+                      onClick={() => { navigate(`/club/${c.id}`); setSearchQ(''); setSearchUsers([]); setSearchGroups([]); setSearchClubs([]); }}
+                      className="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer border-b border-border-mid last:border-0 hover:bg-surface transition-colors"
+                    >
+                      {c.photo_url
+                        ? <img src={c.photo_url} alt="" className="w-8 h-8 rounded-md object-cover border border-border-mid shrink-0" />
+                        : <span className="w-8 h-8 rounded-md bg-surface border border-border-mid flex items-center justify-center shrink-0"><Building2 size={15} className="text-muted" /></span>}
+                      <div className="min-w-0">
+                        <div className="font-condensed font-bold text-white truncate">{c.name}</div>
+                        {c.location_name && <div className="text-[11px] font-mono text-dim truncate">{c.location_name}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
 
-        {/* ── Cerca de vos ── */}
-        {!committedQ && (
-          <div className="mb-8">
-            {nearbyStatus === 'idle' && (
-              <button
-                onClick={handleNearby}
-                className="flex items-center gap-2 bg-transparent border border-border-mid text-muted px-3.5 py-2 rounded-lg text-xs font-mono cursor-pointer hover:border-border-strong hover:text-soft transition-colors"
-              >
-                <MapPin size={13} />
-                BUSCAR CATEGORÍAS CERCA TUYO
-              </button>
-            )}
-            {nearbyStatus === 'loading' && (
-              <div className="flex items-center gap-2 text-xs font-mono text-muted">
-                <Loader2 size={13} className="animate-spin" />
-                Buscando torneos cercanos...
+        {/* ── Vitrina: se está jugando (visitantes) ── */}
+        {!isLoggedIn && !committedQ && (featuredLoading || featured.length > 0) && (
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green opacity-60" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green" />
+                </span>
+                <h2 className="font-condensed font-bold text-sm tracking-widest text-muted">SE ESTÁ JUGANDO</h2>
+              </div>
+              {!featuredLoading && featured.length > 1 && (canScrollL || canScrollR) && (
+                <div className="hidden sm:flex items-center gap-1.5">
+                  <button
+                    onClick={() => scrollFeatured(-1)}
+                    disabled={!canScrollL}
+                    aria-label="Anterior"
+                    className="flex items-center justify-center w-7 h-7 rounded-full border border-border-mid text-muted hover:border-border-strong hover:text-soft transition-colors cursor-pointer bg-transparent disabled:opacity-25 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <button
+                    onClick={() => scrollFeatured(1)}
+                    disabled={!canScrollR}
+                    aria-label="Siguiente"
+                    className="flex items-center justify-center w-7 h-7 rounded-full border border-border-mid text-muted hover:border-border-strong hover:text-soft transition-colors cursor-pointer bg-transparent disabled:opacity-25 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div
+              ref={featuredScrollRef}
+              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 snap-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {featuredLoading
+                ? [0, 1, 2].map(i => (
+                    <div key={i} className="snap-start shrink-0 w-[270px]"><CardSkeleton lines={3} /></div>
+                  ))
+                : featured.map((g, i) => (
+                    <div key={g.id} className="snap-start shrink-0 w-[270px] flex">
+                      <GroupCard g={g} delay={i * 60} className="h-full w-full" onClick={() => navigate(`/cat/${g.id}`)} />
+                    </div>
+                  ))}
+            </div>
+            {/* Barra de progreso (indicador de scroll en mobile) */}
+            {!featuredLoading && (canScrollL || canScrollR) && (
+              <div className="sm:hidden mx-auto mt-1 h-1 w-20 rounded-full bg-border-mid relative overflow-hidden">
+                <div
+                  className="absolute top-0 h-full rounded-full bg-muted transition-[left] duration-75"
+                  style={{ width: `${scrollThumb * 100}%`, left: `${scrollPos * (100 - scrollThumb * 100)}%` }}
+                />
               </div>
             )}
-            {nearbyStatus === 'denied' && (
-              <div className="text-xs font-mono text-dim">Permiso de ubicación denegado.</div>
-            )}
-            {nearbyStatus === 'error' && (
-              <div className="text-xs font-mono text-dim">No se pudo obtener la ubicación.</div>
+          </div>
+        )}
+
+        {/* ── Clubes cerca tuyo ── */}
+        {!committedQ && nearbyStatus !== 'unsupported' && (
+          <div className="mb-10">
+            {/* Estados previos a los resultados: misma altura para evitar saltos de layout */}
+            {nearbyStatus !== 'done' && nearbyStatus !== 'unsupported' && (
+              <div className="border border-border-mid rounded-lg p-6 sm:p-8 text-center bg-surface/40 min-h-[168px] flex flex-col items-center justify-center">
+                {nearbyStatus === 'loading' ? (
+                  <>
+                    <div className="w-11 h-11 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-3">
+                      <Loader2 size={20} className="animate-spin" />
+                    </div>
+                    <p className="text-secondary text-sm font-sans">Buscando clubes cercanos...</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-11 h-11 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-3">
+                      <MapPin size={20} />
+                    </div>
+                    <p className="text-secondary text-sm font-sans mb-4 max-w-xs leading-relaxed">
+                      {nearbyStatus === 'denied'
+                        ? 'La ubicación está bloqueada. Habilitala desde el ícono de candado en la barra del navegador.'
+                        : nearbyStatus === 'error'
+                          ? 'No pudimos obtener tu ubicación. Probá de nuevo.'
+                          : 'Activá tu ubicación para descubrir clubes de pádel cerca tuyo.'}
+                    </p>
+                    <Btn variant="primary" size="md" icon={MapPin} onClick={fetchNearbyClubs}>
+                      {nearbyStatus === 'idle' ? 'VER CLUBES CERCA' : 'REINTENTAR'}
+                    </Btn>
+                  </>
+                )}
+              </div>
             )}
             {nearbyStatus === 'done' && (
               <>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-widest text-muted">
                     <MapPin size={13} />
-                    CERCA TUYO
+                    CLUBES CERCA TUYO
                   </div>
                   <button
-                    onClick={() => { setNearbyStatus('idle'); setNearbyGroups([]); }}
+                    onClick={() => { setNearbyStatus('idle'); setNearbyClubs([]); }}
                     className="text-dim hover:text-soft transition-colors cursor-pointer bg-transparent border-none"
                   >
                     <X size={15} />
                   </button>
                 </div>
                 {nearbyVisible.length === 0 ? (
-                  <div className="font-mono text-xs text-dim">No hay categorías públicas en un radio de 20 km.</div>
+                  <div className="font-mono text-xs text-dim">No hay clubes en un radio de 20 km.</div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 bg-border-strong/10 p-3 rounded-lg">
-                      {nearbyVisible.slice(0, nearbyPage).map((g, i) => (
-                        <GroupCard key={g.id} g={g} delay={i * 60} onClick={() => navigate(`/cat/${g.id}`)} />
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+                      {nearbyVisible.slice(0, nearbyPage).map((c, i) => (
+                        <FadeInCard
+                          key={c.id}
+                          delay={i * 60}
+                          className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link flex items-center gap-3 p-3"
+                          style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #1c1c1c 100%)' }}
+                          onClick={() => navigate(`/club/${c.id}`)}
+                        >
+                          {c.photo_url ? (
+                            <img
+                              src={c.photo_url}
+                              alt=""
+                              className="w-14 h-14 rounded-lg object-cover border border-border-mid shrink-0"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-lg bg-surface border border-border-mid flex items-center justify-center shrink-0">
+                              <Building2 size={20} className="text-muted" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="font-condensed font-bold text-[16px] text-white leading-tight truncate">{c.name}</div>
+                            {c.location_name && (
+                              <div className="flex items-center gap-1 font-mono text-[11px] text-secondary mt-0.5">
+                                <MapPin size={10} className="shrink-0" />
+                                <span className="truncate">{c.location_name}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3 mt-1">
+                              {c.courts != null && (
+                                <span className="font-mono text-[11px] text-muted">{c.courts} {c.courts === 1 ? 'cancha' : 'canchas'}</span>
+                              )}
+                              {c.distance_km != null && (
+                                <span className="flex items-center gap-1 font-mono text-[11px] text-brand">
+                                  <Navigation size={10} />{c.distance_km} km
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </FadeInCard>
                       ))}
                     </div>
                     {nearbyVisible.length > nearbyPage && (
@@ -408,6 +609,29 @@ export default function HomeView() {
           </div>
         )}
 
+        {/* ── ¿Qué podés hacer? (visitantes) ── */}
+        {!isLoggedIn && !committedQ && (
+          <div className="mt-14 mb-6">
+            <h2 className="font-condensed font-bold text-sm tracking-widest text-muted text-center mb-6">¿QUÉ PODÉS HACER?</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {FEATURES.map((f) => (
+                <div key={f.title} className="border border-border-mid rounded-lg p-4 bg-surface/40 flex flex-col gap-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0">
+                    <f.icon size={18} />
+                  </div>
+                  <h3 className="font-condensed font-bold text-[15px] text-white leading-tight">{f.title}</h3>
+                  <p className="font-sans text-[13px] text-secondary leading-snug">{f.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-center mt-8">
+              <Btn variant="primary" size="lg" icon={Trophy} onClick={() => navigate('/register')}>
+                EMPEZÁ GRATIS
+              </Btn>
+            </div>
+          </div>
+        )}
+
         {/* ── Resultados de búsqueda ── */}
         {committedQ && (
           <div>
@@ -420,7 +644,7 @@ export default function HomeView() {
               </button>
             </div>
             {committing && <div className="font-mono text-xs text-muted py-4">Buscando...</div>}
-            {!committing && committedUsers.length === 0 && committedGroups.length === 0 && (
+            {!committing && committedUsers.length === 0 && committedGroups.length === 0 && committedClubs.length === 0 && (
               <div className="font-mono text-xs text-muted py-4">Sin resultados.</div>
             )}
             {!committing && committedUsers.length > 0 && (
@@ -445,6 +669,42 @@ export default function HomeView() {
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-8">
                   {committedGroups.map((g) => (
                     <GroupCard key={g.id} g={g} onClick={() => navigate(`/cat/${g.id}`)} />
+                  ))}
+                </div>
+              </>
+            )}
+            {!committing && committedClubs.length > 0 && (
+              <>
+                <div className="font-mono text-[10px] text-dim tracking-widest mb-3">CLUBES</div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 mb-8">
+                  {committedClubs.map((c, i) => (
+                    <FadeInCard
+                      key={c.id}
+                      delay={i * 60}
+                      className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link flex items-center gap-3 p-3"
+                      style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #1c1c1c 100%)' }}
+                      onClick={() => navigate(`/club/${c.id}`)}
+                    >
+                      {c.photo_url ? (
+                        <img src={c.photo_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-border-mid shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-surface border border-border-mid flex items-center justify-center shrink-0">
+                          <Building2 size={20} className="text-muted" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-condensed font-bold text-[16px] text-white leading-tight truncate">{c.name}</div>
+                        {c.location_name && (
+                          <div className="flex items-center gap-1 font-mono text-[11px] text-secondary mt-0.5">
+                            <MapPin size={10} className="shrink-0" />
+                            <span className="truncate">{c.location_name}</span>
+                          </div>
+                        )}
+                        {c.courts != null && (
+                          <span className="font-mono text-[11px] text-muted mt-1 inline-block">{c.courts} {c.courts === 1 ? 'cancha' : 'canchas'}</span>
+                        )}
+                      </div>
+                    </FadeInCard>
                   ))}
                 </div>
               </>
@@ -492,16 +752,6 @@ export default function HomeView() {
           </>
         )}
 
-        {/* ── Estado no logueado ── */}
-        {!isLoggedIn && (
-          <div className="flex flex-col items-center justify-center text-center py-16 px-5">
-            <img className="w-20 mb-6 opacity-15" src={logoUrl} />
-            <p className="text-secondary text-sm font-sans mb-6 leading-relaxed">
-              Registrate para guardar tus categorías y compartirlas.
-            </p>
-            <Btn variant="primary" size="lg" onClick={() => navigate('/login')}>INICIAR SESIÓN</Btn>
-          </div>
-        )}
       </div>
 
       {/* ── Modal nueva categoría ── */}
@@ -546,55 +796,17 @@ export default function HomeView() {
                   placeholder="ej: Todos los martes a las 17..."
                   value={desc}
                   onChange={(e) => setDesc(e.target.value)}
+                  maxLength={50}
                 />
               </div>
 
-              {/* Lugar / Club */}
+              {/* Club */}
               <div>
-                <label className="block text-[11px] tracking-widest text-dim font-mono mb-2">LUGAR / CLUB <span className="text-muted normal-case tracking-normal">(opcional)</span></label>
-                <div className="relative">
-                  {locationLoading
-                    ? <Loader2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none animate-spin" />
-                    : <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  }
-                  <input
-                    className="w-full bg-surface-alt border border-border-mid text-white pl-8 pr-20 py-2.5 rounded-lg text-sm outline-none font-sans focus:border-border-strong transition-colors"
-                    placeholder="ej: Padel Club Palermo..."
-                    value={location}
-                    onChange={(e) => { setLocation(e.target.value); setPlaceId(''); setLat(null); setLon(null); }}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowMapPicker(true)}
-                    title="Elegir en el mapa"
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono border transition-colors cursor-pointer bg-transparent ${lat ? 'border-brand text-brand' : 'border-border-mid text-dim hover:border-border-strong hover:text-soft'}`}
-                  >
-                    <MapPin size={11} />
-                    {lat ? 'PIN ✓' : 'MAPA'}
-                  </button>
-                  {locationSuggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-50 border border-border-mid border-t-0 rounded-b overflow-hidden bg-surface-alt">
-                      {locationSuggestions.map((f, i) => {
-                        const p = f.properties;
-                        const primary = p.name || p.street || '';
-                        const secondary = [p.city, p.state].filter(Boolean).join(', ');
-                        return (
-                          <div key={i}
-                            onMouseDown={(e) => { e.preventDefault(); selectPlace(f); }}
-                            className="flex items-start gap-2 px-3 py-2.5 cursor-pointer border-b border-border-mid last:border-0 hover:bg-surface transition-colors"
-                          >
-                            <MapPin size={12} className="text-dim mt-1 shrink-0" />
-                            <div>
-                              <div className="text-sm text-white leading-snug">{primary}</div>
-                              {secondary && <div className="text-xs text-dim mt-0.5">{secondary}</div>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <label className="block text-[11px] tracking-widest text-dim font-mono mb-2">CLUB <span className="text-muted normal-case tracking-normal">(opcional)</span></label>
+                <ClubSelector value={club} onChange={setClub} />
+                <p className="text-[11px] text-dim font-mono mt-2">
+                  Se usará por defecto en los torneos de esta categoría (podés cambiarlo en cada uno).
+                </p>
               </div>
 
               {/* Visibilidad */}
@@ -666,16 +878,6 @@ export default function HomeView() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Modal mapa */}
-      {showMapPicker && (
-        <MapPicker
-          initialLat={lat}
-          initialLon={lon}
-          onConfirm={handleMapConfirm}
-          onClose={() => setShowMapPicker(false)}
-        />
       )}
 
       {/* Modal de selección de íconos */}

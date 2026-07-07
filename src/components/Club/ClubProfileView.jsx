@@ -2,19 +2,40 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   MapPin, Phone, MessageCircle, Instagram, Facebook, Globe, Building2,
-  ChevronLeft, Clock, LayoutGrid, Trophy, Calendar, User,
+  ChevronLeft, Clock, LayoutGrid, Trophy, Calendar, User, Navigation, Pencil,
 } from 'lucide-react'
 import { api } from '../../utils/api'
+import { useAuth } from '../../context/useAuth'
 import { fmt, TOURNAMENT_STATUS_META } from '../../utils/helpers'
 import { scheduleLines, whatsappLink, socialUrl, socialLabel } from './clubForm'
+import courtBg from '../../assets/padelcourt.png'
 import Loader from '../Loader/Loader'
 import Badge from '../shared/Badge'
 import FadeInCard from '../shared/FadeInCard'
+import ClubRequestModal from './ClubRequestModal'
+import ClubEditModal from './ClubEditModal'
 
 const SOCIAL_ICON = { instagram: Instagram, facebook: Facebook, website: Globe }
 
 // Mapea el bucket del backend (upcoming/ongoing/past) al meta de estado.
 const STATE_KEY = { upcoming: 'upcoming', ongoing: 'active', past: 'finished' }
+
+// Link a la app de mapas según la plataforma (Apple Maps en iOS/Mac, Google Maps en el resto).
+// Usa coordenadas si las hay; si no, el nombre de la ubicación.
+function mapsUrl(club) {
+  const hasCoords = club.lat != null && club.lon != null
+  if (!hasCoords && !club.location_name) return null
+  const isApple = /iP(hone|ad|od)|Macintosh/.test(navigator.userAgent)
+  const label = encodeURIComponent(club.name || 'Club')
+  if (isApple) {
+    return hasCoords
+      ? `https://maps.apple.com/?ll=${club.lat},${club.lon}&q=${label}`
+      : `https://maps.apple.com/?q=${encodeURIComponent(club.location_name)}`
+  }
+  return hasCoords
+    ? `https://www.google.com/maps/search/?api=1&query=${club.lat},${club.lon}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(club.location_name)}`
+}
 
 function EventCard({ ev, state, delay }) {
   const isAmericano = ev.format === 'americano'
@@ -52,11 +73,20 @@ const EVENT_TABS = [
 export default function ClubProfileView() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { isLoggedIn, user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const [club, setClub]     = useState(null)
   const [events, setEvents] = useState({ upcoming: [], ongoing: [], past: [] })
   const [activeTab, setActiveTab] = useState('ongoing')
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState(null)
+  const [showEditRequest, setShowEditRequest] = useState(false)
+  const [showEditClub, setShowEditClub] = useState(false)
+
+  function handleEditRequest() {
+    if (!isLoggedIn) { navigate('/login'); return }
+    setShowEditRequest(true)
+  }
 
   const fetchData = useCallback(async (clubId) => {
     setLoading(true)
@@ -81,40 +111,59 @@ export default function ClubProfileView() {
   const social = (club.social_links ?? []).filter((s) => s.url)
   const horarios = scheduleLines(club.schedule)
   const hasEvents = events.upcoming.length || events.ongoing.length || events.past.length
+  const maps = mapsUrl(club)
 
   return (
     <div className="bg-base text-content font-sans pb-15">
-      {/* Header con foto */}
-      <div className="relative">
-        {club.photo_url ? (
-          <div className="h-44 sm:h-56 w-full overflow-hidden">
-            <img src={club.photo_url} alt={club.name} className="w-full h-full object-cover" />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent 60%)' }} />
-          </div>
-        ) : (
-          <div className="h-28 w-full flex items-center justify-center bg-surface border-b border-border">
-            <Building2 size={40} className="text-border-strong" />
-          </div>
-        )}
-        <div className="absolute top-4 left-4">
+      {/* Header con fondo de cancha genérica + foto del club a la izquierda del nombre */}
+      <div className="relative overflow-hidden border-b border-border">
+        <img
+          src={courtBg}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover opacity-90"
+          style={{ filter: 'grayscale(25%) brightness(0.8) contrast(0.95)' }}
+        />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.6))' }} />
+
+        <div className="absolute top-4 left-4 z-10">
           <button onClick={() => navigate(-1)}
             className="inline-flex items-center gap-1 bg-black/50 backdrop-blur text-white text-xs font-mono px-2.5 py-1.5 rounded hover:bg-black/70 transition-colors cursor-pointer border-none">
             <ChevronLeft size={13} /> Volver
           </button>
         </div>
+
+        <div className="relative px-5 sm:px-6 pt-16 pb-5 flex items-end gap-4">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-surface border border-border-strong overflow-hidden shrink-0 flex items-center justify-center shadow-lg shadow-black/40">
+            {club.photo_url
+              ? <img src={club.photo_url} alt={club.name} className="w-full h-full object-contain" />
+              : <Building2 size={38} className="text-border-strong" />}
+          </div>
+          <div className="min-w-0 pb-1">
+            <h1 className="font-condensed font-black text-[26px] sm:text-[32px] text-white tracking-wide leading-none">{club.name}</h1>
+            {club.location_name && (
+              maps ? (
+                <a
+                  href={maps}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group inline-flex items-center gap-1.5 text-secondary hover:text-brand font-mono text-sm mt-2 transition-colors"
+                >
+                  <MapPin size={13} className="shrink-0" />
+                  <span className="underline-offset-2 group-hover:underline">{club.location_name}</span>
+                  <Navigation size={12} className="shrink-0 opacity-60 group-hover:opacity-100" />
+                </a>
+              ) : (
+                <div className="flex items-center gap-1.5 text-secondary font-mono text-sm mt-2">
+                  <MapPin size={13} className="shrink-0" /><span className="truncate">{club.location_name}</span>
+                </div>
+              )
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="px-5 sm:px-6 -mt-8 relative">
-        <div className="flex items-center gap-2 mb-1">
-          <Building2 size={22} className="text-brand shrink-0" />
-          <h1 className="font-condensed font-black text-[30px] text-white tracking-wide leading-none">{club.name}</h1>
-        </div>
-        {club.location_name && (
-          <div className="flex items-center gap-1.5 text-secondary font-mono text-sm mt-2">
-            <MapPin size={13} /><span>{club.location_name}</span>
-          </div>
-        )}
-
+      <div className="px-5 sm:px-6 relative">
         {/* Datos */}
         <div className="grid sm:grid-cols-2 gap-3 mt-5">
           {(club.contact_phone || club.contact_whatsapp) && (
@@ -174,6 +223,28 @@ export default function ClubProfileView() {
           )}
         </div>
 
+        {/* Editar (admin) o solicitar cambios (usuarios) */}
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-dashed border-border-strong px-4 py-3">
+          <p className="text-dim text-xs font-mono">
+            {isAdmin ? 'Sos admin: podés editar el club directamente.' : '¿Algún dato desactualizado?'}
+          </p>
+          {isAdmin ? (
+            <button
+              onClick={() => setShowEditClub(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-condensed font-bold tracking-widest text-base bg-brand hover:opacity-90 px-3 py-1.5 rounded transition-opacity cursor-pointer border-none shrink-0"
+            >
+              <Pencil size={12} /> EDITAR CLUB
+            </button>
+          ) : (
+            <button
+              onClick={handleEditRequest}
+              className="inline-flex items-center gap-1.5 text-xs font-condensed font-bold tracking-widest text-brand border border-brand/40 hover:bg-brand/10 px-3 py-1.5 rounded transition-colors cursor-pointer bg-transparent shrink-0"
+            >
+              <Pencil size={12} /> SOLICITAR CAMBIOS
+            </button>
+          )}
+        </div>
+
         {/* Eventos */}
         <div className="mt-8">
           <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4 flex items-center gap-2">
@@ -209,6 +280,21 @@ export default function ClubProfileView() {
           )}
         </div>
       </div>
+
+      {showEditRequest && (
+        <ClubRequestModal
+          club={club}
+          onClose={() => setShowEditRequest(false)}
+        />
+      )}
+
+      {showEditClub && (
+        <ClubEditModal
+          club={club}
+          onClose={() => setShowEditClub(false)}
+          onSaved={() => fetchData(id)}
+        />
+      )}
     </div>
   )
 }

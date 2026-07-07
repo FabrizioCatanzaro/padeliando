@@ -85,11 +85,13 @@ export const api = {
     updateMe:       (body)        => req('PATCH', '/auth/me', body),
     uploadAvatar:   (file)        => reqMultipart('POST',   '/auth/me/avatar', imageForm(file)),
     deleteAvatar:   ()            => req('DELETE', '/auth/me/avatar'),
+    deleteMe:       (password)    => req('DELETE', '/auth/me', password ? { password } : {}),
   },
   groups: {
     list:          ()         => req('GET',    '/groups'),
     search:        (q)        => req('GET',    `/groups/search?q=${encodeURIComponent(q)}`),
     nearby:        (lat, lon, radius = 20) => req('GET', `/groups/nearby?lat=${lat}&lon=${lon}&radius=${radius}`),
+    featured:      (limit = 8) => req('GET', `/groups/featured?limit=${limit}`),
     participating: ()         => req('GET',    '/groups/participating'),
     get:           (id)       => req('GET',    `/groups/${id}`),
     history:       (id)       => req('GET',    `/groups/${id}/history`),
@@ -100,6 +102,7 @@ export const api = {
   },
   clubs: {
     list:        (q = '')      => req('GET',    `/clubs?q=${encodeURIComponent(q)}`),
+    nearby:      (lat, lon, radius = 20) => req('GET', `/clubs/nearby?lat=${lat}&lon=${lon}&radius=${radius}`),
     get:         (id)          => req('GET',    `/clubs/${id}`),
     events:      (id)          => req('GET',    `/clubs/${id}/events`),
     create:      (body)        => req('POST',   '/clubs', body),
@@ -110,7 +113,7 @@ export const api = {
     requests: {
       create:  (body)          => req('POST',  '/clubs/requests', body),
       list:    (status = 'pending') => req('GET', `/clubs/requests?status=${status}`),
-      respond: (id, action)    => req('PATCH', `/clubs/requests/${id}`, { action }),
+      respond: (id, action, override) => req('PATCH', `/clubs/requests/${id}`, { action, ...(override ?? {}) }),
     },
   },
   players: {
@@ -180,6 +183,7 @@ export const api = {
       req('GET', `/admin/tournaments?q=${encodeURIComponent(q)}&status=${status}&page=${page}&limit=${limit}`),
     grantPremium:  (userId, duration_days)  => req('POST', `/admin/users/${userId}/grant-premium`, { duration_days }),
     revokePremium: (userId)                 => req('POST', `/admin/users/${userId}/revoke-premium`),
+    deleteUser:    (userId)                 => req('DELETE', `/admin/users/${userId}`),
     broadcast:     (body)                   => req('POST', '/admin/broadcast', body),
     broadcasts:    ({ page = 1, limit = 20 } = {}) =>
       req('GET', `/admin/broadcasts?page=${page}&limit=${limit}`),

@@ -30,10 +30,15 @@ export default function ClubFormFields({ form, patch }) {
           <input className={`${inputCls} pl-7 pr-20`} value={form.location_name}
             onChange={(e) => patch({ location_name: e.target.value })} placeholder="Calle, ciudad..." />
           <button type="button" onClick={() => setShowMap(true)}
-            className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono border transition-colors cursor-pointer bg-transparent ${form.lat ? 'border-brand text-brand' : 'border-border-mid text-[#555] hover:border-border-strong hover:text-white'}`}>
-            <MapPin size={10} />{form.lat ? 'PIN ✓' : 'MAPA'}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono border transition-colors cursor-pointer bg-transparent ${form.lat ? 'border-brand text-brand' : 'border-danger text-danger hover:brightness-125'}`}>
+            <MapPin size={10} />{form.lat ? 'PIN ✓' : 'MARCAR'}
           </button>
         </div>
+        <p className={`text-[10px] font-mono mt-1.5 ${form.lat ? 'text-muted' : 'text-danger'}`}>
+          {form.lat
+            ? 'Ubicación marcada en el mapa ✓'
+            : 'Marcá la ubicación en el mapa (obligatorio para que aparezca en clubes cercanos).'}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
