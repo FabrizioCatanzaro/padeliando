@@ -10,7 +10,7 @@ import Management   from "../Management/Management";
 import Previa       from "../Americano/Previa";
 import Bracket      from "../Americano/Bracket";
 import PhotoGallery from "../Photos/PhotoGallery";
-import { Check, Pencil, Share2, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split, User, Users, Building2, Calendar } from "lucide-react";
+import { Check, Pencil, Share2, Eye, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split, User, Users, Building2, Calendar } from "lucide-react";
 import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
@@ -44,7 +44,7 @@ export default function Main() {
     handleResetScores, handleDeleteTournament,
     getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
-    handleUpdateMode,
+    handleUpdateMode, refresh,
   } = useTournament(groupId, tournamentId);
 
   const [tab, setTab]         = useState(null);
@@ -57,7 +57,7 @@ export default function Main() {
 
   useEffect(() => {
     if (!loading && tournament && !isOwner) {
-      navigate(`/readonly/${tournamentId}`, { replace: true });
+      navigate(`/view/${tournamentId}`, { replace: true });
     }
   }, [loading, tournament, isOwner, tournamentId, navigate]);
 
@@ -157,9 +157,12 @@ export default function Main() {
               </div>
             )}
           </div>
-          <Btn variant="primary" size="sm" onClick={copyLink} icon={copied ? Check : Share2}>
-            {copied ? 'COPIADO!' : 'COMPARTIR'}
-          </Btn>
+          <div className="flex items-center gap-2">
+            <Btn size="sm" onClick={() => window.open(shareLink, '_blank', 'noopener')} icon={Eye} title="Ver como espectador">
+            </Btn>
+            <Btn variant="primary" size="sm" onClick={copyLink} icon={copied ? Check : Share2}>
+            </Btn>
+          </div>
         </div>
 
         {/* Título + edit */}
@@ -315,6 +318,7 @@ export default function Main() {
             onToggleStatus={handleToggleStatus}
             onUpdateMode={handleUpdateMode}
             onUpdateClubEvent={handleUpdateClubEvent}
+            onRefresh={refresh}
           />
         )}
 

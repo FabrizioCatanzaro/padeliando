@@ -40,9 +40,8 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
     }
   }, [liveMatches, tournament.id]);
 
-  // Detectar cuándo arranca un timer y actualizar live_match en el servidor
-  const prevLiveRef = useRef(liveMatches);
-  
+  // Sincronizar live_match: incluye partidos "cargados" (equipos elegidos) aunque
+  // el cronómetro no haya arrancado — el espectador separa EN VIVO / PRÓXIMOS.
   function resolveTeamLabels(form) {
     const { mode, players, pairs } = tournament;
     const court = form.court ?? null;
@@ -56,30 +55,33 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
     const res = (ids) => ids.map((id) => players.find((p) => p.id === id)?.name ?? "?").join(" & ");
     return { team1Label: res(form.team1), team2Label: res(form.team2), court };
   }
+  function teamsComplete(form) {
+    if (isPairs) return !!(form.team1Pair && form.team2Pair);
+    return !!(form.team1?.[0] && form.team1?.[1] && form.team2?.[0] && form.team2?.[1]);
+  }
+
+  function buildLivePayload(matches) {
+    return matches
+      .filter((m) => teamsComplete(m.form))
+      .map((m) => ({ ...resolveTeamLabels(m.form), startedAt: m.timer.startedAt }));
+  }
+
+  // Sincroniza sólo si el payload cambió (evita PATCH redundantes / por-segundo).
+  // Inicializamos el ref con el payload actual para no sincronizar en el montaje.
+  const lastSyncedRef = useRef(undefined);
+  if (lastSyncedRef.current === undefined) {
+    lastSyncedRef.current = JSON.stringify(buildLivePayload(liveMatches));
+  }
+  function syncLive(matches) {
+    const payload = buildLivePayload(matches);
+    const serialized = JSON.stringify(payload);
+    if (serialized === lastSyncedRef.current) return Promise.resolve();
+    lastSyncedRef.current = serialized;
+    return Promise.resolve(onSetLiveMatch?.(payload.length > 0 ? payload : null));
+  }
+
   useEffect(() => {
-    const prev = prevLiveRef.current;
-    const newlyStarted = liveMatches.some((m) => {
-      const prevMatch = prev.find((p) => p.id === m.id);
-      const wasIdle   = !prevMatch?.timer.startedAt;
-      const nowRunning = m.timer.startedAt !== null && !m.timer.stoppedAt;
-      return wasIdle && nowRunning;
-    });
-
-    // Detectar si cambió la cancha en partidos que ya están en vivo (no sincronizar por cambios en score)
-    const liveFormChanged = liveMatches.some((m) => {
-      if (m.timer.startedAt === null) return false; // No está en vivo
-      const prevMatch = prev.find((p) => p.id === m.id);
-      if (!prevMatch) return false;
-      return prevMatch.form.court !== m.form.court;
-    });
-
-    if (newlyStarted || liveFormChanged) {
-      const labels = liveMatches
-        .filter((m) => m.timer.startedAt !== null)
-        .map((m) => resolveTeamLabels(m.form));
-      onSetLiveMatch?.(labels.length > 0 ? labels : null);
-    }
-    prevLiveRef.current = liveMatches;
+    syncLive(liveMatches);
   }, [liveMatches]);
 
   function handleTimerChange(liveId, newTimerState) {
@@ -103,14 +105,9 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
   }
 
   function handleCancelMatch(liveId) {
-    setLiveMatches((prev) => {
-      const remaining = prev.filter((m) => m.id !== liveId);
-      const labels = remaining
-        .filter((m) => m.timer.startedAt !== null)
-        .map((m) => resolveTeamLabels(m.form));
-      onSetLiveMatch?.(labels.length > 0 ? labels : null);
-      return remaining;
-    });
+    const remaining = liveMatches.filter((m) => m.id !== liveId);
+    setLiveMatches(remaining);
+    syncLive(remaining);
   }
 
   async function handleSaveMatch(liveId) {
@@ -167,11 +164,11 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
     setLiveMatches(remaining);
 
     // Sincronizar live_match en el servidor ANTES del reload para que el
-    // tournament recargado no traiga el partido en curso viejo.
-    const labels = remaining
-      .filter((m) => m.timer.startedAt !== null)
-      .map((m) => resolveTeamLabels(m.form));
-    await onSetLiveMatch?.(labels.length > 0 ? labels : null);
+    // tournament recargado no traiga el partido en curso viejo. Fijamos el ref
+    // para que el efecto no vuelva a sincronizar el mismo payload.
+    const payload = buildLivePayload(remaining);
+    lastSyncedRef.current = JSON.stringify(payload);
+    await onSetLiveMatch?.(payload.length > 0 ? payload : null);
 
     await onAddMatch(matchData);
   }

@@ -16,8 +16,10 @@ export function useTournament(groupId, tournamentId) {
   const [error,      setError]      = useState(null);
   const [saved,      setSaved]      = useState(false);
 
-  // Carga el torneo al montar (o cuando cambia tournamentId)
-  const reload = useCallback(async () => {
+  // Carga el torneo al montar (o cuando cambia tournamentId).
+  // `silent` refresca los datos sin activar el skeleton de carga: se usa tras
+  // agregar/editar jugadores o parejas para evitar el parpadeo de recarga.
+  const reload = useCallback(async (silent = false) => {
     if (!tournamentId) {
       if (groupId) {
         try {
@@ -28,7 +30,7 @@ export function useTournament(groupId, tournamentId) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const t = await api.tournaments.get(tournamentId);
       setTournament(adaptTournament(t));
@@ -64,6 +66,7 @@ export function useTournament(groupId, tournamentId) {
       number_of_courts: numberOfCourts ?? 1,
       club_id:          extra.club_id ?? null,
       event_date:       extra.event_date ?? null,
+      pending_club_request_id: extra.pending_club_request_id ?? null,
     });
     setTournament(adaptTournament(t));
     return t.id; // para que App.js pueda navegar al torneo
@@ -114,6 +117,9 @@ export function useTournament(groupId, tournamentId) {
   // ── Jugadores ───────────────────────────────────────────────────────
   async function syncMode() {
     const t = await api.tournaments.get(tournamentId);
+    // El americano es siempre por parejas: nunca se cambia el modo. Si se hiciera,
+    // desaparecería el gestor de parejas y no habría toggle para volver a activarlo.
+    if (t.format === 'americano') return;
     const count = (t.players ?? []).filter((p) => !p.removed).length;
     // Solo forzar 'free' si el count es impar (no se pueden tener parejas fijas con impar)
     if (count % 2 !== 0 && t.mode === 'pairs') {
@@ -123,7 +129,7 @@ export function useTournament(groupId, tournamentId) {
 
   async function handleUpdateMode(newMode) {
     await api.tournaments.update(tournament.id, { mode: newMode });
-    await reload();
+    await reload(true);
     flash();
     showToast(newMode === 'pairs' ? 'Modo: parejas fijas' : 'Modo: equipos libres', 'info');
   }
@@ -131,14 +137,14 @@ export function useTournament(groupId, tournamentId) {
   async function handleAddPlayer(name) {
     await api.players.resolve(name, groupId, tournamentId);
     await syncMode();
-    await reload();
+    await reload(true);
     flash();
     showToast('Jugador agregado');
   }
 
   async function handleEditPlayer(playerId, newName) {
     await api.players.rename(playerId, newName, groupId);
-    await reload();
+    await reload(true);
     flash();
     showToast('Jugador actualizado');
   }
@@ -146,7 +152,7 @@ export function useTournament(groupId, tournamentId) {
   async function handleDeletePlayer(playerId) {
     await api.players.removeFromTournament(playerId, tournamentId);
     await syncMode();
-    await reload();
+    await reload(true);
     showToast('Jugador eliminado', 'error');
   }
 
@@ -156,21 +162,21 @@ export function useTournament(groupId, tournamentId) {
     if (tournament.mode === 'free') {
       await api.tournaments.update(tournament.id, { mode: 'pairs' });
     }
-    await reload();
+    await reload(true);
     flash();
     showToast('Pareja creada');
   }
 
   async function handleEditPair(pairId, p1Id, p2Id) {
     await api.pairs.update(pairId, { p1Id, p2Id });
-    await reload();
+    await reload(true);
     flash();
     showToast('Pareja actualizada');
   }
 
   async function handleDeletePair(pairId) {
     await api.pairs.delete(pairId);
-    await reload();
+    await reload(true);
     showToast('Pareja eliminada', 'error');
   }
 
@@ -209,7 +215,10 @@ export function useTournament(groupId, tournamentId) {
 
   async function handleSetLiveMatch(data) {
     await api.tournaments.setLive(tournament.id, data ?? null);
-    await reload();
+    // Solo es metadata para los espectadores (ReadonlyView). No hace falta
+    // recargar todo el torneo (eso disparaba el skeleton de carga y el
+    // parpadeo al iniciar el cronómetro); basta con actualizar el estado local.
+    setTournament((prev) => (prev ? { ...prev, live_match: data ?? null } : prev));
   }
 
   async function handleGenerateSchedule() {
@@ -235,7 +244,7 @@ export function useTournament(groupId, tournamentId) {
 
   function getShareLink() {
     if (!tournament) return '';
-    return `${window.location.origin}/readonly/${tournament.id}`;
+    return `${window.location.origin}/view/${tournament.id}`;
   }
  
   const isOwner = !!user && !!tournament && groupOwnerId != null && String(groupOwnerId) === String(user.id);
@@ -250,5 +259,6 @@ export function useTournament(groupId, tournamentId) {
     getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
     handleUpdateMode,
+    refresh: () => reload(true),
   };
 }
