@@ -91,8 +91,8 @@ export default function Standings({ tournament }) {
   return (
     <div>
       {champions.length > 0 && (
-        <div className="relative mb-6 overflow-hidden rounded-lg border border-amber-400/40 bg-gradient-to-b from-amber-400/15 via-amber-400/5 to-transparent p-6 text-center">
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
+        <div className="relative mb-6 overflow-hidden rounded-lg border border-amber-400/40 bg-linear-to-b from-amber-400/15 via-amber-400/5 to-transparent p-6 text-center">
+          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-amber-400/60 to-transparent" />
           <Trophy size={36} className="mx-auto mb-2 text-amber-400" />
           <div className="font-mono text-[10px] tracking-[4px] text-amber-400/70 mb-1.5">{championsLabel}</div>
           <div className="flex flex-col items-center gap-3">
@@ -125,7 +125,7 @@ export default function Standings({ tournament }) {
               <th className="hidden sm:table-cell px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">GF</th>
               <th className="hidden sm:table-cell px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">GC</th>
               <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-11">DIF</th>
-              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-14">FORMA</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-14">ÚLT.</th>
             </tr>
           </thead>
           <tbody>
@@ -146,7 +146,7 @@ export default function Standings({ tournament }) {
                       </span>
                     )}
                   </td>
-                  <td className={`px-2 py-3 text-left text-[18px] font-semibold ${top ? "text-brand" : "text-white"}`}>
+                  <td className={`px-2 py-3 text-left text-[12px] sm:text-[18px] font-semibold ${top ? "text-brand" : "text-white"}`}>
                     <div className="flex items-center gap-1.5 min-w-0">
                       <div className="shrink-0">
                         {r.p1Name
@@ -176,7 +176,7 @@ export default function Standings({ tournament }) {
       </div>
 
       <div className="mt-3 text-[10px] text-dim font-mono leading-relaxed">
-        PTS: 3 por victoria · PG: victorias · PJ: partidos jugados · DIF: diferencia de games · FORMA: últimos 3
+        PTS: 3 por victoria · PG: victorias · PJ: partidos jugados · DIF: diferencia de games · ÚLT: últimos 3
       </div>
     </div>
   );
