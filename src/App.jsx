@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { useAuth } from './context/useAuth'
 import Header       from './components/shared/Header'
 import Footer       from './components/shared/Footer'
@@ -31,6 +31,12 @@ import AboutView    from './components/Legal/AboutView'
 import ContactView  from './components/Legal/ContactView'
 import TermsView    from './components/Legal/TermsView'
 import PrivacyView  from './components/Legal/PrivacyView'
+
+// Redirige los enlaces antiguos /readonly/:id a la nueva ruta /view/:id
+function RedirectToView() {
+  const { id } = useParams()
+  return <Navigate to={`/view/${id}`} replace />
+}
 
 function Layout() {
   return (
@@ -94,7 +100,8 @@ export default function App() {
         <Route path="/verify-email/:token"                       element={<VerifyEmail />} />
         <Route path="/u/:username"                               element={<ProfileView />} />
         <Route path="/club/:id"                                  element={<ClubProfileView />} />
-        <Route path="/readonly/:id"                              element={<ReadonlyView />} />
+        <Route path="/view/:id"                                  element={<ReadonlyView />} />
+        <Route path="/readonly/:id"                              element={<RedirectToView />} />
         <Route path="/cat/:groupId"                           element={<GroupView />} />
         <Route path="/cat/:groupId/torneo/new"            element={<PrivateRoute><Setup /></PrivateRoute>} />
         <Route path="/cat/:groupId/torneo/:tournamentId"  element={<MainView />} />
