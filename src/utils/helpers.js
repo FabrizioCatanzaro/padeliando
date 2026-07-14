@@ -212,14 +212,14 @@ export const localDateStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// Estado a mostrar de un torneo, derivado de su estado, fecha de juego y si ya tiene partidos.
-// 'upcoming' = fecha futura y SIN partidos jugados; apenas hay un partido o la fecha no es futura → 'active'.
-export function tournamentDisplayStatus({ status, event_date, hasPlayed }) {
+// Estado a mostrar de un torneo. Solo hay 3 estados: finished / upcoming / active.
+// - finished: el torneo está finalizado.
+// - active ('en curso'): tiene un partido EN VIVO o ya tiene algún partido jugado.
+// - upcoming ('próximamente'): sin partidos jugados y sin partido en vivo (la fecha no importa).
+export function tournamentDisplayStatus({ status, hasLiveMatch, hasPlayed }) {
   if (status === 'finished') return 'finished';
-  if (hasPlayed) return 'active';
-  const ed = event_date ? String(event_date).slice(0, 10) : null;
-  if (ed && ed > localDateStr()) return 'upcoming';
-  return 'active';
+  if (hasLiveMatch || hasPlayed) return 'active';
+  return 'upcoming';
 }
 
 export const TOURNAMENT_STATUS_META = {

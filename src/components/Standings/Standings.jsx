@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Trophy } from "lucide-react";
 import { calcStandings } from "../../utils/helpers";
 import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
+import ShareStoryButton from "../Snapshot/ShareStoryButton";
+import SnapshotModal from "../Snapshot/SnapshotModal";
+import StandingsStory from "../Snapshot/StandingsStory";
 
 function calcForm(playerIds, matches) {
   const ids = playerIds.map(String).filter(id => id && id !== 'null');
@@ -47,8 +51,10 @@ function FormDots({ form }) {
 const POS_COLOR = ['text-amber-400', 'text-[#b0b8c8]', 'text-[#cd7f32]'];
 
 export default function Standings({ tournament }) {
+  const [showStory, setShowStory] = useState(false);
   const individualRows = calcStandings(tournament.players, tournament.matches);
   const isPairs        = tournament.mode === "pairs";
+  const isAmericano    = tournament.format === "americano";
   const hasPairs       = isPairs && tournament.pairs?.length > 0;
 
   const playerById = Object.fromEntries(tournament.players.map((p) => [String(p.id), p]));
@@ -69,12 +75,12 @@ export default function Standings({ tournament }) {
         src2: p2?.linked_avatar_url ?? null,
         playerIds: [pair.p1, pair.p2],
       };
-    }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+    }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc) || b.sf - a.sf);
   } else {
     displayRows = individualRows.map((r) => {
       const p = playerById[String(r.id)];
       return { ...r, src: p?.linked_avatar_url ?? null, is_premium: p?.is_premium ?? false, playerIds: [r.id] };
-    });
+    }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc) || b.sf - a.sf);
   }
 
   const topPg   = displayRows[0]?.pg ?? 0;
@@ -109,7 +115,10 @@ export default function Standings({ tournament }) {
         </div>
       )}
 
-      <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">TABLA DE POSICIONES</div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">TABLA DE POSICIONES</div>
+        {displayRows.length > 0 && <ShareStoryButton onClick={() => setShowStory(true)} />}
+      </div>
 
       <div className="rounded-lg border border-border">
         <table className="w-full table-fixed border-collapse font-condensed">
@@ -119,12 +128,12 @@ export default function Standings({ tournament }) {
               <th className="px-2 py-2.5 text-left text-[10px] tracking-[2px] text-dim border-b border-border font-mono">
                 {hasPairs ? "PAREJA" : "JUGADOR"}
               </th>
-              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">PTS</th>
-              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-9">PJ</th>
-              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-9">PG</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-11">PTS</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">PJ</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">PG</th>
               <th className="hidden sm:table-cell px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">GF</th>
               <th className="hidden sm:table-cell px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-10">GC</th>
-              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-11">DIF</th>
+              <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-12">DIF</th>
               <th className="px-2 py-2.5 text-center text-[10px] tracking-[2px] text-dim border-b border-border font-mono w-14">ÚLT.</th>
             </tr>
           </thead>
@@ -138,7 +147,7 @@ export default function Standings({ tournament }) {
               return (
                 <tr key={r.id} className={`${rowBg} transition-colors`}>
                   <td className="px-2 py-3 text-center">
-                    {top ? (
+                    {top && !isAmericano ? (
                       <Trophy size={14} className="text-amber-400 mx-auto" />
                     ) : (
                       <span className={`font-mono text-[13px] font-bold ${POS_COLOR[i] ?? 'text-dim'}`}>
@@ -154,7 +163,14 @@ export default function Standings({ tournament }) {
                           : <PlayerAvatar name={r.name} src={r.src} size={22} premium={!!(playerById[String(r.id)]?.is_premium)} />
                         }
                       </div>
-                      <span className="line-clamp-2 leading-tight">{r.name}</span>
+                      {r.p1Name ? (
+                        <div className="min-w-0 flex flex-col leading-tight">
+                          <span className="truncate">{r.p1Name}</span>
+                          <span className="truncate">&amp; {r.p2Name}</span>
+                        </div>
+                      ) : (
+                        <span className="line-clamp-2 leading-tight min-w-0">{r.name}</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-2 py-3 text-center text-[15px] font-bold text-brand">{r.pg * 3}</td>
@@ -178,6 +194,14 @@ export default function Standings({ tournament }) {
       <div className="mt-3 text-[10px] text-dim font-mono leading-relaxed">
         PTS: 3 por victoria · PG: victorias · PJ: partidos jugados · DIF: diferencia de games · ÚLT: últimos 3
       </div>
+
+      {showStory && (
+        <SnapshotModal
+          filename={`posiciones-${tournament.name ?? 'torneo'}.png`}
+          onClose={() => setShowStory(false)}
+          story={<StandingsStory tournament={tournament} rows={displayRows} champions={champions} />}
+        />
+      )}
     </div>
   );
 }

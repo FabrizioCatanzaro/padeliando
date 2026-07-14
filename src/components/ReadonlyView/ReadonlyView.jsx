@@ -65,7 +65,9 @@ export default function ReadonlyView() {
   const [refreshTick, setRefreshTick] = useState(0);
 
   // ── Modo TV (rotación automática de pantallas) ─────────────────────────────
-  const [tvMode, setTvMode]     = useState(false);
+  // La vista de espectador arranca directo en Modo TV; la cruz (onExit) vuelve al
+  // modo normal con tabs.
+  const [tvMode, setTvMode]     = useState(true);
   const [tvPaused, setTvPaused] = useState(false);
   const [tvStep, setTvStep]     = useState(0);
   const [soundOn, setSoundOn]   = useState(false);

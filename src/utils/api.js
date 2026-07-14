@@ -93,6 +93,7 @@ export const api = {
     nearby:        (lat, lon, radius = 20) => req('GET', `/groups/nearby?lat=${lat}&lon=${lon}&radius=${radius}`),
     featured:      (limit = 8) => req('GET', `/groups/featured?limit=${limit}`),
     participating: ()         => req('GET',    '/groups/participating'),
+    collaborating: ()         => req('GET',    '/groups/collaborating'),
     get:           (id)       => req('GET',    `/groups/${id}`),
     history:       (id)       => req('GET',    `/groups/${id}/history`),
     create:        (body)     => req('POST',   '/groups', body),
@@ -194,6 +195,21 @@ export const api = {
     get:      (id)                    => req('GET',   `/join-requests/${id}`),
     accept:   (id, playerId)          => req('PATCH', `/join-requests/${id}`, { action: 'accept', playerId }),
     reject:   (id)                    => req('PATCH', `/join-requests/${id}`, { action: 'reject' }),
+  },
+  collaborators: {
+    invite:        (groupId, body)    => req('POST',   `/groups/${groupId}/collaborators/invites`, body),
+    respondInvite: (id, action)       => req('PATCH',  `/collaborator-invites/${id}`, { action }),
+    remove:        (groupId, userId)  => req('DELETE', `/groups/${groupId}/collaborators/${userId}`),
+    leave:         (groupId)          => req('DELETE', `/groups/${groupId}/collaborators/me`),
+  },
+  transfers: {
+    start:   (groupId, body)          => req('POST',   `/groups/${groupId}/transfer`, body),
+    respond: (id, action)             => req('PATCH',  `/ownership-transfers/${id}`, { action }),
+    cancel:  (groupId)                => req('DELETE', `/groups/${groupId}/transfer`),
+  },
+  invites: {
+    resolve: (token)                  => req('POST', '/invites/resolve', { token }),
+    accept:  (token)                  => req('POST', '/invites/accept',  { token }),
   },
   photos: {
     list:          (tournamentId)                       => req('GET',    `/tournaments/${tournamentId}/photos`),

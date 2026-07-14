@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2 } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, ArrowLeftRight, Link2, LogOut, Copy } from 'lucide-react';
 import Btn from '../shared/Btn';
 import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
@@ -38,6 +38,19 @@ export default function GroupView() {
   // modals
   const [showEmojiModal, setShowEmojiModal] = useState(false);
 
+  // co-organizadores + transferencia
+  const [showCollabModal,   setShowCollabModal]   = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [collabIdentifier,  setCollabIdentifier]  = useState('');
+  const [transferIdentifier, setTransferIdentifier] = useState('');
+  const [collabLink,        setCollabLink]        = useState('');
+  const [transferLink,      setTransferLink]      = useState('');
+  const [transferConfirm,   setTransferConfirm]   = useState(false);
+  const [collabBusy,        setCollabBusy]        = useState(false);
+  const [transferBusy,      setTransferBusy]      = useState(false);
+  const [removeCollabTarget, setRemoveCollabTarget] = useState(null); // { user_id, name, username } | null
+  const [leaveConfirm,      setLeaveConfirm]      = useState(false);
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -49,6 +62,10 @@ export default function GroupView() {
     } finally {
       //
     }
+  }
+
+  function refreshGroup() {
+    return api.groups.get(groupId).then(setGroup);
   }
 
   useEffect(() => {
@@ -106,6 +123,111 @@ export default function GroupView() {
     }
   }
 
+  // ── Co-organizadores ──────────────────────────────────────────────────
+  async function handleInviteCollab() {
+    if (!collabIdentifier.trim()) return;
+    setCollabBusy(true);
+    try {
+      const res = await api.collaborators.invite(groupId, { identifier: collabIdentifier.trim() });
+      setCollabIdentifier('');
+      showToast(`Invitación enviada a @${res.invited?.username ?? ''}`);
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setCollabBusy(false);
+    }
+  }
+
+  async function handleCollabLink() {
+    setCollabBusy(true);
+    try {
+      const res = await api.collaborators.invite(groupId, { link: true });
+      setCollabLink(res.url);
+      await navigator.clipboard.writeText(res.url).catch(() => {});
+      showToast('Link de invitación copiado');
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setCollabBusy(false);
+    }
+  }
+
+  async function handleRemoveCollab(userId) {
+    try {
+      await api.collaborators.remove(groupId, userId);
+      showToast('Co-organizador eliminado', 'error');
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setRemoveCollabTarget(null);
+    }
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Link copiado');
+    } catch {
+      showToast('No se pudo copiar', 'error');
+    }
+  }
+
+  async function handleLeaveCollab() {
+    try {
+      await api.collaborators.leave(groupId);
+      showToast('Saliste como co-organizador', 'info');
+      navigate('/');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  // ── Transferencia de propiedad ────────────────────────────────────────
+  async function handleTransfer() {
+    if (!transferIdentifier.trim() || !transferConfirm) return;
+    setTransferBusy(true);
+    try {
+      const res = await api.transfers.start(groupId, { identifier: transferIdentifier.trim() });
+      setTransferIdentifier('');
+      setTransferConfirm(false);
+      showToast(`Transferencia enviada a @${res.target?.username ?? ''}`);
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setTransferBusy(false);
+    }
+  }
+
+  async function handleTransferLink() {
+    if (!transferConfirm) return;
+    setTransferBusy(true);
+    try {
+      const res = await api.transfers.start(groupId, { link: true });
+      setTransferLink(res.url);
+      await navigator.clipboard.writeText(res.url).catch(() => {});
+      showToast('Link de transferencia copiado');
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setTransferBusy(false);
+    }
+  }
+
+  async function handleCancelTransfer() {
+    try {
+      await api.transfers.cancel(groupId);
+      setTransferLink('');
+      showToast('Transferencia cancelada', 'info');
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
   if (!group) return (
     <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 border-b border-border flex flex-col gap-3">
@@ -127,9 +249,13 @@ export default function GroupView() {
     </div>
   );
 
-  const isOwner = !!user && String(group.user_id) === String(user.id);
+  // is_owner: exclusivo del dueño (editar/borrar categoría, transferir, gestionar co-orgs).
+  // can_manage: dueño O co-organizador (crear/gestionar jornadas).
+  const isOwner   = group.is_owner ?? (!!user && String(group.user_id) === String(user.id));
+  const canManage = group.can_manage ?? isOwner;
+  const isCollaborator = canManage && !isOwner;
 
-  if (!group.is_public && !isOwner) {
+  if (!group.is_public && !canManage) {
     return (
       <div className="bg-base text-content font-sans min-h-screen flex flex-col items-center justify-center gap-4 px-6">
         <Lock size={36} className="text-yellow-400" />
@@ -154,25 +280,16 @@ export default function GroupView() {
           <Btn size="sm" icon={ChevronLeft} onClick={() => navigate('/')}>Volver</Btn>
 
           {isOwner && !editingGroup && (
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className={`text-xs ${group.is_public ? 'text-cyan' : 'text-yellow-400'}`}>
-                {group.is_public ?
-                  <div className='flex flex-row items-center justify-between gap-2'>
-                    <Globe size={15}/>
-                    <span>{`Público`}</span>
-                  </div>
-                  :
-                  <div className='flex flex-row items-center justify-between gap-2'>
-                    <Lock size={15}/>
-                    <span> Privado</span>
-                  </div>
-                  }
-              </span>
+            <div className="flex items-center gap-1.5 flex-wrap justify-end">
               {group.is_public && (
-                <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} />
+                <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} title="Compartir" />
               )}
-              <Btn variant="danger" size="sm" icon={Trash2} onClick={() => { setDeleteModal(true); setDeleteInput(''); }} />
-              <Btn size="sm" icon={Pencil} onClick={startEdit} />
+              <Btn size="sm" icon={Users} onClick={() => setShowCollabModal(true)} title="Co-organizadores">
+                {group.collaborators?.length ? String(group.collaborators.length) : ''}
+              </Btn>
+              <Btn size="sm" icon={ArrowLeftRight} onClick={() => setShowTransferModal(true)} title="Transferir propiedad" />
+              <Btn size="sm" icon={Pencil} onClick={startEdit} title="Editar categoría" />
+              <Btn variant="danger" size="sm" icon={Trash2} onClick={() => { setDeleteModal(true); setDeleteInput(''); }} title="Eliminar categoría" />
             </div>
           )}
 
@@ -260,28 +377,56 @@ export default function GroupView() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2">
-                {group.emojis?.length > 0 && <span className="text-2xl leading-none">{group.emojis.join(' ')}</span>}
-                <div className="font-condensed font-bold text-[28px] text-white tracking-wide">{group.name}</div>
+              <div className="flex items-start gap-3">
+                {group.emojis?.length > 0 && (
+                  <div className="flex flex-col items-center justify-center gap-1 shrink-0 bg-surface border border-border-mid rounded-lg px-3 py-2 self-stretch">
+                    {group.emojis.map((e) => <span key={e} className="text-2xl leading-none">{e}</span>)}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="font-condensed font-bold text-[28px] text-white tracking-wide">{group.name}</div>
+                  {group.description && (
+                    <div className="font-condensed text-[14px] text-gray-500 tracking-wide mt-0.5 wrap-break-word whitespace-normal">{group.description}</div>
+                  )}
+                </div>
               </div>
-              {group.description && (
-                <div className="font-condensed text-[14px] text-gray-500 tracking-wide mt-0.5 wrap-break-word whitespace-normal">{group.description}</div>
-              )}
             </>
           )}
         </div>
+
+        {/* Privacidad (solo dueño) — justo encima de la línea divisoria */}
+        {isOwner && !editingGroup && (
+          <div>
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border ${group.is_public ? 'text-cyan border-cyan/40' : 'text-yellow-400 border-yellow-400/40'}`}>
+              {group.is_public ? <Globe size={12}/> : <Lock size={12}/>}
+              {group.is_public ? 'Categoría pública' : 'Categoría privada'}
+            </span>
+          </div>
+        )}
+
+        {/* Cartel de co-organizador */}
+        {isCollaborator && (
+          <div className="flex items-center justify-between gap-2 bg-brand/5 border border-brand/25 rounded-md px-3 py-2">
+            <span className="flex items-center gap-2 text-brand text-[12px] font-mono tracking-wide">
+              <Users size={14} className="shrink-0" /> Sos co-organizador de esta categoría
+            </span>
+            <Btn variant="danger" size="sm" icon={LogOut} onClick={() => setLeaveConfirm(true)}>SALIR</Btn>
+          </div>
+        )}
       </div>
 
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">TORNEOS</div>
-          {isOwner && (
+          {canManage && (
             <Btn
               variant="primary"
               size="sm"
               icon={Plus}
               onClick={() => {
-                if (user?.subscription?.plan !== 'premium') {
+                // El cupo mensual del plan free se evalúa contra el DUEÑO de la categoría,
+                // no contra quien crea (un co-organizador premium no evade el límite del dueño).
+                if (!group.owner_is_premium) {
                   const now = new Date();
                   const thisMonthCount = (group.tournaments ?? []).filter(t => {
                     const d = new Date(t.created_at);
@@ -299,7 +444,7 @@ export default function GroupView() {
             </Btn>
           )}
         </div>
-        {(!group.tournaments || group.tournaments.length === 0) && !isOwner && (
+        {(!group.tournaments || group.tournaments.length === 0) && !canManage && (
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
         )}
         <div className="flex flex-col gap-2.5">
@@ -310,16 +455,21 @@ export default function GroupView() {
             const fmtBorder = isAmericano ? 'rgba(232,240,74,0.18)' : 'rgba(99,179,237,0.18)';
             const count = isAmericano ? t.pair_count : t.player_count;
             const CountIcon = isAmericano ? Users : User;
-            const statusMeta = TOURNAMENT_STATUS_META[tournamentDisplayStatus({
-              status: t.status, event_date: t.event_date, hasPlayed: (t.match_count ?? 0) > 0,
-            })];
+            const displayStatus = tournamentDisplayStatus({
+              status: t.status, hasLiveMatch: !!t.live_match, hasPlayed: (t.match_count ?? 0) > 0,
+            });
+            const statusMeta = TOURNAMENT_STATUS_META[displayStatus];
+            // Línea superior: cyan si es próximo, verde si está en curso/en vivo, nada si finalizó.
+            const topLineClass = displayStatus === 'upcoming'
+              ? 'from-cyan/50 via-cyan/20 to-transparent'
+              : 'from-green/50 via-green/20 to-transparent';
             return (
             <FadeInCard key={t.id} delay={Math.min(i, 5) * 60}
               className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link"
               style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #1c1c1c 100%)' }}
               onClick={() => { navigate(`/cat/${groupId}/torneo/${t.id}`); }}>
-              {t.status === 'active' && (
-                <div className="h-px bg-gradient-to-r from-green/50 via-green/20 to-transparent" />
+              {displayStatus !== 'finished' && (
+                <div className={`h-px ml-7 bg-gradient-to-r ${topLineClass}`} />
               )}
               <div className="flex min-w-0">
                 <div
@@ -383,7 +533,7 @@ export default function GroupView() {
           </div>
         )}
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border mt-10">ESTADÍSTICAS HISTÓRICAS</div>
-        <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} />
+        <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} groupName={group.name} />
       </div>
 
       {/* Modal emojis */}
@@ -421,6 +571,156 @@ export default function GroupView() {
             <Btn variant="primary" full size="md" onClick={() => setShowEmojiModal(false)}>CONFIRMAR</Btn>
           </div>
         </div>
+      )}
+
+      {/* Modal co-organizadores (solo dueño) */}
+      {showCollabModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCollabModal(false); }}>
+          <div className="bg-surface border border-border-mid rounded-t-2xl sm:rounded-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-condensed font-bold text-lg text-white tracking-wide">Co-organizadores</div>
+              <button type="button" onClick={() => setShowCollabModal(false)}
+                className="bg-transparent border-none text-[#555] hover:text-white cursor-pointer transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-secondary text-[13px] leading-relaxed mb-4">
+              Pueden gestionar las jornadas de esta categoría igual que vos, pero <strong className="text-white">no</strong> editar/borrar la categoría ni transferirla.
+            </p>
+
+            <div className="flex flex-col gap-2 mb-4">
+              {group.collaborators?.length ? group.collaborators.map(c => (
+                <div key={c.user_id} className="flex items-center justify-between gap-2 bg-base border border-border-mid rounded px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <User2 size={14} className="text-brand shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-sm text-white truncate">{c.name}</div>
+                      {c.username && <div className="text-[11px] font-mono text-dim truncate">@{c.username}</div>}
+                    </div>
+                  </div>
+                  <Btn variant="danger" size="sm" icon={X} onClick={() => setRemoveCollabTarget(c)} title="Quitar co-organizador" />
+                </div>
+              )) : (
+                <div className="text-dim text-sm text-center py-2">Todavía no hay co-organizadores.</div>
+              )}
+            </div>
+
+            <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">INVITAR POR @USUARIO O EMAIL</label>
+            <div className="flex gap-2 mb-3">
+              <input
+                value={collabIdentifier}
+                onChange={(e) => setCollabIdentifier(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleInviteCollab(); }}
+                placeholder="@usuario o email"
+                className="flex-1 bg-base border border-border-strong text-white px-3 py-2 rounded text-sm font-sans outline-none focus:border-brand/60 transition-colors"
+              />
+              <Btn variant="primary" size="sm" icon={UserPlus} loading={collabBusy} onClick={handleInviteCollab}>INVITAR</Btn>
+            </div>
+
+            {collabLink ? (
+              <div className="flex items-center gap-2 bg-base border border-border-mid rounded px-3 py-2">
+                <span className="flex-1 text-[11px] font-mono text-dim break-all">{collabLink}</span>
+                <Btn size="sm" icon={Copy} onClick={() => copyText(collabLink)} title="Copiar link">COPIAR</Btn>
+              </div>
+            ) : (
+              <Btn size="sm" icon={Link2} full loading={collabBusy} onClick={handleCollabLink}>CREAR LINK DE INVITACIÓN</Btn>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal transferir propiedad (solo dueño) */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowTransferModal(false); }}>
+          <div className="bg-surface border border-border-mid rounded-t-2xl sm:rounded-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-condensed font-bold text-lg text-white tracking-wide">Transferir propiedad</div>
+              <button type="button" onClick={() => setShowTransferModal(false)}
+                className="bg-transparent border-none text-[#555] hover:text-white cursor-pointer transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bg-danger/10 border border-danger/40 rounded px-3 py-2.5 mb-4">
+              <p className="text-danger text-[13px] leading-relaxed">
+                <strong>Esta acción es irreversible.</strong> El nuevo dueño tendrá el control total de la categoría y de todos sus torneos. Vos pasarás a ser co-organizador. La transferencia solo se completa si la otra persona la <strong>acepta</strong>.
+              </p>
+            </div>
+
+            {group.pending_transfer ? (
+              <div className="flex flex-col gap-3">
+                <div className="bg-base border border-border-mid rounded px-3 py-2.5 text-sm text-secondary">
+                  Transferencia pendiente
+                  {group.pending_transfer.to_username
+                    ? <> a <span className="text-brand font-mono">@{group.pending_transfer.to_username}</span></>
+                    : <> por <span className="text-brand">link</span></>}
+                  . Esperando que la acepte.
+                </div>
+                <Btn variant="danger" size="sm" icon={X} full onClick={handleCancelTransfer}>CANCELAR TRANSFERENCIA</Btn>
+              </div>
+            ) : (
+              <>
+                <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">TRANSFERIR A @USUARIO O EMAIL</label>
+                <input
+                  value={transferIdentifier}
+                  onChange={(e) => setTransferIdentifier(e.target.value)}
+                  placeholder="@usuario o email"
+                  className="w-full bg-base border border-border-strong text-white px-3 py-2 rounded text-sm font-sans outline-none focus:border-brand/60 transition-colors mb-3"
+                />
+                <label className="flex items-start gap-2 mb-4 cursor-pointer select-none">
+                  <input type="checkbox" checked={transferConfirm} onChange={(e) => setTransferConfirm(e.target.checked)} className="mt-0.5" />
+                  <span className="text-[12px] text-secondary leading-snug">Entiendo que esta acción es irreversible.</span>
+                </label>
+                <div className="flex flex-col gap-2">
+                  <Btn variant="danger" size="sm" icon={ArrowLeftRight} full loading={transferBusy}
+                    disabled={!transferIdentifier.trim() || !transferConfirm}
+                    onClick={handleTransfer}>TRANSFERIR</Btn>
+                  {transferLink ? (
+                    <div className="flex items-center gap-2 bg-base border border-border-mid rounded px-3 py-2">
+                      <span className="flex-1 text-[11px] font-mono text-dim break-all">{transferLink}</span>
+                      <Btn size="sm" icon={Copy} onClick={() => copyText(transferLink)} title="Copiar link">COPIAR</Btn>
+                    </div>
+                  ) : (
+                    <Btn size="sm" icon={Link2} full loading={transferBusy}
+                      disabled={!transferConfirm}
+                      onClick={handleTransferLink}>CREAR LINK DE TRANSFERENCIA</Btn>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar quitar co-organizador */}
+      {removeCollabTarget && (
+        <Modal
+          title="¿Quitar co-organizador?"
+          confirmText="Quitar"
+          confirmDanger
+          onConfirm={() => handleRemoveCollab(removeCollabTarget.user_id)}
+          onCancel={() => setRemoveCollabTarget(null)}
+        >
+          <strong className="text-white">{removeCollabTarget.name}</strong>
+          {removeCollabTarget.username ? ` (@${removeCollabTarget.username})` : ''} dejará de poder gestionar las jornadas de esta categoría. Podés volver a invitarlo cuando quieras.
+        </Modal>
+      )}
+
+      {/* Confirmar salir como co-organizador */}
+      {leaveConfirm && (
+        <Modal
+          title="¿Salir como co-organizador?"
+          confirmText="Salir"
+          confirmDanger
+          onConfirm={handleLeaveCollab}
+          onCancel={() => setLeaveConfirm(false)}
+        >
+          Vas a perder el acceso para gestionar las jornadas de <strong className="text-white">{group.name}</strong>. Solo el dueño podría volver a invitarte.
+        </Modal>
       )}
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}

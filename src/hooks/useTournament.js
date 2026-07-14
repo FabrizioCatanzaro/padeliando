@@ -8,7 +8,7 @@ export function useTournament(groupId, tournamentId) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [tournament, setTournament] = useState(null);
-  const [groupOwnerId,      setGroupOwnerId]      = useState(null);
+  const [canManage,         setCanManage]         = useState(false);
   const [groupOwnerIsPremium, setGroupOwnerIsPremium] = useState(false);
   const [groupName,  setGroupName]  = useState(null);
   const [groupEmojis, setGroupEmojis] = useState([]);
@@ -34,11 +34,11 @@ export function useTournament(groupId, tournamentId) {
     try {
       const t = await api.tournaments.get(tournamentId);
       setTournament(adaptTournament(t));
+      setCanManage(t.can_manage ?? false);
       setGroupOwnerIsPremium(t.owner_is_premium ?? false);
       const gId = groupId ?? t.group_id;
       if (gId) {
         const g = await api.groups.get(gId);
-        setGroupOwnerId(g.user_id);
         setGroupName(g.name);
         setGroupEmojis(g.emojis ?? []);
       }
@@ -247,7 +247,8 @@ export function useTournament(groupId, tournamentId) {
     return `${window.location.origin}/view/${tournament.id}`;
   }
  
-  const isOwner = !!user && !!tournament && groupOwnerId != null && String(groupOwnerId) === String(user.id);
+  // Gate general de gestión: dueño de la categoría O co-organizador (backend can_manage).
+  const isOwner = !!user && !!tournament && canManage;
 
   return {
     tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, saved, isOwner,

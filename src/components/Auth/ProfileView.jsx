@@ -17,6 +17,9 @@ import statsPreview from '../../assets/advanced-stats-preview.svg';
 import Loader from '../Loader/Loader';
 import PlayerAvatar from '../shared/PlayerAvatar';
 import AvatarCropper from '../shared/AvatarCropper';
+import ShareStoryButton from '../Snapshot/ShareStoryButton';
+import SnapshotModal from '../Snapshot/SnapshotModal';
+import ProfileStory from '../Snapshot/ProfileStory';
 
 const MAX_AVATAR_BYTES   = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -547,6 +550,7 @@ export default function ProfileView() {
   const [cropFile,    setCropFile]    = useState(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
+  const [showStory,       setShowStory]       = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword,  setDeletePassword]  = useState('');
   const [deleteBusy,      setDeleteBusy]      = useState(false);
@@ -870,6 +874,11 @@ export default function ProfileView() {
               </div>
               {avatarError && <div className="text-[11px] text-danger font-mono mt-1">{avatarError}</div>}
               <SocialLinksDisplay links={savedLinks} />
+              {(stats?.partidos > 0 || stats?.torneos > 0) && (
+                <div className="mt-3">
+                  <ShareStoryButton variant="full" onClick={() => setShowStory(true)} className="inline-flex" />
+                </div>
+              )}
             </div>
 
             {/* Botones — desktop (sm+): top-right */}
@@ -1298,6 +1307,14 @@ export default function ProfileView() {
       )}
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+
+      {showStory && (
+        <SnapshotModal
+          filename={`perfil-${owner.username}.png`}
+          onClose={() => setShowStory(false)}
+          story={<ProfileStory owner={owner} stats={stats ?? {}} avatar={displayAvatar} />}
+        />
+      )}
 
       {showDeleteModal && (
         <Modal

@@ -45,6 +45,21 @@ function NotifItemText({ n, onNavigate }) {
     <>{actor} solicitó unirse al torneo{' '}
       <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span></>
   );
+  if (n.type === 'collab_invite') return (
+    <>{actor} te invitó a co-organizar{' '}
+      {n.group_id ? (
+        <span
+          onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}`); }}
+          className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+        >{n.group_name ?? 'una categoría'}</span>
+      ) : (
+        <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+      )}</>
+  );
+  if (n.type === 'ownership_transfer') return (
+    <>{actor} quiere transferirte la propiedad de{' '}
+      <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span></>
+  );
   if (n.type === 'club_request') return <>{actor} {n.body}</>;
   return null;
 }
@@ -128,6 +143,20 @@ export default function Header() {
     } catch { /* ignore */ }
   }
 
+  async function handleCollabInvite(n, action) {
+    try {
+      await api.collaborators.respondInvite(n.entity_id, action);
+      updateNotif(n.id, { collab_status: action === 'accept' ? 'accepted' : 'rejected' });
+    } catch { /* ignore */ }
+  }
+
+  async function handleTransfer(n, action) {
+    try {
+      await api.transfers.respond(n.entity_id, action);
+      updateNotif(n.id, { transfer_status: action === 'accept' ? 'accepted' : 'rejected' });
+    } catch { /* ignore */ }
+  }
+
   function go(path) {
     setMenuOpen(false);
     navigate(path);
@@ -188,6 +217,8 @@ export default function Header() {
                         onFollow={() => handleFollow(n)}
                         onInvitation={(action) => handleInvitation(n, action)}
                         onJoinRequest={(action, playerId) => handleJoinRequest(n, action, playerId)}
+                        onCollabInvite={(action) => handleCollabInvite(n, action)}
+                        onTransfer={(action) => handleTransfer(n, action)}
                       />
                     ))
                   )}
@@ -290,7 +321,7 @@ export default function Header() {
   )
 }
 
-function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation, onJoinRequest }) {
+function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation, onJoinRequest, onCollabInvite, onTransfer }) {
   const [busy, setBusy] = useState(false);
   const [acceptModal, setAcceptModal] = useState(null); // { players: [], selectedId: '' } | null
   const unread = !n.read;
@@ -422,6 +453,47 @@ function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation, onJoinReques
                 </button>
               </div>
             )
+          ) : null
+        )}
+
+        {n.type === 'collab_invite' && (
+          n.collab_status === 'accepted' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-green">✓ Aceptada</div>
+          ) : n.collab_status === 'rejected' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-dim">Rechazada</div>
+          ) : n.collab_status === 'pending' ? (
+            <div className="mt-1.5 flex gap-1.5">
+              <button onClick={() => wrap(() => onCollabInvite('accept'))} disabled={busy}
+                className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-brand/60 text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+                Aceptar
+              </button>
+              <button onClick={() => wrap(() => onCollabInvite('reject'))} disabled={busy}
+                className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-border-strong text-dim hover:border-danger hover:text-danger cursor-pointer transition-colors disabled:opacity-40">
+                Rechazar
+              </button>
+            </div>
+          ) : null
+        )}
+
+        {n.type === 'ownership_transfer' && (
+          n.transfer_status === 'accepted' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-green">✓ Aceptada</div>
+          ) : n.transfer_status === 'rejected' ? (
+            <div className="mt-1.5 text-[10px] font-mono text-dim">Rechazada</div>
+          ) : n.transfer_status === 'pending' ? (
+            <div className="mt-1.5 flex flex-col gap-1">
+              <div className="text-[10px] font-mono text-danger/80">Acción irreversible</div>
+              <div className="flex gap-1.5">
+                <button onClick={() => wrap(() => onTransfer('accept'))} disabled={busy}
+                  className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-brand/60 text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+                  Aceptar
+                </button>
+                <button onClick={() => wrap(() => onTransfer('reject'))} disabled={busy}
+                  className="text-[10px] font-mono px-2.5 py-0.5 rounded border border-border-strong text-dim hover:border-danger hover:text-danger cursor-pointer transition-colors disabled:opacity-40">
+                  Rechazar
+                </button>
+              </div>
+            </div>
           ) : null
         )}
       </div>

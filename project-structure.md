@@ -92,7 +92,8 @@ padeliando/
     │   │   └── ReadonlyView.jsx    # Public shareable tournament view (no auth required)
     │   │
     │   ├── Invitations/
-    │   │   └── InvitationsView.jsx # Pending invitations inbox for logged-in user
+    │   │   ├── InvitationsView.jsx # Pending invitations inbox for logged-in user
+    │   │   └── InviteAccept.jsx    # Landing /invitacion/:token — aceptar co-organización o transferencia por link
     │   │
     │   ├── Management/
     │   │   ├── Management.jsx      # Admin panel: reset scores, finalize tournament
@@ -177,6 +178,7 @@ padeliando/
 | `/verify-email/:token` | VerifyEmail |
 | `/u/:username` | ProfileView |
 | `/view/:id` | ReadonlyView (old `/readonly/:id` redirects here) |
+| `/invitacion/:token` | InviteAccept (landing para aceptar co-organización o transferencia por link) |
 | `/tutorial` | TutorialView |
 | `/cat/:groupId` | GroupView |
 | `/cat/:groupId/torneo/:tournamentId` | Main (public — no RequireAuth) |
@@ -306,6 +308,21 @@ File uploads use `reqMultipart()` (no `Content-Type` header; browser sets multip
 **readonly**
 - `get(id)` — GET /readonly/:id (public, no auth)
 
+**collaborators** *(co-organizadores — nivel categoría)*
+- `invite(groupId, { identifier | link })` — POST /groups/:groupId/collaborators/invites (dueño)
+- `respondInvite(id, action)` — PATCH /collaborator-invites/:id (invitado)
+- `remove(groupId, userId)` — DELETE /groups/:groupId/collaborators/:userId
+- `leave(groupId)` — DELETE /groups/:groupId/collaborators/me
+
+**transfers** *(transferencia de propiedad de la categoría)*
+- `start(groupId, { identifier | link })` — POST /groups/:groupId/transfer (dueño)
+- `respond(id, action)` — PATCH /ownership-transfers/:id (destinatario)
+- `cancel(groupId)` — DELETE /groups/:groupId/transfer (dueño)
+
+**invites** *(aceptación por link, unificada)*
+- `resolve(token)` — POST /invites/resolve
+- `accept(token)` — POST /invites/accept
+
 **invitations**
 - `list()` — GET /invitations
 - `count()` — GET /invitations/count
@@ -357,6 +374,8 @@ padeliando-api/
     │   ├── pairs.js                # Pair create/update/delete
     │   ├── players.js              # Player search, rename, resolve identity, remove
     │   ├── invitations.js          # Invitation send/respond/cancel/list; acceptance syncs player name to user's real name
+    │   ├── collaborators.js        # Co-organizers (group_collaborators) + ownership transfer; invite by @user/email or link; /invites/resolve|accept
+    │   │                           #   auth guards live in middleware/access.js + lib/access.js (canManageGroup)
     │   ├── readonly.js             # Public tournament access (no auth)
     │   ├── photos.js               # Tournament photo upload/manage (premium only, Cloudinary)
     │   ├── subscriptions.js        # Subscription plan management (Mercado Pago, mostly disabled)
@@ -513,6 +532,37 @@ padeliando-api/
 | mp_preapproval_id | TEXT | Mercado Pago preapproval reference |
 | created_at | TIMESTAMPTZ | |
 
+### `group_collaborators`
+| Column | Type | Notes |
+|--------|------|-------|
+| group_id | TEXT FK → groups | composite PK; co-organizer of this category |
+| user_id | TEXT FK → users | composite PK |
+| added_by | TEXT FK → users | nullable; who added them |
+| added_at | TIMESTAMPTZ | |
+
+### `collaborator_invitations`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | |
+| group_id | TEXT FK → groups | |
+| invited_by | TEXT FK → users | |
+| invited_identifier | TEXT | @username/email (NULL if link invite) |
+| invited_user_id | TEXT FK → users | NULL if link invite |
+| token | TEXT UNIQUE | for link invites (NULL if direct) |
+| status | TEXT | `pending`, `accepted`, `rejected`, `cancelled` |
+| created_at | TIMESTAMPTZ | |
+
+### `ownership_transfers`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | |
+| group_id | TEXT FK → groups | |
+| from_user_id | TEXT FK → users | current owner initiating transfer |
+| to_user_id | TEXT FK → users | NULL if link transfer; set on accept |
+| token | TEXT UNIQUE | for link transfers |
+| status | TEXT | `pending`, `accepted`, `rejected`, `cancelled` |
+| created_at | TIMESTAMPTZ | |
+
 ---
 
 ## Migration History
@@ -529,6 +579,7 @@ padeliando-api/
 | `migration_admin_role.sql` | `role` column on `users` (`user`/`admin`) |
 | `migration_groups_location.sql` | `location_name`, `place_id`, `lat`, `lon` on `groups` |
 | `migration_user_social_links.sql` | `social_links` JSONB on `users` |
+| `migration_collaborators.sql` | `group_collaborators`, `collaborator_invitations`, `ownership_transfers` tables; extends `notifications.type` CHECK with `collab_invite`/`ownership_transfer` |
 
 ---
 

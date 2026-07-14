@@ -20,6 +20,7 @@ import Setup        from './components/Setup/Setup'
 import MainView     from './components/Main/Main'
 import ReadonlyView    from './components/ReadonlyView/ReadonlyView'
 import InvitationsView    from './components/Invitations/InvitationsView'
+import InviteAccept        from './components/Invitations/InviteAccept'
 import NotificationsView  from './components/Notifications/NotificationsView'
 import TutorialView      from './components/Tutorial/TutorialView'
 import SubscriptionSuccess from './components/Subscription/SubscriptionSuccess'
@@ -105,6 +106,7 @@ export default function App() {
         <Route path="/cat/:groupId"                           element={<GroupView />} />
         <Route path="/cat/:groupId/torneo/new"            element={<PrivateRoute><Setup /></PrivateRoute>} />
         <Route path="/cat/:groupId/torneo/:tournamentId"  element={<MainView />} />
+        <Route path="/invitacion/:token"                         element={<InviteAccept />} />
         <Route path="/invitations"                               element={<Navigate to="/notifications" replace />} />
         <Route path="/notifications"                             element={<PrivateRoute><NotificationsView /></PrivateRoute>} />
         <Route path="/tutorial"                                  element={<TutorialView />} />
