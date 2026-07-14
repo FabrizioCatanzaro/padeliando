@@ -90,7 +90,7 @@ export default function Main() {
     : 0;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
   const statusMeta = TOURNAMENT_STATUS_META[tournamentDisplayStatus({
-    status: tournament.status, event_date: tournament.event_date, hasPlayed: playedCount > 0,
+    status: tournament.status, hasLiveMatch: !!tournament.live_match, hasPlayed: playedCount > 0,
   })];
 
   // Ganador(es) de la torneo — solo cuando está finalizada

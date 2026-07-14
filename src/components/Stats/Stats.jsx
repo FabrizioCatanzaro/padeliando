@@ -7,6 +7,10 @@ import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import PremiumModal from "../shared/PremiumModal";
+import ShareStoryButton from "../Snapshot/ShareStoryButton";
+import SnapshotModal from "../Snapshot/SnapshotModal";
+import StatsStory from "../Snapshot/StatsStory";
+import { C } from "../Snapshot/story-theme";
 import groupStatsPreview from "../../assets/group-advanced-stats-preview.svg";
 
 export default function Stats({ tournament, ownerIsPremium = false }) {
@@ -49,7 +53,7 @@ export default function Stats({ tournament, ownerIsPremium = false }) {
         ? <CurrentStats tournament={tournament} />
         : histLoading
           ? <div className="text-center text-dim py-10 font-mono text-sm">Cargando historial...</div>
-          : <HistoricalStats tournaments={allTournaments} ownerIsPremium={ownerIsPremium} />
+          : <HistoricalStats tournaments={allTournaments} ownerIsPremium={ownerIsPremium} groupName={tournament.group_name} />
       }
     </div>
   );
@@ -83,6 +87,7 @@ function getAllMatches(tournament) {
 
 function CurrentStats({ tournament }) {
   const navigate = useNavigate();
+  const [showStory, setShowStory] = useState(false);
   const { players, mode, pairs: tournamentPairs } = tournament;
   const isPairs = mode === "pairs";
 
@@ -93,11 +98,14 @@ function CurrentStats({ tournament }) {
 
   const partnerMap = {};
   played.forEach((m) => {
-    [[m.team1, +m.score1 > +m.score2], [m.team2, +m.score2 > +m.score1]].forEach(([team, won]) => {
+    const s1 = +m.score1, s2 = +m.score2;
+    [[m.team1, s1, s2], [m.team2, s2, s1]].forEach(([team, gf, gc]) => {
       const key = [...team].sort().join("-");
-      if (!partnerMap[key]) partnerMap[key] = { wins: 0, played: 0, ids: team };
+      if (!partnerMap[key]) partnerMap[key] = { wins: 0, played: 0, sf: 0, sc: 0, ids: team };
       partnerMap[key].played++;
-      if (won) partnerMap[key].wins++;
+      partnerMap[key].sf += gf;
+      partnerMap[key].sc += gc;
+      if (gf > gc) partnerMap[key].wins++;
     });
   });
 
@@ -105,9 +113,9 @@ function CurrentStats({ tournament }) {
     .map((v) => ({
       label: v.ids.map((id) => players.find((p) => p.id === id)?.name ?? "?").join(" & "),
       winRate: v.played > 0 ? Math.round((v.wins / v.played) * 100) : 0,
-      wins: v.wins, played: v.played,
+      wins: v.wins, played: v.played, diff: v.sf - v.sc,
     }))
-    .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins);
+    .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins || b.diff - a.diff);
 
   let biggestWin = null, biggestDiff = -1;
   played.forEach((m) => {
@@ -148,8 +156,9 @@ function CurrentStats({ tournament }) {
   const topWinRate   = partnerships[0]?.winRate ?? -1;
   const topWins      = partnerships[0]?.wins ?? -1;
   const topPlayed    = partnerships[0]?.played ?? 0;
+  const topPairDiff  = partnerships[0]?.diff ?? 0;
   const tiedPartners = partnerships.filter(
-    (p) => p.winRate === topWinRate && p.wins === topWins && p.played === topPlayed
+    (p) => p.winRate === topWinRate && p.wins === topWins && p.played === topPlayed && p.diff === topPairDiff
   );
   const topPartner        = tiedPartners.length === 1 ? partnerships[0] : null;
   const tiedPartnersLabel = tiedPartners.length > 1 ? tiedPartners.map((p) => p.label).join(" / ") : null;
@@ -158,6 +167,7 @@ function CurrentStats({ tournament }) {
   let topPairLabel   = topPartner?.label ?? tiedPartnersLabel ?? null;
   let topPairWinRate = topPartner?.winRate ?? topWinRate;
   let topPairRecord  = topPartner ? `${topPartner.wins}/${topPartner.played}` : (topPlayed > 0 ? `${topWins}/${topPlayed}` : "");
+  let topPairDiffVal = topPartner?.diff ?? topPairDiff;
   const topPairIsTied = tiedPartners.length > 1;
 
   if (!topPairIsTied && isPairs && tournamentPairs?.length > 0 && standings.length > 0) {
@@ -172,14 +182,48 @@ function CurrentStats({ tournament }) {
       topPairLabel   = `${n1} & ${n2}`;
       topPairWinRate = pairStats ? Math.round((pairStats.wins / pairStats.played) * 100) : 0;
       topPairRecord  = pairStats ? `${pairStats.wins}/${pairStats.played}` : "0/0";
+      topPairDiffVal = pairStats ? pairStats.sf - pairStats.sc : 0;
     }
-  }  
+  }
+  const fmtDiff = (d) => `${d > 0 ? "+" : ""}${d}`;
 
   if (played.length === 0)
     return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">Jugá partidos para ver estadísticas 📊</div>;
 
+  // ── Highlights para la historia exportable ──────────────────────────────────
+  const storyHero = (() => {
+    if (isAmericano && tournament.bracket?.final?.winner_id)
+      return { emoji: "🏆", label: "CAMPEONES", main: tournament.bracket.final.winner_name, accent: C.amber };
+    if (isPairs && topPairLabel)
+      return { emoji: "🔥", label: topPairIsTied ? "MEJOR PAREJA · EMPATE" : "MEJOR PAREJA", main: topPairLabel, sub: `${topPairWinRate}% (${topPairRecord})`, accent: C.brand };
+    if (leaders.length > 0)
+      return { emoji: "🏆", label: leaders.length > 1 ? "MVP · EMPATE" : "MVP", main: mvpLabel, sub: `${topPg} ${topPg === 1 ? "victoria" : "victorias"}`, accent: C.brand };
+    return null;
+  })();
+
+  const storyItems = [{ label: "PARTIDOS JUGADOS", main: played.length, accent: C.cyan }];
+  if (!isPairs && topPlayed >= 1 && topPartner)
+    storyItems.push({ emoji: "🤝", label: "MEJOR PAREJA", main: topPartner.label, sub: `${topWinRate}% (${topWins}/${topPlayed})`, accent: C.cyan });
+  if (biggestWin) {
+    const win1 = +biggestWin.score1 > +biggestWin.score2;
+    const winnerNames = (win1 ? biggestWin.team1 : biggestWin.team2).map(getPlayerName).join(" & ");
+    const ws = win1 ? biggestWin.score1 : biggestWin.score2;
+    const ls = win1 ? biggestWin.score2 : biggestWin.score1;
+    storyItems.push({ emoji: "💣", label: "PARTIDO MÁS AMPLIO", main: `${ws} — ${ls}`, sub: winnerNames, accent: C.danger });
+  }
+  if (longestMatch) {
+    const win1 = +longestMatch.score1 > +longestMatch.score2;
+    const winnerNames = (win1 ? longestMatch.team1 : longestMatch.team2).map(getPlayerName).join(" & ");
+    const mm = String(Math.floor(longestMatch.duration_seconds / 60)).padStart(2, "0");
+    const ss = String(longestMatch.duration_seconds % 60).padStart(2, "0");
+    storyItems.push({ emoji: "⏱️", label: "PARTIDO MÁS LARGO", main: `${mm}:${ss}`, sub: winnerNames, accent: C.green });
+  }
+
   return (
     <>
+      <div className="flex justify-end mb-4">
+        <ShareStoryButton onClick={() => setShowStory(true)} />
+      </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
         <div className="flex flex-col bg-surface border border-secondary/27 rounded-lg text-center overflow-hidden">
           <div className="bg-secondary text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-secondary/15">Partidos jugados</div>
@@ -209,7 +253,7 @@ function CurrentStats({ tournament }) {
               <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
                 <Flame size={30} className="text-brand" />
                 <div className={`font-condensed font-bold ${topPairIsTied ? 'text-lg' : 'text-xl'} text-brand leading-tight`}>{topPairLabel}</div>
-                <div className="text-[14px] text-secondary font-mono">{topPairWinRate}% ({topPairRecord})</div>
+                <div className="text-[14px] text-secondary font-mono">{topPairWinRate}% ({topPairRecord}) · DIF {fmtDiff(topPairDiffVal)}</div>
               </div>
             </div>
           )
@@ -244,7 +288,7 @@ function CurrentStats({ tournament }) {
               <div className={`font-condensed font-bold ${topPairIsTied ? 'text-lg' : 'text-xl'} text-cyan leading-tight`}>
                 {topPairIsTied ? tiedPartnersLabel : topPartner.label}
               </div>
-              <div className="text-[14px] text-secondary font-mono">{topWinRate}% ({topWins}/{topPlayed})</div>
+              <div className="text-[14px] text-secondary font-mono">{topWinRate}% ({topWins}/{topPlayed}) · DIF {fmtDiff(topPairDiffVal)}</div>
             </div>
           </div>
         )}
@@ -313,6 +357,14 @@ function CurrentStats({ tournament }) {
       {!isPairs && !isAmericano && <PerPlayerTable standings={standings} />}
       {!isPairs && <PartnershipsTable partnerships={partnerships} />}
       {isPairs && <PartnershipsTable partnerships={partnerships} titleOverride="RENDIMIENTO POR PAREJA" />}
+
+      {showStory && (
+        <SnapshotModal
+          filename={`stats-${tournament.name ?? "torneo"}.png`}
+          onClose={() => setShowStory(false)}
+          story={<StatsStory eyebrow="ESTADÍSTICAS DEL TORNEO" title={tournament.name} accent={C.brand} hero={storyHero} items={storyItems} />}
+        />
+      )}
     </>
   );
 }
@@ -351,9 +403,10 @@ function buildIndividualRows(tournaments, sortBy = 'winrate') {
     });
 }
 
-export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false }) {
+export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false, groupName }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [rankMode, setRankMode] = useState('winrate'); // 'winrate' | 'wins'
+  const [showStory, setShowStory] = useState(false);
   const navigate = useNavigate();
 
   if (tournaments.length === 0)
@@ -464,8 +517,25 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       return { name: label, partidos: totalMatches, games: totalGames };
     });
 
+  // ── Highlights para la historia exportable de la categoría ──────────────────
+  const catHero = champLabel
+    ? { emoji: "🏆", label: topChamps.length > 1 ? "MÁS VECES CAMPEONES" : "MÁS VECES CAMPEÓN", main: champLabel, sub: `${topChampCount} ${topChampCount === 1 ? "torneo" : "torneos"}`, accent: C.amber }
+    : null;
+  const catItems = [
+    { label: "TORNEOS", main: tournaments.length, accent: C.cyan },
+    { label: "PARTIDOS", main: totalMatches, accent: C.green },
+  ];
+  if (individualRows[0])
+    catItems.push({ emoji: "👑", label: "MEJOR JUGADOR", main: individualRows[0].name, sub: `${individualRows[0].pg}V`, accent: C.brand });
+  if (hasPairMode && bestPairLabel)
+    catItems.push({ emoji: "🤝", label: bestPairIsTied ? "MEJOR PAREJA · EMPATE" : "MEJOR PAREJA", main: bestPairLabel, sub: bestPairRecord ?? undefined, accent: C.green });
+
   return (
     <>
+      <div className="flex justify-end mb-4">
+        <ShareStoryButton onClick={() => setShowStory(true)} />
+      </div>
+
       {/* ── BÁSICAS (siempre visibles) ── */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
         <div className="bg-surface border border-cyan/27 rounded-lg text-center overflow-hidden">
@@ -692,6 +762,23 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       )}
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+
+      {showStory && (
+        <SnapshotModal
+          filename={`stats-categoria${groupName ? "-" + groupName : ""}.png`}
+          onClose={() => setShowStory(false)}
+          story={
+            <StatsStory
+              eyebrow="ESTADÍSTICAS DE LA CATEGORÍA"
+              title={groupName ?? "Histórico"}
+              subtitle={`${tournaments.length} torneos · ${totalMatches} partidos`}
+              accent={C.brand}
+              hero={catHero}
+              items={catItems}
+            />
+          }
+        />
+      )}
     </>
   );
 }

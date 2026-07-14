@@ -133,7 +133,17 @@ Browser
 - Protected routes use the `<PrivateRoute>` component wrapper in `App.jsx`.
 - Admin-only routes use `<AdminRoute>` (checks `user.role === 'admin'`).
 - Group/tournament URLs use the `/cat/` prefix (e.g. `/cat/:groupId/torneo/:tournamentId`).
-- Public routes include: `/`, `/login`, `/register`, `/u/:username`, `/view/:id` (old `/readonly/:id` redirects here), `/tutorial`, `/cat/:groupId`, `/verify-email/:token`, `/reset-password/:token`.
+- Public routes include: `/`, `/login`, `/register`, `/u/:username`, `/view/:id` (old `/readonly/:id` redirects here), `/tutorial`, `/cat/:groupId`, `/verify-email/:token`, `/reset-password/:token`, `/invitacion/:token`.
+
+### Permissions & Co-organizers
+- A category (`groups`) has one **owner** (`groups.user_id`) plus zero or more **co-organizers** (`group_collaborators`). A tournament/jornada has no owner of its own — it inherits from its category.
+- Two permission levels, both computed server-side and returned on `GET /groups/:id` and `GET /tournaments/:id`:
+  - **`is_owner`** — owner only. Gates owner-exclusive actions: edit/delete the category, transfer ownership, manage co-organizers.
+  - **`can_manage`** — owner **or** co-organizer. Gates all jornada management (create/edit/delete jornadas, players, pairs, matches, bracket, photos).
+- The frontend `isOwner` returned by `useTournament` now means `can_manage`. In `GroupView`, use `is_owner` for owner-only UI and `can_manage` for jornada management.
+- **Authorization is enforced server-side**: mutating tournament/match/pair/player endpoints use `requireAuth` + guards from `middleware/access.js` (`requireTournamentManage`, `requireGroupManage`, etc.), backed by `lib/access.js#canManageGroup`. Do not rely on the frontend alone.
+- **Plan/premium gates key off the category owner**, never the acting user: a premium co-organizer does not bypass a basic owner's limits (e.g. the free monthly-tournament cap, photo uploads).
+- Invites (co-organizer and ownership transfer) go by `@username`/email (in-app notification) or by shareable link (`/invitacion/:token`). Ownership transfer is irreversible and only completes when the recipient accepts; the previous owner becomes a co-organizer. See `routes/collaborators.js`.
 
 ### Tailwind CSS
 - Tailwind 4 is configured via the Vite plugin only — there is no `tailwind.config.js`.
@@ -155,6 +165,8 @@ Browser
 - **Don't calculate standings server-side** — standings are always derived client-side.
 - **Don't show a "CAMPEONES" banner in americano tournaments** — champion is determined by the bracket final, not standings.
 - **Don't hardcode player names** — always go through `adaptTournament` / `linked_name` pattern so invited users see their real name.
+- **Don't let co-organizers edit or delete a category** — those (plus transfer and managing co-organizers) are owner-only (`is_owner`). Co-organizers manage jornadas only (`can_manage`).
+- **Don't gate plan limits on the acting user** — evaluate premium/quota against the **category owner** (`groups.user_id` / `owner_is_premium`).
 
 ---
 

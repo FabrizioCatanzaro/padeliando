@@ -4,6 +4,9 @@ import { PairAvatar } from "../shared/PlayerAvatar";
 import { courtLabel } from "../../utils/helpers";
 import { Timer, ScoreCounter, CourtSelector, MatchCardHeader, MinimizedMatch } from "../Matches/MatchForm";
 import Modal from "../shared/Modal";
+import ShareStoryButton from "../Snapshot/ShareStoryButton";
+import SnapshotModal from "../Snapshot/SnapshotModal";
+import BracketStory from "../Snapshot/BracketStory";
 
 const PHASE_TITLE = { octavos: "OCTAVOS", cuartos: "CUARTOS DE FINAL", semis: "SEMIFINALES", final: "FINAL" };
 
@@ -367,6 +370,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
   const [savingLayout, setSavingLayout] = useState(false);
   const [editMatchId,  setEditMatchId]  = useState(null);
   const [editScore,    setEditScore]    = useState({ score1: 0, score2: 0 });
+  const [showStory,    setShowStory]    = useState(false);
 
   // Persist liveMatches + sync onSetLiveMatch
   const prevLiveRef = useRef(liveMatches);
@@ -622,13 +626,18 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div className="font-condensed font-bold text-[14px] tracking-[3px] text-muted">CUADRO</div>
-        {isOwner && !hasResults && !editMode && (
-          <button
-            onClick={enterEditMode}
-            className="bg-transparent text-muted border border-border-strong px-3 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm"
-          >
-            ✎ REORGANIZAR
-          </button>
+        {!editMode && (
+          <div className="flex gap-2">
+            <ShareStoryButton onClick={() => setShowStory(true)} />
+            {isOwner && !hasResults && (
+              <button
+                onClick={enterEditMode}
+                className="bg-transparent text-muted border border-border-strong px-3 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm"
+              >
+                ✎ REORGANIZAR
+              </button>
+            )}
+          </div>
         )}
         {editMode && (
           <div className="flex gap-2">
@@ -815,6 +824,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                 <BracketEditCard
                   key={m.id}
                   match={m}
+                  tournament={tournament}
                   saving={saving === m.id}
                   editScore={editScore}
                   onScoreChange={(field, value) => setEditScore(prev => ({ ...prev, [field]: value }))}
@@ -827,6 +837,14 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
             })}
           </div>
         </div>
+      )}
+
+      {showStory && (
+        <SnapshotModal
+          filename={`cuadro-${tournament.name ?? 'torneo'}.png`}
+          onClose={() => setShowStory(false)}
+          story={<BracketStory tournament={tournament} />}
+        />
       )}
     </div>
   );

@@ -96,6 +96,24 @@ export default function NotificationsView() {
     }
   }
 
+  async function handleCollabInvite(n, action) {
+    try {
+      await api.collaborators.respondInvite(n.entity_id, action);
+      updateItem(n.id, { collab_status: action === 'accept' ? 'accepted' : 'rejected' });
+    } catch {
+      //
+    }
+  }
+
+  async function handleTransfer(n, action) {
+    try {
+      await api.transfers.respond(n.entity_id, action);
+      updateItem(n.id, { transfer_status: action === 'accept' ? 'accepted' : 'rejected' });
+    } catch {
+      //
+    }
+  }
+
   if (loading) return <Loader />;
 
   // Group by day label
@@ -145,6 +163,8 @@ export default function NotificationsView() {
                 onFollow={() => handleFollow(n)}
                 onInvitation={(action) => handleInvitation(n, action)}
                 onJoinRequest={(action, playerId) => handleJoinRequest(n, action, playerId)}
+                onCollabInvite={(action) => handleCollabInvite(n, action)}
+                onTransfer={(action) => handleTransfer(n, action)}
               />
             ))}
           </div>
@@ -166,7 +186,7 @@ export default function NotificationsView() {
   );
 }
 
-function NotifRow({ n, navigate, onFollow, onInvitation, onJoinRequest }) {
+function NotifRow({ n, navigate, onFollow, onInvitation, onJoinRequest, onCollabInvite, onTransfer }) {
   const unread = !n.read;
   const isAdmin = n.type === 'admin_message';
   return (
@@ -192,7 +212,7 @@ function NotifRow({ n, navigate, onFollow, onInvitation, onJoinRequest }) {
       <div className="flex-1 min-w-0">
         <NotifText n={n} navigate={navigate} />
         <div className="text-[10px] font-mono text-dim mt-1">{timeAgo(n.created_at)}</div>
-        <NotifActions n={n} onFollow={onFollow} onInvitation={onInvitation} onJoinRequest={onJoinRequest} />
+        <NotifActions n={n} onFollow={onFollow} onInvitation={onInvitation} onJoinRequest={onJoinRequest} onCollabInvite={onCollabInvite} onTransfer={onTransfer} />
       </div>
     </div>
   );
@@ -245,6 +265,31 @@ function NotifText({ n, navigate }) {
       </div>
     );
   }
+  if (n.type === 'collab_invite') {
+    return (
+      <div className="text-[13px] text-secondary">
+        {actorEl} te invitó a co-organizar{' '}
+        {n.group_id ? (
+          <span
+            onClick={() => navigate(`/cat/${n.group_id}`)}
+            className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+          >
+            {n.group_name ?? 'una categoría'}
+          </span>
+        ) : (
+          <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+        )}
+      </div>
+    );
+  }
+  if (n.type === 'ownership_transfer') {
+    return (
+      <div className="text-[13px] text-secondary">
+        {actorEl} quiere transferirte la propiedad de{' '}
+        <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+      </div>
+    );
+  }
   if (n.type === 'club_request') {
     return (
       <div className="text-[13px] text-secondary">
@@ -261,7 +306,7 @@ function NotifText({ n, navigate }) {
   return null;
 }
 
-function NotifActions({ n, onFollow, onInvitation, onJoinRequest }) {
+function NotifActions({ n, onFollow, onInvitation, onJoinRequest, onCollabInvite, onTransfer }) {
   const [busy, setBusy] = useState(false);
   const [acceptModal, setAcceptModal] = useState(null); // { players: [], selectedId: '' } | null
 
@@ -399,6 +444,47 @@ function NotifActions({ n, onFollow, onInvitation, onJoinRequest }) {
               </button>
             </div>
           )}
+        </div>
+      );
+    }
+  }
+
+  if (n.type === 'collab_invite') {
+    if (n.collab_status === 'accepted') return <div className="mt-2 text-[11px] font-mono text-green">✓ Aceptada</div>;
+    if (n.collab_status === 'rejected') return <div className="mt-2 text-[11px] font-mono text-dim">Rechazada</div>;
+    if (n.collab_status === 'pending') {
+      return (
+        <div className="mt-2 flex gap-2">
+          <button onClick={() => wrap(() => onCollabInvite('accept'))} disabled={busy}
+            className="text-[11px] font-mono px-3 py-1 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+            Aceptar
+          </button>
+          <button onClick={() => wrap(() => onCollabInvite('reject'))} disabled={busy}
+            className="text-[11px] font-mono px-3 py-1 rounded border border-border-strong text-muted hover:border-danger hover:text-danger cursor-pointer transition-colors disabled:opacity-40">
+            Rechazar
+          </button>
+        </div>
+      );
+    }
+  }
+
+  if (n.type === 'ownership_transfer') {
+    if (n.transfer_status === 'accepted') return <div className="mt-2 text-[11px] font-mono text-green">✓ Aceptada</div>;
+    if (n.transfer_status === 'rejected') return <div className="mt-2 text-[11px] font-mono text-dim">Rechazada</div>;
+    if (n.transfer_status === 'pending') {
+      return (
+        <div className="mt-2 flex flex-col gap-1.5">
+          <div className="text-[11px] font-mono text-danger/80">Esta acción es irreversible.</div>
+          <div className="flex gap-2">
+            <button onClick={() => wrap(() => onTransfer('accept'))} disabled={busy}
+              className="text-[11px] font-mono px-3 py-1 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40">
+              Aceptar
+            </button>
+            <button onClick={() => wrap(() => onTransfer('reject'))} disabled={busy}
+              className="text-[11px] font-mono px-3 py-1 rounded border border-border-strong text-muted hover:border-danger hover:text-danger cursor-pointer transition-colors disabled:opacity-40">
+              Rechazar
+            </button>
+          </div>
         </div>
       );
     }
