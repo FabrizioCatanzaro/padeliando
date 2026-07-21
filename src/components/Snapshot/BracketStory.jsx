@@ -1,13 +1,8 @@
-import StoryFrame from './StoryFrame';
+import StoryFrame, { CategoryChip, ClubBadge } from './StoryFrame';
 import { C, fonts } from './story-theme';
 import { PairAvatar } from '../shared/PlayerAvatar';
 
 const PHASE_LABEL = { octavos: 'OCTAVOS', cuartos: 'CUARTOS', semis: 'SEMIS', final: 'FINAL' };
-
-function firstName(name) {
-  if (!name) return '?';
-  return name.trim().split(/\s+/)[0];
-}
 
 function pairPlayers(pairId, tournament) {
   const pair = tournament?.pairs?.find((p) => p.id === pairId);
@@ -29,33 +24,33 @@ function pairAvatar(pairId, tournament, size) {
   );
 }
 
-// Celda de pareja para el cuadro: fotos + nombres (solo nombres de pila para
-// que entren en el formato vertical 9:16).
-function PairCell({ pairId, tournament, size, nameFs }) {
+// Celda de pareja del cuadro: los avatares quedan pegados al borde del recuadro
+// y los nombres completos van al lado, uno por línea (se recortan con ellipsis
+// si no entran en el ancho disponible).
+function PairCell({ pairId, tournament, size, nameFs, reverse = false }) {
   const pp = pairPlayers(pairId, tournament);
-  const label = pp
-    ? `${firstName(pp.p1?.name)} / ${firstName(pp.p2?.name)}`
-    : '? / ?';
+  const nameStyle = {
+    fontFamily: fonts.sans, fontWeight: 600, fontSize: nameFs,
+    color: C.white, lineHeight: 1.25, textAlign: reverse ? 'right' : 'left',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  };
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: Math.round(size * 0.14), minWidth: 0,
+      flex: 1, minWidth: 0, display: 'flex', alignItems: 'center',
+      gap: Math.round(size * 0.22),
+      flexDirection: reverse ? 'row-reverse' : 'row',
     }}>
       {pairAvatar(pairId, tournament, size)}
-      <div style={{
-        fontFamily: fonts.sans, fontWeight: 600, fontSize: nameFs,
-        color: C.soft, lineHeight: 1.15, textAlign: 'center',
-        maxWidth: size * 2.6, overflow: 'hidden', textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}>
-        {label}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={nameStyle}>{pp?.p1?.name ?? '?'}</div>
+        <div style={nameStyle}>{pp?.p2?.name ?? '?'}</div>
       </div>
     </div>
   );
 }
 
-// Historia del cuadro eliminatorio, reorganizado verticalmente con las fotos de
-// los jugadores y los nombres de pila de cada pareja para el formato 9:16.
+// Historia del cuadro eliminatorio, reorganizado verticalmente para el formato
+// 9:16: cada cruce muestra las fotos contra los bordes y los nombres al lado.
 export default function BracketStory({ tournament }) {
   const b = tournament.bracket ?? {};
 
@@ -73,12 +68,14 @@ export default function BracketStory({ tournament }) {
   // final (abajo del todo) nunca se recorte dentro de los 1920px.
   const compact = totalMatches > 8;
   const AV        = compact ? 40 : 58;
-  const nameFs    = compact ? 15 : 20;
-  const rowPad    = compact ? '10px 20px' : '18px 26px';
+  // Los nombres van en dos líneas: en modo compacto se mantienen por debajo de
+  // la altura del avatar (2 × 15 × 1.25 = 37.5 < 40) para no estirar la fila.
+  const nameFs    = compact ? 15 : 22;
+  const rowPad    = compact ? '8px 20px' : '18px 26px';
   const scoreFs   = compact ? 34 : 48;
-  const gap       = compact ? 8 : 14;
-  const roundGap  = compact ? 16 : 28;
-  const phaseMb   = compact ? 10 : 14;
+  const gap       = compact ? 6 : 14;
+  const roundGap  = compact ? 12 : 28;
+  const phaseMb   = compact ? 8 : 14;
 
   const finalWinnerName = b.final?.winner_name;
 
@@ -86,6 +83,8 @@ export default function BracketStory({ tournament }) {
     <StoryFrame
       eyebrow="CUADRO ELIMINATORIO"
       title={tournament.name}
+      meta={<CategoryChip tournament={tournament} />}
+      headerRight={<ClubBadge tournament={tournament} />}
       accent={C.brand}
     >
       {finalWinnerName && (
@@ -126,7 +125,7 @@ export default function BracketStory({ tournament }) {
                     background: C.surface, border: `1px solid ${C.border}`,
                     borderRadius: 16, padding: rowPad,
                   }}>
-                    <div style={{ flex: 1, display: 'flex', justifyContent: 'center', opacity: played && !win1 ? 0.45 : 1 }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', opacity: played && !win1 ? 0.45 : 1 }}>
                       <PairCell pairId={m.pair1_id} tournament={tournament} size={AV} nameFs={nameFs} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
@@ -138,8 +137,8 @@ export default function BracketStory({ tournament }) {
                         {played ? m.score2 : '–'}
                       </span>
                     </div>
-                    <div style={{ flex: 1, display: 'flex', justifyContent: 'center', opacity: played && !win2 ? 0.45 : 1 }}>
-                      <PairCell pairId={m.pair2_id} tournament={tournament} size={AV} nameFs={nameFs} />
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', opacity: played && !win2 ? 0.45 : 1 }}>
+                      <PairCell pairId={m.pair2_id} tournament={tournament} size={AV} nameFs={nameFs} reverse />
                     </div>
                   </div>
                 );

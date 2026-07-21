@@ -1,4 +1,4 @@
-import StoryFrame from './StoryFrame';
+import StoryFrame, { CategoryChip, ClubBadge } from './StoryFrame';
 import { C, fonts } from './story-theme';
 import PlayerAvatar, { PairAvatar } from '../shared/PlayerAvatar';
 
@@ -11,6 +11,12 @@ function RowAvatar({ row, size }) {
   return <PlayerAvatar name={row.name} src={row.src} size={size} premium={!!row.is_premium} />;
 }
 
+const nameStyle = (isTop) => ({
+  fontFamily: fonts.display, fontWeight: 700, fontSize: 34, lineHeight: 1.2,
+  color: isTop ? C.brand : C.white,
+  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+});
+
 // Historia de la tabla de posiciones de un torneo.
 // rows: displayRows ya calculadas en Standings.jsx · champions: filas campeonas (puede ser []).
 export default function StandingsStory({ tournament, rows = [], champions = [] }) {
@@ -21,6 +27,8 @@ export default function StandingsStory({ tournament, rows = [], champions = [] }
       eyebrow="TABLA DE POSICIONES"
       title={tournament.name}
       subtitle={`${tournament.players?.length ?? 0} jugadores · ${tournament.matches?.length ?? 0} partidos`}
+      meta={<CategoryChip tournament={tournament} />}
+      headerRight={<ClubBadge tournament={tournament} />}
     >
       {champions.length > 0 && (
         <div style={{
@@ -62,11 +70,18 @@ export default function StandingsStory({ tournament, rows = [], champions = [] }
                 {i + 1}
               </div>
               <RowAvatar row={r} size={64} />
-              <div style={{
-                flex: 1, minWidth: 0, fontFamily: fonts.display, fontWeight: 700, fontSize: 34,
-                color: isTop ? C.brand : C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              }}>
-                {r.name}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {r.p1Name ? (
+                  // Parejas: un jugador por línea para que ambos nombres se lean
+                  // enteros. A 30px las dos líneas (72px) quedan a la altura del
+                  // avatar de 64px, así la fila casi no crece.
+                  <>
+                    <div style={{ ...nameStyle(isTop), fontSize: 30 }}>{r.p1Name}</div>
+                    <div style={{ ...nameStyle(isTop), fontSize: 30 }}>{r.p2Name}</div>
+                  </>
+                ) : (
+                  <div style={nameStyle(isTop)}>{r.name}</div>
+                )}
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 90 }}>
                 <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: 40, color: C.brand, lineHeight: 1 }}>
