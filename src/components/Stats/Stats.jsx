@@ -10,6 +10,8 @@ import PremiumModal from "../shared/PremiumModal";
 import ShareStoryButton from "../Snapshot/ShareStoryButton";
 import SnapshotModal from "../Snapshot/SnapshotModal";
 import StatsStory from "../Snapshot/StatsStory";
+import CategoryStory from "../Snapshot/CategoryStory";
+import { CategoryChip, ClubBadge } from "../Snapshot/StoryFrame";
 import { C } from "../Snapshot/story-theme";
 import groupStatsPreview from "../../assets/group-advanced-stats-preview.svg";
 
@@ -195,7 +197,8 @@ function CurrentStats({ tournament }) {
     if (isAmericano && tournament.bracket?.final?.winner_id)
       return { emoji: "🏆", label: "CAMPEONES", main: tournament.bracket.final.winner_name, accent: C.amber };
     if (isPairs && topPairLabel)
-      return { emoji: "🔥", label: topPairIsTied ? "MEJOR PAREJA · EMPATE" : "MEJOR PAREJA", main: topPairLabel, sub: `${topPairWinRate}% (${topPairRecord})`, accent: C.brand };
+      // En empate el valor son varias parejas: se achica para que entren.
+      return { emoji: "🔥", label: topPairIsTied ? "MEJOR PAREJA · EMPATE" : "MEJOR PAREJA", main: topPairLabel, mainSize: topPairIsTied ? 34 : undefined, sub: `${topPairWinRate}% (${topPairRecord})`, accent: C.brand };
     if (leaders.length > 0)
       return { emoji: "🏆", label: leaders.length > 1 ? "MVP · EMPATE" : "MVP", main: mvpLabel, sub: `${topPg} ${topPg === 1 ? "victoria" : "victorias"}`, accent: C.brand };
     return null;
@@ -362,7 +365,7 @@ function CurrentStats({ tournament }) {
         <SnapshotModal
           filename={`stats-${tournament.name ?? "torneo"}.png`}
           onClose={() => setShowStory(false)}
-          story={<StatsStory eyebrow="ESTADÍSTICAS DEL TORNEO" title={tournament.name} accent={C.brand} hero={storyHero} items={storyItems} />}
+          story={<StatsStory eyebrow="ESTADÍSTICAS DEL TORNEO" title={tournament.name} meta={<CategoryChip tournament={tournament} />} headerRight={<ClubBadge tournament={tournament} />} accent={C.brand} hero={storyHero} items={storyItems} />}
         />
       )}
     </>
@@ -517,18 +520,28 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       return { name: label, partidos: totalMatches, games: totalGames };
     });
 
-  // ── Highlights para la historia exportable de la categoría ──────────────────
-  const catHero = champLabel
-    ? { emoji: "🏆", label: topChamps.length > 1 ? "MÁS VECES CAMPEONES" : "MÁS VECES CAMPEÓN", main: champLabel, sub: `${topChampCount} ${topChampCount === 1 ? "torneo" : "torneos"}`, accent: C.amber }
+  // ── Datos para la historia exportable de la categoría ───────────────────────
+  // El bloque avanzado (mejor jugador/pareja, ranking y campeones) sólo se arma
+  // si el dueño es premium: CategoryStory lo ignora en cuentas free.
+  const storyChampion = champLabel
+    ? { label: champLabel, count: topChampCount, tied: topChamps.length > 1 }
     : null;
-  const catItems = [
-    { label: "TORNEOS", main: tournaments.length, accent: C.cyan },
-    { label: "PARTIDOS", main: totalMatches, accent: C.green },
-  ];
-  if (individualRows[0])
-    catItems.push({ emoji: "👑", label: "MEJOR JUGADOR", main: individualRows[0].name, sub: `${individualRows[0].pg}V`, accent: C.brand });
-  if (hasPairMode && bestPairLabel)
-    catItems.push({ emoji: "🤝", label: bestPairIsTied ? "MEJOR PAREJA · EMPATE" : "MEJOR PAREJA", main: bestPairLabel, sub: bestPairRecord ?? undefined, accent: C.green });
+  // El ranking del snapshot siempre va por partidos ganados, sin importar el
+  // switch rendimiento/ganados de la vista.
+  const storyRankedRows = showPairTable
+    ? [...pairRows].sort((a, b) => {
+        const pctA = a.pj > 0 ? a.pg / a.pj : 0;
+        const pctB = b.pj > 0 ? b.pg / b.pj : 0;
+        return b.pg - a.pg || pctB - pctA || (b.sf - b.sc) - (a.sf - a.sc);
+      })
+    : buildIndividualRows(sortedByDate, 'wins');
+  const storyRanking = storyRankedRows.slice(0, 10).map((r) => ({
+    key: r.id ?? r.name,
+    name: showPairTable ? r.label : r.name,
+    pj: r.pj,
+    pg: r.pg,
+    pct: r.pj > 0 ? Math.round((r.pg / r.pj) * 100) : 0,
+  }));
 
   return (
     <>
@@ -768,13 +781,17 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
           filename={`stats-categoria${groupName ? "-" + groupName : ""}.png`}
           onClose={() => setShowStory(false)}
           story={
-            <StatsStory
-              eyebrow="ESTADÍSTICAS DE LA CATEGORÍA"
-              title={groupName ?? "Histórico"}
-              subtitle={`${tournaments.length} torneos · ${totalMatches} partidos`}
-              accent={C.brand}
-              hero={catHero}
-              items={catItems}
+            <CategoryStory
+              groupName={groupName}
+              tournamentsCount={tournaments.length}
+              totalMatches={totalMatches}
+              isPremium={ownerIsPremium}
+              champion={storyChampion}
+              bestPlayer={individualRows[0] ? { name: individualRows[0].name, wins: individualRows[0].pg } : null}
+              bestPair={hasPairMode && bestPairLabel ? { label: bestPairLabel, record: bestPairRecord, tied: bestPairIsTied } : null}
+              ranking={storyRanking}
+              rankingTitle={showPairTable ? "RANKING DE PAREJAS · GANADOS" : "RANKING HISTÓRICO · GANADOS"}
+              champions={champRows.slice(0, 5)}
             />
           }
         />

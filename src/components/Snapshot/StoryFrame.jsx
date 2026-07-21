@@ -4,11 +4,14 @@
 // html-to-image sea consistente.
 
 import { STORY_W, STORY_H, C, fonts } from './story-theme';
+import logoTxtUrl from '../../assets/padeleando-txt.png';
 
 export default function StoryFrame({
   eyebrow,
   title,
   subtitle,
+  meta,
+  headerRight,
   accent = C.brand,
   children,
   footerNote = 'padeleando.ar',
@@ -41,14 +44,12 @@ export default function StoryFrame({
 
       {/* Header */}
       <div style={{ padding: '76px 76px 0', position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 56 }}>
-          <div style={{ width: 22, height: 22, borderRadius: 7, background: accent }} />
-          <div style={{
-            fontFamily: fonts.display, fontWeight: 800, fontSize: 34,
-            letterSpacing: 1, color: C.white,
-          }}>
-            PADELEANDO
-          </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 24, marginBottom: 56,
+        }}>
+          <img src={logoTxtUrl} alt="Padeleando" style={{ height: 64, display: 'block', flexShrink: 0 }} />
+          {headerRight}
         </div>
 
         {eyebrow && (
@@ -72,6 +73,7 @@ export default function StoryFrame({
             {subtitle}
           </div>
         )}
+        {meta}
       </div>
 
       {/* Body */}
@@ -87,14 +89,116 @@ export default function StoryFrame({
         padding: '36px 76px 76px', display: 'flex',
         justifyContent: 'space-between', alignItems: 'center', position: 'relative',
       }}>
-        <div style={{ fontSize: 27, color: C.dim, fontWeight: 600 }}>{footerNote}</div>
-        <div style={{ fontSize: 24, color: C.faint, letterSpacing: 2 }}>#PADELEANDO</div>
+        <div style={{ fontSize: 24, fontFamily: fonts.sans, color: C.muted, letterSpacing: 2 }}>Todas tus estadísticas de padel en</div>
+        <div style={{ fontSize: 30, fontFamily: fonts.display, color: C.dim, fontWeight: 600 }}>{footerNote}</div>
       </div>
     </div>
   );
 }
 
 // ── Átomos reutilizables por las historias ─────────────────────────────────────
+
+// Chip con la categoría a la que pertenece el torneo.
+// Va en el slot `meta` del StoryFrame, debajo del título.
+export function CategoryChip({ tournament, accent = C.brand }) {
+  const groupName = tournament?.group_name;
+  if (!groupName) return null;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', marginTop: 22 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12, minWidth: 0,
+        background: C.surface, border: `1px solid ${C.border}`,
+        borderRadius: 999, padding: '10px 22px 10px 12px',
+      }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+          background: `${accent}1f`, border: `1px solid ${accent}55`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 18, fontWeight: 800, color: accent,
+        }}>
+          {groupName.trim().charAt(0).toUpperCase()}
+        </div>
+        <div style={{
+          fontSize: 24, fontWeight: 600, color: C.soft, maxWidth: 520,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {groupName}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Insignia del club: foto + nombre. Va en el slot `headerRight` del StoryFrame,
+// a la misma altura que el logo. Si el club no tiene foto cargada, cae a su inicial.
+export function ClubBadge({ tournament }) {
+  const clubName  = tournament?.club_name;
+  const clubPhoto = tournament?.club_photo_url;
+  if (!clubName) return null;
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14, minWidth: 0,
+      background: C.surface, border: `1px solid ${C.border}`,
+      borderRadius: 999, padding: '6px 26px 6px 6px',
+    }}>
+      {clubPhoto ? (
+        <img
+          src={clubPhoto}
+          alt=""
+          style={{
+            width: 52, height: 52, borderRadius: '50%', objectFit: 'cover',
+            display: 'block', flexShrink: 0, border: `1px solid ${C.borderS}`,
+          }}
+        />
+      ) : (
+        <div style={{
+          width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+          background: C.surface2, border: `1px solid ${C.borderS}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: fonts.display, fontSize: 22, fontWeight: 800, color: C.soft,
+        }}>
+          {clubName.trim().charAt(0).toUpperCase()}
+        </div>
+      )}
+      <div style={{
+        fontSize: 26, fontWeight: 700, color: C.white, maxWidth: 420,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>
+        {clubName}
+      </div>
+    </div>
+  );
+}
+
+// Tarjeta de highlight (etiqueta + valor principal + subtítulo).
+// `mainSize` pisa el tamaño del valor: se usa cuando el texto es largo por un
+// empate (varios nombres unidos con " / ") y al tamaño normal no entraría.
+export function HighlightCard({ label, main, sub, accent = C.brand, emoji, big, mainSize }) {
+  return (
+    <div style={{
+      background: C.surface, border: `1px solid ${accent}44`, borderRadius: 20,
+      padding: big ? '34px 36px' : '28px 30px', flex: 1, minWidth: 0, overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        {emoji && <span style={{ fontSize: big ? 40 : 30, lineHeight: 1 }}>{emoji}</span>}
+        <span style={{ fontSize: 22, letterSpacing: 3, color: accent, fontWeight: 700 }}>{label}</span>
+      </div>
+      <div style={{
+        fontFamily: fonts.display, fontWeight: 800, color: C.white,
+        fontSize: mainSize ?? (big ? 54 : 40),
+        // Interlineado más suelto sólo en el caso reducido, que es el que parte
+        // en varias líneas; el tamaño normal casi siempre entra en una.
+        lineHeight: mainSize ? 1.2 : 1.05,
+        wordBreak: 'break-word',
+      }}>
+        {main}
+      </div>
+      {sub && <div style={{ fontSize: 24, color: C.secondary, marginTop: 10 }}>{sub}</div>}
+    </div>
+  );
+}
 
 // Tarjeta de estadística grande (número + etiqueta).
 export function StatTile({ value, label, accent = C.brand, sub }) {
