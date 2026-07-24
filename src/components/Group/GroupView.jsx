@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isDeletedAccount } from '../../utils/helpers';
+import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
@@ -463,12 +463,15 @@ export default function GroupView() {
             const CountIcon = isAmericano ? Users : User;
             const displayStatus = tournamentDisplayStatus({
               status: t.status, hasLiveMatch: !!t.live_match, hasPlayed: (t.match_count ?? 0) > 0,
+              isDraft: isAmericanoDraft({ format: t.format, pairCount: t.pair_count }),
             });
             const statusMeta = TOURNAMENT_STATUS_META[displayStatus];
-            // Línea superior: cyan si es próximo, verde si está en curso/en vivo, nada si finalizó.
-            const topLineClass = displayStatus === 'upcoming'
-              ? 'from-cyan/50 via-cyan/20 to-transparent'
-              : 'from-green/50 via-green/20 to-transparent';
+            // Línea superior: brand si es borrador, cyan si es próximo, verde si está en curso/en vivo, nada si finalizó.
+            const topLineClass = displayStatus === 'draft'
+              ? 'from-brand/50 via-brand/20 to-transparent'
+              : displayStatus === 'upcoming'
+                ? 'from-cyan/50 via-cyan/20 to-transparent'
+                : 'from-green/50 via-green/20 to-transparent';
             return (
             <FadeInCard key={t.id} delay={Math.min(i, 5) * 60}
               className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link"

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { uid, clubCourts } from "../../utils/helpers";
+import { uid, clubCourts, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
 import { api } from "../../utils/api";
 import { useTournament } from "../../hooks/useTournament";
 import PlayerInput from "./PlayerInput";
@@ -96,7 +96,7 @@ export default function Setup() {
   }, [groupId]);
 
   const [directPairs, setDirectPairs] = useState(() =>
-    Array.from({ length: 8 }, () => ({ id: uid(), p1Name: "", p2Name: "" }))
+    Array.from({ length: AMERICANO_MIN_PAIRS }, () => ({ id: uid(), p1Name: "", p2Name: "" }))
   );
 
   const filledNames = playerNames.filter((n) => n.trim());
@@ -108,8 +108,13 @@ export default function Setup() {
 
   const directPairNames = directPairs.flatMap(p => [p.p1Name.trim(), p.p2Name.trim()]).filter(Boolean);
   const directHasDupes  = new Set(directPairNames.map(n => n.toLowerCase())).size !== directPairNames.length;
-  const directAllFilled = directPairs.every(p => p.p1Name.trim() && p.p2Name.trim());
-  const directPairsValid = tituloValido && directAllFilled && !directHasDupes;
+  // Sólo cuentan las filas con los dos jugadores. Las vacías se descartan al crear;
+  // las que quedaron a medio completar bloquean la creación.
+  const completeDirectPairs = directPairs.filter(p => p.p1Name.trim() && p.p2Name.trim());
+  const directHasPartial    = directPairs.some(p => !!p.p1Name.trim() !== !!p.p2Name.trim());
+  // Menos parejas que el mínimo → se crea igual, pero como borrador (no se puede jugar).
+  const directIsDraft    = completeDirectPairs.length < AMERICANO_MIN_PAIRS;
+  const directPairsValid = !!name.trim() && !directHasPartial && !directHasDupes;
 
   // ── Barra de progreso ────────────────────────────────────────────────────
   const flowSteps = format === 'americano'
@@ -153,10 +158,10 @@ export default function Setup() {
     setDirectPairs(directPairs.map(p => p.id === id ? { ...p, [field]: value } : p));
   }
   function addDirectPair() {
-    if (directPairs.length < 16) setDirectPairs([...directPairs, { id: uid(), p1Name: "", p2Name: "" }]);
+    if (directPairs.length < AMERICANO_MAX_PAIRS) setDirectPairs([...directPairs, { id: uid(), p1Name: "", p2Name: "" }]);
   }
   function removeDirectPair(id) {
-    if (directPairs.length > 8) setDirectPairs(directPairs.filter(p => p.id !== id));
+    if (directPairs.length > 1) setDirectPairs(directPairs.filter(p => p.id !== id));
   }
 
   async function onCreate(tournamentName, players, pairsInput, fmt) {
@@ -190,8 +195,8 @@ export default function Setup() {
 
   function handleCreateDirect() {
     if (!directPairsValid) return;
-    const players = directPairs.flatMap(p => [p.p1Name.trim(), p.p2Name.trim()]);
-    const cleanPairs = directPairs.map(p => ({ ...p, p1Name: p.p1Name.trim(), p2Name: p.p2Name.trim() }));
+    const players = completeDirectPairs.flatMap(p => [p.p1Name.trim(), p.p2Name.trim()]);
+    const cleanPairs = completeDirectPairs.map(p => ({ ...p, p1Name: p.p1Name.trim(), p2Name: p.p2Name.trim() }));
     onCreate(name.trim(), players, cleanPairs, 'americano');
   }
 
@@ -233,7 +238,7 @@ export default function Setup() {
                 className={`bg-surface border rounded-lg p-4 cursor-pointer card-link ${format === 'americano' ? 'border-brand' : 'border-border-mid'}`}
               >
                 <div className="font-condensed font-bold text-[16px] text-white mb-1">AMERICANO</div>
-                <div className="text-[12px] text-muted font-sans">Fase previa (2 partidos por pareja) + cuadro de eliminación directa. Requiere 8–16 parejas (16–32 jugadores).</div>
+                <div className="text-[12px] text-muted font-sans">Fase previa (2 partidos por pareja) + cuadro de eliminación directa. Se juega con 8–16 parejas (16–32 jugadores); podés crearlo antes como borrador.</div>
               </div>
             </div>
             <Btn variant="primary" full size="lg" onClick={() => setStep(format === 'americano' ? 'direct-pairs' : 'players')} className="mt-7">
@@ -339,9 +344,9 @@ export default function Setup() {
             <EventMeta club={club} setClub={setClub} eventDate={eventDate} setEventDate={setEventDate} />
 
             <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1 mt-5">
-              PAREJAS <span className="text-muted">(mínimo 8, máximo 16)</span>
+              PAREJAS <span className="text-muted">(mínimo {AMERICANO_MIN_PAIRS} para jugar, máximo {AMERICANO_MAX_PAIRS})</span>
             </label>
-            <p className="text-[11px] text-dim font-mono mb-2">Escribí un nombre o <span className="text-brand">@usuario</span> para invitar a alguien registrado.</p>
+            <p className="text-[11px] text-dim font-mono mb-2">Escribí un nombre o <span className="text-brand">@usuario</span> para invitar a alguien registrado. Podés dejar filas vacías y completarlas después.</p>
 
             <div className="flex flex-col gap-3">
               {directPairs.map((pair, i) => (
@@ -353,7 +358,7 @@ export default function Setup() {
                   <div className="flex items-center gap-2">
                     <span className="text-muted font-condensed font-bold text-[11px] w-5 shrink-0 text-center">&amp;</span>
                     <PlayerInput value={pair.p2Name} onChange={(v) => updateDirectPair(pair.id, 'p2Name', v)} placeholder="Jugador 2" searchMine />
-                    {directPairs.length > 8 && (
+                    {directPairs.length > 1 && (
                       <button onClick={() => removeDirectPair(pair.id)} className="bg-transparent border border-border-mid text-muted px-2.5 py-2.5 cursor-pointer rounded-sm text-[12px] shrink-0 hover:text-danger hover:border-danger/40 transition-colors">✕</button>
                     )}
                   </div>
@@ -361,21 +366,27 @@ export default function Setup() {
               ))}
             </div>
 
-            {directHasDupes && <p className="text-danger text-[11px] font-mono mt-2">Hay nombres duplicados.</p>}
+            {directHasDupes  && <p className="text-danger text-[11px] font-mono mt-2">Hay nombres duplicados.</p>}
+            {directHasPartial && <p className="text-danger text-[11px] font-mono mt-2">Hay parejas incompletas — cargá los dos jugadores o dejá la fila vacía.</p>}
 
-            {directPairs.length < 16 && (
+            {directPairs.length < AMERICANO_MAX_PAIRS && (
               <button onClick={addDirectPair} className="bg-transparent border border-dashed border-border-strong text-muted px-4 py-2 cursor-pointer font-condensed tracking-wide text-[13px] rounded-sm w-full mt-2">
                 + Agregar pareja
               </button>
             )}
 
             <div className="bg-surface-alt border border-border-strong rounded-md px-3.5 py-2.5 text-[12px] text-soft font-mono leading-relaxed mt-4">
-              ✦ {directPairs.length} parejas — {directPairs.length * 2} jugadores.
+              ✦ {completeDirectPairs.length} {completeDirectPairs.length === 1 ? 'pareja completa' : 'parejas completas'} — {completeDirectPairs.length * 2} jugadores.
+              {directIsDraft && (
+                <span className="block text-brand mt-1">
+                  Faltan {AMERICANO_MIN_PAIRS - completeDirectPairs.length} para el mínimo de {AMERICANO_MIN_PAIRS}. Se crea como <strong>borrador</strong>: vas a poder sumar las parejas que faltan desde GESTIÓN, pero no se pueden cargar partidos hasta llegar al mínimo.
+                </span>
+              )}
             </div>
 
             {error && <p className="text-danger text-xs font-mono mt-2">El nombre del torneo debe tener entre 2 y 30 caracteres</p>}
             <Btn variant="primary" full size="lg" onClick={() => tituloValido ? handleCreateDirect() : setError(true)} disabled={!directPairsValid} loading={creating} className="mt-7">
-              CREAR TORNEO
+              {directIsDraft ? 'CREAR BORRADOR' : 'CREAR TORNEO'}
             </Btn>
           </>
         )}

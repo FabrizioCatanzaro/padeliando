@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Trophy } from "lucide-react";
 import { PairAvatar } from "../shared/PlayerAvatar";
-import { courtLabel } from "../../utils/helpers";
+import { courtLabel, AMERICANO_MIN_PAIRS } from "../../utils/helpers";
 import { Timer, ScoreCounter, CourtSelector, MatchCardHeader, MinimizedMatch } from "../Matches/MatchForm";
 import Modal from "../shared/Modal";
 import ShareStoryButton from "../Snapshot/ShareStoryButton";
@@ -533,6 +533,24 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
 
   // ── Sin bracket ──────────────────────────────────────────────────────────────
   if (!bracket) {
+    // Borrador: sin el mínimo de parejas no se puede generar el cuadro.
+    const pairCount = tournament.pairs?.length ?? 0;
+    if (pairCount < AMERICANO_MIN_PAIRS) {
+      const missing = AMERICANO_MIN_PAIRS - pairCount;
+      return (
+        <div>
+          <div className="font-condensed font-bold text-[14px] tracking-[3px] text-muted mb-4">CUADRO</div>
+          <div className="bg-surface border border-brand/30 rounded-lg p-4">
+            <div className="font-condensed font-bold text-[13px] tracking-[2px] text-brand mb-1.5">BORRADOR</div>
+            <p className="text-soft font-sans text-[13px] leading-relaxed">
+              Falta{missing === 1 ? '' : 'n'} <strong className="text-white">{missing}</strong> {missing === 1 ? 'pareja' : 'parejas'} para
+              llegar al mínimo de <strong className="text-white">{AMERICANO_MIN_PAIRS}</strong>.
+              {isOwner ? ' Completalas desde GESTIÓN para habilitar el cuadro.' : ' El organizador todavía está armando las parejas.'}
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div>
         <div className="font-condensed font-bold text-[14px] tracking-[3px] text-muted mb-4">CUADRO</div>

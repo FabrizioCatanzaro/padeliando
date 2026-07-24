@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fmt, calcStandings, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from "../../utils/helpers";
+import { fmt, calcStandings, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import { useAuth } from "../../context/useAuth";
 import Standings    from "../Standings/Standings";
@@ -37,7 +37,7 @@ export default function Main() {
   
   const isPremium = user?.subscription?.plan === 'premium';
   const {
-    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, saved, isOwner,
+    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, isOwner,
     handleAddMatch, handleEditMatch, handleDeleteMatch,
     handleAddPlayer, handleEditPlayer, handleDeletePlayer,
     handleAddPair, handleEditPair, handleDeletePair,
@@ -89,8 +89,9 @@ export default function Main() {
       .filter(m => m.winner_id != null).length
     : 0;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
+  const isDraft = isAmericanoDraft({ format: tournament.format, pairCount: tournament.pairs.length });
   const statusMeta = TOURNAMENT_STATUS_META[tournamentDisplayStatus({
-    status: tournament.status, hasLiveMatch: !!tournament.live_match, hasPlayed: playedCount > 0,
+    status: tournament.status, hasLiveMatch: !!tournament.live_match, hasPlayed: playedCount > 0, isDraft,
   })];
 
   // Ganador(es) de la torneo — solo cuando está finalizada
@@ -232,8 +233,6 @@ export default function Main() {
           </div>
         )}
       </div>
-
-      {saved && <div className="bg-[#1a2e1a] text-green px-4 py-1.5 text-[12px] font-mono text-center">✓ Guardado</div>}
 
       {isOwner && isAmericano && tournament.status === 'active' && tournament.bracket?.final?.winner_id && (
         <div className="px-6 py-3 border-b border-border bg-surface-alt flex items-center justify-between gap-3">

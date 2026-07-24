@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getPairLabel } from "../../utils/helpers";
+import { getPairLabel, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
 import Modal from "../shared/Modal";
 import { Check, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
 import { PairAvatar } from "../shared/PlayerAvatar";
@@ -16,6 +16,11 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
   const assignedIds   = pairs.flatMap((p) => [p.p1, p.p2]);
   const activePlayers = players.filter((p) => !p.removed);
   const freePlayers   = activePlayers.filter((p) => !assignedIds.includes(p.id));
+
+  // Americano: 8 parejas mínimo para poder jugar, 16 máximo.
+  const isAmericano   = tournament.format === 'americano';
+  const missingPairs  = isAmericano ? AMERICANO_MIN_PAIRS - pairs.length : 0;
+  const pairsFull     = isAmericano && pairs.length >= AMERICANO_MAX_PAIRS;
 
   function handleAdd() {
     if (!newP1 || !newP2 || newP1 === newP2) return;
@@ -45,12 +50,25 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
           PAREJAS
           <span className="ml-2 text-brand">{pairs.length}</span>
         </div>
-        {isOwner && (
+        {isOwner && !pairsFull && (
           <button onClick={() => setShowAdd(!showAdd)} className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap">
             {showAdd ? "Cancelar" : "+ Nueva pareja"}
           </button>
         )}
       </div>
+
+      {isAmericano && missingPairs > 0 && (
+        <div className="flex items-start gap-2 bg-brand/10 border border-brand/30 rounded-md px-3.5 py-2.5 mb-3 text-[12px] font-mono text-brand leading-relaxed">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <span>
+            Borrador — falta{missingPairs === 1 ? '' : 'n'} {missingPairs} {missingPairs === 1 ? 'pareja' : 'parejas'} para
+            llegar al mínimo de {AMERICANO_MIN_PAIRS}.
+            <span className="block text-soft mt-0.5">
+              Hasta entonces no se pueden generar el calendario, los partidos ni el cuadro.
+            </span>
+          </span>
+        </div>
+      )}
 
       {showAdd && (
         <div className="flex gap-2 mb-3 flex-wrap">

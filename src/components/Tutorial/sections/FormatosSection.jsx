@@ -42,7 +42,7 @@ export default function FormatosSection() {
           <ul className="flex flex-col gap-2 mb-4">
             {[
               'No pueden haber jugadores sueltos.', 
-              'Se requieren mínimo 8 parejas para iniciar.', 
+              'Se requieren mínimo 8 parejas para iniciar. Con menos, la jornada queda en BORRADOR: la podés crear igual y sumar las parejas que faltan más tarde, pero no se pueden cargar partidos ni generar el cuadro hasta llegar al mínimo.',
               'Fase previa: 2 partidos al azar que suman a una tabla general para clasificar al cuadro final.',
               'Cuadro final: octavos, cuartos, semifinales y final por eliminación directa.',
               'El torneo se resuelve en una sola fecha.',

@@ -21,7 +21,7 @@ export default function CrearTorneoSection() {
         },
         {
           label: 'Agregar jugadores/parejas',
-          text: 'Dependiendo si tu elección fue "Modo Liga" o "Modo Americano", deberás agregar jugadores o parejas para el torneo. En el "Modo Liga", al no tener restricciones por número de jugadores (mínimo 4), podés formar parejas libremente para cada torneo o asignar parejas fijas en el siguiente paso. En el "Modo Americano", directamente tenés que agregar parejas fijas para el torneo con un mínimo de 8 parejas (16 jugadores).',
+          text: 'Dependiendo si tu elección fue "Modo Liga" o "Modo Americano", deberás agregar jugadores o parejas para el torneo. En el "Modo Liga", al no tener restricciones por número de jugadores (mínimo 4), podés formar parejas libremente para cada torneo o asignar parejas fijas en el siguiente paso. En el "Modo Americano", directamente tenés que agregar parejas fijas para el torneo: se juega con un mínimo de 8 parejas (16 jugadores), pero si todavía no las tenés a todas podés crearlo igual como BORRADOR y completar las parejas restantes desde GESTIÓN.',
         },
         {
           label: 'Crear torneo',

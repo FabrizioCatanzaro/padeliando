@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { calcStandings, courtLabel, getPairLabel, isDeletedAccount } from "../../utils/helpers";
+import { calcStandings, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
 import Stats from "../Stats/Stats";
 import MatchCard from "../Matches/MatchCard";
@@ -291,6 +291,7 @@ export default function ReadonlyView() {
       .filter(m => m.winner_id != null).length
     : 0;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
+  const isDraft = isAmericanoDraft({ format: tournament.format, pairCount: tournament.pairs?.length });
 
   const MOBILE_LABEL = {
     standings: 'TABLA',
@@ -351,8 +352,11 @@ export default function ReadonlyView() {
 
         {/* Estado + ganador + progreso + dueño */}
         <div className="flex items-center justify-center gap-2.5 flex-wrap">
-          <Badge variant="status" color={tournament.status === 'active' ? 'green' : 'default'}>
-            {tournament.status === 'active' ? 'EN CURSO' : 'FINALIZADA'}
+          <Badge
+            variant="status"
+            color={isDraft ? 'brand' : tournament.status === 'active' ? 'green' : 'default'}
+          >
+            {isDraft ? 'BORRADOR' : tournament.status === 'active' ? 'EN CURSO' : 'FINALIZADA'}
           </Badge>
           {winnerLabel && (
             <Badge variant="chip" color="brand" icon={Trophy}>{winnerLabel}</Badge>
