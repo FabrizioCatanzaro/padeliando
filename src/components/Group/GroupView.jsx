@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from '../../utils/helpers';
+import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isDeletedAccount } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
@@ -296,9 +296,15 @@ export default function GroupView() {
           {!isOwner && (
             <div className="flex items-center gap-2">
               <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} />
-              <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
-                <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
-              </span>
+              {isDeletedAccount(group.owner_username) ? (
+                <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1">
+                  <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>Cuenta eliminada</span>
+                </span>
+              ) : (
+                <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
+                  <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
+                </span>
+              )}
             </div>
           )}
         </div>

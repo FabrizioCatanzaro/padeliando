@@ -1,5 +1,10 @@
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
+// Cuenta anónima que hereda torneos huérfanos cuando un dueño elimina su cuenta.
+// No tiene perfil público (el backend responde 404), así que no debe linkearse.
+export const DELETED_ACCOUNT_USERNAME = 'cuenta_eliminada';
+export const isDeletedAccount = (username) => username === DELETED_ACCOUNT_USERNAME;
+
 // ── Set helpers ───────────────────────────────────────────────────────────────
 // Un set tiene ganador cuando alguien llegó a 6+ (o 7 en tiebreak) y va ganando.
 export function setWinner(s) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { calcStandings, courtLabel, getPairLabel } from "../../utils/helpers";
+import { calcStandings, courtLabel, getPairLabel, isDeletedAccount } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
 import Stats from "../Stats/Stats";
 import MatchCard from "../Matches/MatchCard";
@@ -359,13 +359,20 @@ export default function ReadonlyView() {
           )}
           <Badge icon={Flame}>{playedCount} PJ</Badge>
           {groupOwner && (
-            <span
-              onClick={() => navigate(`/u/${groupOwner.username}`)}
-              className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444] hover:text-white cursor-pointer transition-colors"
-            >
-              <User size={11} />
-              @{groupOwner.username}
-            </span>
+            isDeletedAccount(groupOwner.username) ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444]">
+                <User size={11} />
+                Cuenta Eliminada
+              </span>
+            ) : (
+              <span
+                onClick={() => navigate(`/u/${groupOwner.username}`)}
+                className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444] hover:text-white cursor-pointer transition-colors"
+              >
+                <User size={11} />
+                @{groupOwner.username}
+              </span>
+            )
           )}
         </div>
       </div>

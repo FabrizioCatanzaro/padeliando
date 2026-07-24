@@ -189,12 +189,14 @@ export default function NotificationsView() {
 function NotifRow({ n, navigate, onFollow, onInvitation, onJoinRequest, onCollabInvite, onTransfer }) {
   const unread = !n.read;
   const isAdmin = n.type === 'admin_message';
+  const isOwnership = n.type === 'ownership_received';
+  const isSystem = isAdmin || isOwnership;
   return (
     <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors ${unread ? 'bg-surface border-brand/20' : 'bg-surface border-border-mid'}`}>
       {unread && <div className="shrink-0 mt-2 w-1.5 h-1.5 rounded-full bg-brand" />}
       <div className={`shrink-0 ${unread ? '' : 'ml-[18px]'}`}>
-        {isAdmin ? (
-          <div className="w-[38px] h-[38px] rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-brand text-[16px]">📢</div>
+        {isSystem ? (
+          <div className="w-[38px] h-[38px] rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-brand text-[16px]">{isOwnership ? '👑' : '📢'}</div>
         ) : (
           <div
             className="cursor-pointer"
@@ -287,6 +289,24 @@ function NotifText({ n, navigate }) {
       <div className="text-[13px] text-secondary">
         {actorEl} quiere transferirte la propiedad de{' '}
         <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+      </div>
+    );
+  }
+  if (n.type === 'ownership_received') {
+    return (
+      <div className="text-[13px] text-secondary">
+        Ahora sos dueño de{' '}
+        {n.group_id ? (
+          <span
+            onClick={() => navigate(`/cat/${n.group_id}`)}
+            className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+          >
+            {n.group_name ?? 'una categoría'}
+          </span>
+        ) : (
+          <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+        )}{' '}
+        porque su organizador eliminó su cuenta.
       </div>
     );
   }

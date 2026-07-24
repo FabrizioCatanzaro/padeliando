@@ -60,6 +60,18 @@ function NotifItemText({ n, onNavigate }) {
     <>{actor} quiere transferirte la propiedad de{' '}
       <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span></>
   );
+  if (n.type === 'ownership_received') return (
+    <>Ahora sos dueño de{' '}
+      {n.group_id ? (
+        <span
+          onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}`); }}
+          className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+        >{n.group_name ?? 'una categoría'}</span>
+      ) : (
+        <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+      )}{' '}
+      porque su organizador eliminó su cuenta.</>
+  );
   if (n.type === 'club_request') return <>{actor} {n.body}</>;
   return null;
 }
@@ -358,8 +370,8 @@ function DropdownNotifItem({ n, onNavigate, onFollow, onInvitation, onJoinReques
     >
       {unread && <div className="shrink-0 mt-2.5 w-1.5 h-1.5 rounded-full bg-brand flex-none" />}
       <div className={`shrink-0 ${unread ? '' : 'ml-[18px]'}`}>
-        {n.type === 'admin_message' ? (
-          <div className="w-8 h-8 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-[14px]">📢</div>
+        {(n.type === 'admin_message' || n.type === 'ownership_received') ? (
+          <div className="w-8 h-8 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-[14px]">{n.type === 'ownership_received' ? '👑' : '📢'}</div>
         ) : (
           <div
             className="cursor-pointer"
