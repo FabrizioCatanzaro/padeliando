@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { uid, clubCourts, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
 import { api } from "../../utils/api";
@@ -44,7 +44,7 @@ function StepBar({ steps, currentIdx }) {
         const done   = i < currentIdx;
         const active = i === currentIdx;
         return (
-          <div key={s.id} className="flex items-start flex-1">
+          <Fragment key={s.id}>
             <div className="flex flex-col items-center gap-1.5 shrink-0">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono transition-all ${
                 done   ? 'bg-brand text-base' :
@@ -62,7 +62,7 @@ function StepBar({ steps, currentIdx }) {
             {i < steps.length - 1 && (
               <div className={`flex-1 h-px mt-3 mx-1 transition-colors ${done ? 'bg-brand' : 'bg-border-strong'}`} />
             )}
-          </div>
+          </Fragment>
         );
       })}
     </div>
@@ -117,19 +117,21 @@ export default function Setup() {
   const directPairsValid = !!name.trim() && !directHasPartial && !directHasDupes;
 
   // ── Barra de progreso ────────────────────────────────────────────────────
+  const infoStep = { id: 'info', label: 'INFORMACIÓN' };
   const flowSteps = format === 'americano'
-    ? [{ id: 'formato', label: 'FORMATO' }, { id: 'direct-pairs', label: 'PAREJAS' }]
+    ? [{ id: 'formato', label: 'FORMATO' }, infoStep, { id: 'direct-pairs', label: 'PAREJAS' }]
     : (isEven && ligaMode === 'pairs') || step === 'pairs'
-      ? [{ id: 'formato', label: 'FORMATO' }, { id: 'players', label: 'JUGADORES' }, { id: 'pairs', label: 'PAREJAS' }]
-      : [{ id: 'formato', label: 'FORMATO' }, { id: 'players', label: 'JUGADORES' }];
+      ? [{ id: 'formato', label: 'FORMATO' }, infoStep, { id: 'players', label: 'JUGADORES' }, { id: 'pairs', label: 'PAREJAS' }]
+      : [{ id: 'formato', label: 'FORMATO' }, infoStep, { id: 'players', label: 'JUGADORES' }];
 
   const currentStepIdx = flowSteps.findIndex(s => s.id === step);
 
   // ── Navegación hacia atrás unificada ─────────────────────────────────────
   function handleBack() {
     if (step === 'formato') navigate(`/cat/${groupId}`);
-    else if (step === 'players') setStep('formato');
-    else if (step === 'direct-pairs') setStep('formato');
+    else if (step === 'info') setStep('formato');
+    else if (step === 'players') setStep('info');
+    else if (step === 'direct-pairs') setStep('info');
     else if (step === 'pairs') setStep('players');
   }
 
@@ -241,14 +243,14 @@ export default function Setup() {
                 <div className="text-[12px] text-muted font-sans">Fase previa (2 partidos por pareja) + cuadro de eliminación directa. Se juega con 8–16 parejas (16–32 jugadores); podés crearlo antes como borrador.</div>
               </div>
             </div>
-            <Btn variant="primary" full size="lg" onClick={() => setStep(format === 'americano' ? 'direct-pairs' : 'players')} className="mt-7">
-              {format === 'americano' ? 'SIGUIENTE → PAREJAS' : 'SIGUIENTE → JUGADORES'}
+            <Btn variant="primary" full size="lg" onClick={() => setStep('info')} className="mt-7">
+              SIGUIENTE → INFORMACIÓN
             </Btn>
           </>
         )}
 
-        {/* ── STEP: players (liga) ── */}
-        {step === "players" && (
+        {/* ── STEP: info (nombre + club + fecha) ── */}
+        {step === "info" && (
           <>
             <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">NOMBRE DEL TORNEO</label>
             <input
@@ -263,7 +265,23 @@ export default function Setup() {
 
             <EventMeta club={club} setClub={setClub} eventDate={eventDate} setEventDate={setEventDate} />
 
-            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1 mt-5">
+            {error && <p className="text-danger text-xs font-mono mt-3">El nombre del torneo debe tener entre 2 y 30 caracteres</p>}
+            <Btn
+              variant="primary"
+              full
+              size="lg"
+              onClick={() => tituloValido ? setStep(format === 'americano' ? 'direct-pairs' : 'players') : setError(true)}
+              className="mt-7"
+            >
+              {format === 'americano' ? 'SIGUIENTE → PAREJAS' : 'SIGUIENTE → JUGADORES'}
+            </Btn>
+          </>
+        )}
+
+        {/* ── STEP: players (liga) ── */}
+        {step === "players" && (
+          <>
+            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1">
               JUGADORES <span className="text-muted">(mínimo 4)</span>
             </label>
             <p className="text-[11px] text-dim font-mono mb-2">Escribí un nombre o <span className="text-brand">@usuario</span> para invitar a alguien registrado.</p>
@@ -320,8 +338,7 @@ export default function Setup() {
               </div>
             )}
 
-            {error && <p className="text-danger text-xs font-mono mt-2">El nombre del torneo debe tener entre 2 y 30 caracteres</p>}
-            <Btn variant="primary" full size="lg" onClick={() => tituloValido ? handleNext() : setError(true)} disabled={!playersValid} loading={creating} className="mt-7">
+            <Btn variant="primary" full size="lg" onClick={handleNext} disabled={!playersValid} loading={creating} className="mt-7">
               {isEven && ligaMode === 'pairs' ? "SIGUIENTE → PAREJAS" : "CREAR TORNEO"}
             </Btn>
           </>
@@ -330,20 +347,7 @@ export default function Setup() {
         {/* ── STEP: direct-pairs (americano) ── */}
         {step === "direct-pairs" && (
           <>
-            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">NOMBRE DEL TORNEO</label>
-            <input
-              className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[14px] rounded-sm outline-none mb-2"
-              placeholder="ej: Fecha 1 - 24/03"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={30}
-              minLength={2}
-              autoFocus
-            />
-
-            <EventMeta club={club} setClub={setClub} eventDate={eventDate} setEventDate={setEventDate} />
-
-            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1 mt-5">
+            <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-1">
               PAREJAS <span className="text-muted">(mínimo {AMERICANO_MIN_PAIRS} para jugar, máximo {AMERICANO_MAX_PAIRS})</span>
             </label>
             <p className="text-[11px] text-dim font-mono mb-2">Escribí un nombre o <span className="text-brand">@usuario</span> para invitar a alguien registrado. Podés dejar filas vacías y completarlas después.</p>
@@ -384,8 +388,7 @@ export default function Setup() {
               )}
             </div>
 
-            {error && <p className="text-danger text-xs font-mono mt-2">El nombre del torneo debe tener entre 2 y 30 caracteres</p>}
-            <Btn variant="primary" full size="lg" onClick={() => tituloValido ? handleCreateDirect() : setError(true)} disabled={!directPairsValid} loading={creating} className="mt-7">
+            <Btn variant="primary" full size="lg" onClick={handleCreateDirect} disabled={!directPairsValid} loading={creating} className="mt-7">
               {directIsDraft ? 'CREAR BORRADOR' : 'CREAR TORNEO'}
             </Btn>
           </>

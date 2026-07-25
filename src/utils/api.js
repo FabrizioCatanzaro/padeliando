@@ -135,6 +135,7 @@ export const api = {
     bracket:      (id)         => req('POST',   `/tournaments/${id}/bracket`),
     updateBracket:(id, mId, b) => req('PATCH',  `/tournaments/${id}/bracket/${mId}`, b),
     setBracket:   (id, b)     => req('PATCH',  `/tournaments/${id}/bracket`, { bracket: b }),
+    deleteBracket:(id)         => req('DELETE', `/tournaments/${id}/bracket`),
   },
   matches: {
     create: (body)   => req('POST',   '/matches',       body),
@@ -171,8 +172,10 @@ export const api = {
   },
   subscriptions: {
     me:       ()                => req('GET',  '/subscriptions/me'),
-    checkout: (billing_period, mp_email)  => req('POST', '/subscriptions/checkout', { billing_period, mp_email }),
-    sync:     ()                          => req('GET',  '/subscriptions/sync'),
+    checkout: (billing_period)  => req('POST', '/subscriptions/checkout', { billing_period }),
+    sync:     (preapprovalId)   => req('GET',  `/subscriptions/sync${preapprovalId ? `?preapproval_id=${encodeURIComponent(preapprovalId)}` : ''}`),
+    claimStart:  (mp_email)     => req('POST', '/subscriptions/claim/start', { mp_email }),
+    claimVerify: (code)         => req('POST', '/subscriptions/claim/verify', { code }),
     cancel:   ()                => req('POST', '/subscriptions/cancel'),
   },
   admin: {
@@ -182,7 +185,7 @@ export const api = {
       req('GET', `/admin/users?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`),
     tournaments:   ({ q = '', status = 'all', page = 1, limit = 25 } = {}) =>
       req('GET', `/admin/tournaments?q=${encodeURIComponent(q)}&status=${status}&page=${page}&limit=${limit}`),
-    grantPremium:  (userId, duration_days)  => req('POST', `/admin/users/${userId}/grant-premium`, { duration_days }),
+    grantPremium:  (userId, duration_days, preapproval_id)  => req('POST', `/admin/users/${userId}/grant-premium`, { duration_days, preapproval_id }),
     revokePremium: (userId)                 => req('POST', `/admin/users/${userId}/revoke-premium`),
     deleteUser:    (userId)                 => req('DELETE', `/admin/users/${userId}`),
     broadcast:     (body)                   => req('POST', '/admin/broadcast', body),
@@ -190,7 +193,7 @@ export const api = {
       req('GET', `/admin/broadcasts?page=${page}&limit=${limit}`),
   },
   joinRequests: {
-    send:     (tournamentId)          => req('POST',  '/join-requests', { tournamentId }),
+    send:     (tournamentId, playerId) => req('POST',  '/join-requests', { tournamentId, playerId }),
     myStatus: (tournamentId)          => req('GET',   `/join-requests/my-status/${tournamentId}`),
     get:      (id)                    => req('GET',   `/join-requests/${id}`),
     accept:   (id, playerId)          => req('PATCH', `/join-requests/${id}`, { action: 'accept', playerId }),

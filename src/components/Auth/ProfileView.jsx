@@ -12,6 +12,7 @@ import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
 import FadeInCard from '../shared/FadeInCard';
 import GroupCard from '../shared/GroupCard';
 import PremiumModal from '../shared/PremiumModal';
+import ClaimPremiumRequest from '../shared/ClaimPremiumRequest';
 import Modal from '../shared/Modal';
 import statsPreview from '../../assets/advanced-stats-preview.svg';
 import Loader from '../Loader/Loader';
@@ -128,9 +129,14 @@ function SocialLinksEditor({ value, onChange }) {
               placeholder={net?.prefix ? `${net.prefix}usuario` : 'https://...'}
               value={link.url}
               onChange={e => updateLink(i, 'url', e.target.value)}
+              type="url"
+              name={`social-link-${i}`}
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore=""
+              data-form-type="other"
             />
             {!isLast && (
               <button type="button" onClick={() => removeLink(i)}
@@ -176,7 +182,7 @@ function calcNivel(partidos, pct) {
   return { label: 'Amateur', color: '#888' };
 }
 
-function PasswordInput({ value, onChange, placeholder = '* * * * * * *' }) {
+function PasswordInput({ value, onChange, placeholder = '* * * * * * *', autoComplete = 'off' }) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -185,6 +191,7 @@ function PasswordInput({ value, onChange, placeholder = '* * * * * * *' }) {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        autoComplete={autoComplete}
         className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none pr-10 font-mono"
       />
       <button type="button" onClick={() => setShow(v => !v)}
@@ -549,6 +556,7 @@ export default function ProfileView() {
   const [avatarError, setAvatarError] = useState(null);
   const [cropFile,    setCropFile]    = useState(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [showClaimHelp,    setShowClaimHelp]    = useState(false);
 
   const [showStory,       setShowStory]       = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -844,14 +852,23 @@ export default function ProfileView() {
                       )}
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowPremiumModal(true)}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-mono text-muted hover:text-brand transition-colors bg-transparent p-0 cursor-pointer group border border-muted rounded px-1.5 py-0.5"
-                    >
-                      <Badge size={11} className="text-muted group-hover:text-brand transition-colors" />
-                      Plan FREE
-                    </button>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowPremiumModal(true)}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-mono text-muted hover:text-brand transition-colors bg-transparent p-0 cursor-pointer group border border-muted rounded px-1.5 py-0.5 self-start"
+                      >
+                        <Badge size={11} className="text-muted group-hover:text-brand transition-colors" />
+                        Plan FREE
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowClaimHelp(true)}
+                        className="text-[10px] text-dim hover:text-secondary transition-colors bg-transparent p-0 cursor-pointer underline underline-offset-2 self-start"
+                      >
+                        ¿Pagaste y no se activó tu Premium?
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -974,8 +991,9 @@ export default function ProfileView() {
               <div className="px-5 pb-5">
                 <label style={label}>NOMBRE</label>
                 <input
-                  className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]"
+                  className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-sans"
                   value={editName} onChange={e => setEditName(e.target.value)} minLength={6} maxLength={20}
+                  autoComplete="off" name="profile-name"
                 />
 
                 <label style={label}>NOMBRE DE USUARIO</label>
@@ -986,6 +1004,7 @@ export default function ProfileView() {
                     value={editUsername}
                     onChange={e => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                     minLength={3} maxLength={20}
+                    autoComplete="off" name="profile-username"
                   />
                   <button type="button" onClick={handleCopyUsername}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-[#aaa] transition-colors bg-transparent border-0 cursor-pointer">
@@ -996,7 +1015,7 @@ export default function ProfileView() {
                 <label style={label}>BIO</label>
                 <div className="relative">
                   <textarea
-                    className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow] resize-none"
+                    className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-sans resize-none"
                     rows={2}
                     maxLength={200}
                     placeholder="Contá algo sobre vos..."
@@ -1007,7 +1026,7 @@ export default function ProfileView() {
                 </div>
 
                 <label style={label}>MAIL</label>
-                <div className="w-full bg-surface border border-border-mid text-muted px-3.5 py-2.5 rounded text-sm font-[Barlow]">
+                <div className="w-full bg-surface border border-border-mid text-muted px-3.5 py-2.5 rounded text-sm font-sans">
                   {user?.email}
                 </div>
 
@@ -1019,14 +1038,14 @@ export default function ProfileView() {
                     Dejá en blanco si no querés cambiar la contraseña
                   </div>
                   <label style={label}>CONTRASEÑA ACTUAL</label>
-                  <PasswordInput value={currentPass} onChange={e => setCurrentPass(e.target.value)} />
+                  <PasswordInput value={currentPass} onChange={e => setCurrentPass(e.target.value)} autoComplete="current-password" />
 
                   <label style={label}>NUEVA CONTRASEÑA</label>
-                  <PasswordInput value={newPass} onChange={e => setNewPass(e.target.value)} />
+                  <PasswordInput value={newPass} onChange={e => setNewPass(e.target.value)} autoComplete="new-password" />
                   {newPass && <PasswordStrength password={newPass} />}
 
                   <label style={label}>REPETIR NUEVA CONTRASEÑA</label>
-                  <PasswordInput value={newPass2} onChange={e => setNewPass2(e.target.value)} />
+                  <PasswordInput value={newPass2} onChange={e => setNewPass2(e.target.value)} autoComplete="new-password" />
                   {newPass2 && newPass !== newPass2 && (
                     <div style={{ fontSize: 11, color: '#e05252', fontFamily: "'Albert Sans',monospace", marginTop: 4 }}>
                       Las contraseñas no coinciden
@@ -1048,7 +1067,7 @@ export default function ProfileView() {
                 <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
                   <button onClick={handleSave} disabled={saving || !hasChanges}
                     style={{ flex: 1, background: '#e8f04a', color: '#0a0e1a', border: 'none', padding: '10px',
-                             fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 14,
+                             fontFamily: "'Unbounded',sans-serif", fontWeight: 900, fontSize: 14,
                              letterSpacing: 2, borderRadius: 4, cursor: saving || !hasChanges ? 'default' : 'pointer',
                              opacity: saving || !hasChanges ? 0.4 : 1 }}>
                     {saving ? 'GUARDANDO...' : 'GUARDAR'}
@@ -1307,6 +1326,49 @@ export default function ProfileView() {
       )}
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+
+      {showClaimHelp && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-[1000] p-4"
+          onClick={() => setShowClaimHelp(false)}
+        >
+          <div
+            className="bg-surface border border-border-strong rounded-2xl w-full max-w-sm p-6 flex flex-col gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-condensed font-bold text-xl text-white tracking-wide">
+                ¿Pagaste y no se activó?
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowClaimHelp(false)}
+                className="text-muted hover:text-white transition p-1"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-sm text-secondary leading-relaxed">
+              Para activar tu Premium, al terminar el pago en Mercado Pago tenés que tocar el botón{' '}
+              <span className="text-soft font-semibold">"Volver al sitio del vendedor"</span>. Eso confirma tu pago y activa tu cuenta al instante.
+            </p>
+            <p className="text-sm text-secondary leading-relaxed">
+              Si ya pagaste y no volviste al sitio, dejanos el email de tu cuenta de Mercado Pago y lo activamos:
+            </p>
+
+            <ClaimPremiumRequest compact />
+
+            <button
+              type="button"
+              onClick={() => setShowClaimHelp(false)}
+              className="w-full py-2.5 rounded-xl bg-surface-alt border border-border-strong text-white font-semibold text-sm hover:bg-surface transition"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {showStory && (
         <SnapshotModal

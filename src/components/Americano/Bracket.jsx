@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Trophy } from "lucide-react";
+import { Trophy, Pencil, Trash2 } from "lucide-react";
 import { PairAvatar } from "../shared/PlayerAvatar";
 import { courtLabel, AMERICANO_MIN_PAIRS } from "../../utils/helpers";
 import { Timer, ScoreCounter, CourtSelector, MatchCardHeader, MinimizedMatch } from "../Matches/MatchForm";
@@ -22,6 +22,22 @@ function SeedChip({ seed }) {
   return (
     <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-mono font-bold shrink-0 ${tone}`}>
       {seed}
+    </span>
+  );
+}
+
+// ── Nombre de pareja en 2 líneas ───────────────────────────────────────────────
+// Los nombres se guardan como "Nombre1 & Nombre2"; los partimos en dos renglones
+// igual que en la tabla de posiciones para que ninguno quede recortado.
+function PairName({ name, className = "" }) {
+  const idx = typeof name === "string" ? name.indexOf(" & ") : -1;
+  if (idx === -1) {
+    return <span className={`line-clamp-2 leading-tight min-w-0 ${className}`}>{name}</span>;
+  }
+  return (
+    <span className={`flex flex-col leading-tight min-w-0 ${className}`}>
+      <span className="truncate">{name.slice(0, idx)}</span>
+      <span className="truncate">&amp; {name.slice(idx + 3)}</span>
     </span>
   );
 }
@@ -106,13 +122,16 @@ function BracketMatchCard({
       <div className={`flex items-center justify-between py-1 px-1 rounded-sm ${isPlayed && match.winner_id === match.pair1_id ? "bg-brand/10" : ""}`}>
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <SeedChip seed={seed1} />
-          {!isTBD1 && pairAvatarFor(match.pair1_id, tournament)}
-          <span className={`font-condensed font-semibold text-[14px] line-clamp-2 leading-tight ${
-            isTBD1 ? "text-muted italic" :
-            isPlayed && match.winner_id === match.pair1_id ? "text-brand" : "text-white"
-          }`}>
-            {isTBD1 ? "A confirmar" : match.pair1_name}
-          </span>
+          {isTBD1 ? (
+            <span className="font-condensed font-semibold text-[12px] sm:text-[14px] leading-tight text-muted italic">A confirmar</span>
+          ) : (
+            <PairName
+              name={match.pair1_name}
+              className={`font-condensed font-semibold text-[12px] sm:text-[14px] ${
+                isPlayed && match.winner_id === match.pair1_id ? "text-brand" : "text-white"
+              }`}
+            />
+          )}
         </div>
         {isPlayed && (
           <span className={`font-mono font-bold text-[18px] ml-2 shrink-0 ${
@@ -127,13 +146,16 @@ function BracketMatchCard({
       <div className={`flex items-center justify-between py-1 px-1 rounded-sm ${isPlayed && match.winner_id === match.pair2_id ? "bg-brand/10" : ""}`}>
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <SeedChip seed={seed2} />
-          {!isTBD2 && pairAvatarFor(match.pair2_id, tournament)}
-          <span className={`font-condensed font-semibold text-[14px] line-clamp-2 leading-tight ${
-            isTBD2 ? "text-muted italic" :
-            isPlayed && match.winner_id === match.pair2_id ? "text-brand" : "text-white"
-          }`}>
-            {isTBD2 ? "A confirmar" : match.pair2_name}
-          </span>
+          {isTBD2 ? (
+            <span className="font-condensed font-semibold text-[12px] sm:text-[14px] leading-tight text-muted italic">A confirmar</span>
+          ) : (
+            <PairName
+              name={match.pair2_name}
+              className={`font-condensed font-semibold text-[12px] sm:text-[14px] ${
+                isPlayed && match.winner_id === match.pair2_id ? "text-brand" : "text-white"
+              }`}
+            />
+          )}
         </div>
         {isPlayed && (
           <span className={`font-mono font-bold text-[18px] ml-2 shrink-0 ${
@@ -171,15 +193,13 @@ function BracketMatchCard({
 }
 
 // ── Tarjeta "BYE" para parejas que pasan directo a cuartos ────────────────────
-function BracketByeCard({ bye, tournament }) {
+function BracketByeCard({ bye }) {
   return (
     <div className="bg-surface/40 border border-dashed border-border-mid rounded-lg p-3 opacity-75">
       <div className="flex items-center gap-1.5 py-1 px-1 min-w-0">
         <SeedChip seed={bye.seed} />
-        {bye.pair_id && pairAvatarFor(bye.pair_id, tournament)}
-        <span className="font-condensed font-semibold text-[14px] line-clamp-2 leading-tight text-soft">
-          {bye.pair_name ?? "—"}
-        </span>
+        <PairName name={bye.pair_name ?? "—"} className="font-condensed font-semibold text-[12px] sm:text-[14px] text-soft" />
+
       </div>
       <div className="mt-1.5 text-[9px] tracking-[2px] text-muted/60 font-mono text-center">
         PASA DIRECTO
@@ -271,10 +291,15 @@ function BracketLiveCard({ liveMatch, bracketMatch, phase, tournament, saving, o
 }
 
 // ── Card de partido jugado del bracket ────────────────────────────────────────
-function BracketPlayedCard({ match, isOwner, onEdit, matchNum }) {
+function BracketPlayedCard({ match, tournament, isOwner, onEdit, matchNum, phase }) {
   const win1 = match.winner_id === match.pair1_id;
+  const court = courtLabel(tournament, match.court);
   return (
     <div className="bg-surface border border-border-mid rounded-lg px-4 py-3.5">
+      <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-border-mid text-[10px] font-mono">
+        <span className="tracking-[2px] text-brand/80">{phase ? (PHASE_TITLE[phase] ?? phase) : ""}</span>
+        <span className="tracking-[1px] text-muted">Cancha: {court != null && court !== '-' ? court : 'S/A'}</span>
+      </div>
       <div className="flex items-center gap-3 flex-wrap">
         {matchNum != null && (
           <span className="text-[10px] font-mono text-muted shrink-0 w-3 text-right">#{matchNum}</span>
@@ -349,7 +374,7 @@ function BracketEditCard({ match, tournament, saving, editScore, onScoreChange, 
 }
 
 // ── Componente principal ───────────────────────────────────────────────────────
-export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpdateMatch, onSetBracket, onSetLiveMatch }) {
+export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpdateMatch, onSetBracket, onDeleteBracket, onSetLiveMatch }) {
   const bracket = tournament.bracket;
 
   const [liveMatches,  setLiveMatches]  = useState(() => {
@@ -371,6 +396,8 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
   const [editMatchId,  setEditMatchId]  = useState(null);
   const [editScore,    setEditScore]    = useState({ score1: 0, score2: 0 });
   const [showStory,    setShowStory]    = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting,     setDeleting]     = useState(false);
 
   // Persist liveMatches + sync onSetLiveMatch
   const prevLiveRef = useRef(liveMatches);
@@ -485,6 +512,12 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     setGenerating(true);
     try { await onGenerateBracket(); }
     finally { setGenerating(false); }
+  }
+
+  async function handleDeleteBracket() {
+    setDeleting(true);
+    try { await onDeleteBracket?.(); }
+    finally { setDeleting(false); setConfirmDelete(false); }
   }
 
   // ── Reorganizar ──────────────────────────────────────────────────────────────
@@ -636,7 +669,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
 
   // Partidos jugados del bracket (para mostrar como cards)
   const playedBracketMatches = phases
-    .flatMap(p => p.items.filter(it => it.type === "match").map(it => it.data))
+    .flatMap(p => p.items.filter(it => it.type === "match").map(it => ({ ...it.data, phase: p.key })))
     .filter(m => m.winner_id !== null && m.pair1_name && m.pair2_name);
 
   return (
@@ -650,9 +683,21 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
             {isOwner && !hasResults && (
               <button
                 onClick={enterEditMode}
-                className="bg-transparent text-muted border border-border-strong px-3 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm"
+                aria-label="Reorganizar"
+                title="Reorganizar"
+                className="bg-transparent text-muted border border-border-strong px-3 py-2 cursor-pointer rounded-sm inline-flex items-center"
               >
-                ✎ REORGANIZAR
+                <Pencil size={15} />
+              </button>
+            )}
+            {isOwner && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                aria-label="Borrar cuadro"
+                title="Borrar cuadro"
+                className="bg-transparent text-danger border border-danger/40 px-3 py-2 cursor-pointer rounded-sm hover:bg-danger/10 inline-flex items-center"
+              >
+                <Trash2 size={15} />
               </button>
             )}
           </div>
@@ -749,7 +794,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                       onToggleLive={() => handleToggleLive(item.data.id)}
                     />
                   ) : (
-                    <BracketByeCard bye={item.data} tournament={tournament} />
+                    <BracketByeCard bye={item.data} />
                   )}
                 </div>
               );
@@ -772,7 +817,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
             );
 
             return (
-              <div key={phase.key} className={`flex flex-col flex-1 ${editMode ? "min-w-52 max-w-64" : "min-w-52 max-w-60"}`}>
+              <div key={phase.key} className={`flex flex-col flex-1 ${editMode ? "min-w-52 max-w-64 lg:max-w-none" : "min-w-52 max-w-60 lg:max-w-none"}`}>
                 <div className="sticky top-0 z-10 bg-base text-[10px] tracking-[2px] text-brand font-mono text-center pt-1 pb-3">
                   {phase.label}
                 </div>
@@ -830,9 +875,9 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
         </div>
       )}
 
-      {/* Partidos jugados del bracket */}
-      
-      {isOwner && playedBracketMatches.length > 0 && (
+      {/* Partidos jugados del bracket — se muestran siempre (también tras finalizar
+          el torneo, cuando isOwner pasa a false); la edición queda gateada por isOwner. */}
+      {playedBracketMatches.length > 0 && (
         <div className="mt-6">
           <div className="font-condensed font-bold text-[12px] tracking-[3px] text-muted mb-3">RESULTADOS</div>
           <div className="flex flex-col gap-2.5">
@@ -850,7 +895,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                   onCancel={() => setEditMatchId(null)}
                 />
               ) : (
-                <BracketPlayedCard key={m.id} match={m} isOwner={isOwner} onEdit={() => handleOpenEdit(m)} matchNum={matchNum} />
+                <BracketPlayedCard key={m.id} match={m} tournament={tournament} isOwner={isOwner} onEdit={() => handleOpenEdit(m)} matchNum={matchNum} phase={m.phase} />
               );
             })}
           </div>
@@ -863,6 +908,21 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
           onClose={() => setShowStory(false)}
           story={<BracketStory tournament={tournament} />}
         />
+      )}
+
+      {confirmDelete && (
+        <Modal
+          title="¿Borrar el cuadro?"
+          confirmText={deleting ? "Borrando..." : "Borrar cuadro"}
+          confirmDanger
+          confirmDisabled={deleting}
+          onConfirm={handleDeleteBracket}
+          onCancel={() => !deleting && setConfirmDelete(false)}
+        >
+          Se eliminará el cuadro eliminatorio completo{hasResults ? ", incluyendo los resultados de los partidos ya jugados en él" : ""}.
+          La fase previa y sus resultados no se tocan. Esta acción no se puede deshacer;
+          después podrás volver a generar el cuadro.
+        </Modal>
       )}
     </div>
   );

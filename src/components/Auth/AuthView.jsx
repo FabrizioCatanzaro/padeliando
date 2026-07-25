@@ -108,6 +108,9 @@ export default function AuthView({ mode: initialMode }) {
   const navigate  = useNavigate()
   const [searchParams] = useSearchParams()
   const sessionExpired = searchParams.get('expired') === '1'
+  // Destino tras autenticarse: sólo rutas internas (evita open-redirect).
+  const redirectParam = searchParams.get('redirect')
+  const afterAuth = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/'
   const isRegister = mode === 'register'
   const googleDivRef = useRef(null)
   const usernameEdited = useRef(false) // true cuando el usuario editó el username manualmente
@@ -154,7 +157,7 @@ export default function AuthView({ mode: initialMode }) {
             try {
               const { user } = await api.auth.google(credential)
               login(user)
-              navigate('/')
+              navigate(afterAuth)
             } catch (e) {
               setError(e.message)
             }
@@ -202,12 +205,12 @@ export default function AuthView({ mode: initialMode }) {
           setVerificationSent(res.email ?? email)
         } else if (res.user) {
           login(res.user)
-          navigate('/')
+          navigate(afterAuth)
         }
       } else {
         const { user } = await api.auth.login({ email, password })
         login(user)
-        navigate('/')
+        navigate(afterAuth)
       }
     } catch (e) {
       if (e.data?.needs_verification) setNeedsVerification(true)

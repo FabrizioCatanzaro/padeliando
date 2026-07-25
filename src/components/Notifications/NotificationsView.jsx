@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
+import { renderRichText } from '../../utils/richText';
 import PlayerAvatar from '../shared/PlayerAvatar';
 import Loader from '../Loader/Loader';
 
@@ -234,7 +235,7 @@ function NotifText({ n, navigate }) {
     return (
       <div>
         <div className="text-[13px] font-semibold text-white">{n.title}</div>
-        <div className="text-[12px] text-secondary mt-0.5 whitespace-pre-wrap">{n.body}</div>
+        <div className="text-[12px] text-secondary mt-0.5 whitespace-pre-wrap">{renderRichText(n.body)}</div>
       </div>
     );
   }
@@ -264,6 +265,7 @@ function NotifText({ n, navigate }) {
       <div className="text-[13px] text-secondary">
         {actorEl} solicitó unirse al torneo{' '}
         <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span>
+        {n.requested_player_name ? <> como <span className="text-brand">{n.requested_player_name}</span></> : null}
       </div>
     );
   }
@@ -323,6 +325,19 @@ function NotifText({ n, navigate }) {
       </div>
     );
   }
+  if (n.type === 'premium_claim') {
+    return (
+      <div className="text-[13px] text-secondary">
+        {actorEl} {n.body}{' '}
+        <button
+          onClick={() => navigate('/admin/users')}
+          className="text-brand hover:underline bg-transparent border-none cursor-pointer p-0 font-mono text-[12px]"
+        >
+          Ir a usuarios →
+        </button>
+      </div>
+    );
+  }
   return null;
 }
 
@@ -341,7 +356,12 @@ function NotifActions({ n, onFollow, onInvitation, onJoinRequest, onCollabInvite
     setBusy(true);
     try {
       const data = await api.joinRequests.get(n.entity_id);
-      setAcceptModal({ players: data.unlinked_players ?? [], selectedId: data.unlinked_players?.[0]?.id ?? '' });
+      const players = data.unlinked_players ?? [];
+      // Preseleccionar el jugador que pidió el solicitante, si sigue disponible.
+      const requested = data.requested_player_id && players.some((p) => p.id === data.requested_player_id)
+        ? data.requested_player_id
+        : (players[0]?.id ?? '');
+      setAcceptModal({ players, selectedId: requested });
     } catch {
       //
     } finally {

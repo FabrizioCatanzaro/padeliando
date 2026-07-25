@@ -46,7 +46,7 @@ export default function PlayerAvatar({ name, src, size = 32, premium = false, cl
       backgroundColor: premium ? `${color}33` : `${color}1a`,
       color: premium ? '#000' : color,
       fontSize: Math.round(size * 0.38),
-      fontFamily: "'Barlow Condensed', sans-serif",
+      fontFamily: "'Unbounded', sans-serif",
       fontWeight: 700,
       letterSpacing: 0.5,
       userSelect: 'none',

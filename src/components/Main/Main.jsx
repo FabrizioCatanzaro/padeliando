@@ -10,10 +10,12 @@ import Management   from "../Management/Management";
 import Previa       from "../Americano/Previa";
 import Bracket      from "../Americano/Bracket";
 import PhotoGallery from "../Photos/PhotoGallery";
-import { Check, Pencil, Share2, Eye, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split, User, Users, Building2, Calendar } from "lucide-react";
+import { Check, Pencil, Share2, Eye, Trophy, Settings, Flame, ChartNoAxesCombined, ChevronLeft, X, List, Split, User, Users, Building2, Calendar, QrCode } from "lucide-react";
 import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
+import ShareModal from "../shared/ShareModal";
+import QrModal from "../shared/QrModal";
 
 const LIGA_TABS = [
   { id: "standings",  label: "TABLA",         icon: Trophy              },
@@ -43,12 +45,13 @@ export default function Main() {
     handleAddPair, handleEditPair, handleDeletePair,
     handleResetScores, handleDeleteTournament,
     getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
-    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
+    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket, handleDeleteBracket,
     handleUpdateMode, refresh,
   } = useTournament(groupId, tournamentId);
 
   const [tab, setTab]         = useState(null);
-  const [copied, setCopied]   = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [qrOpen, setQrOpen]       = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput]     = useState("");
 
@@ -79,6 +82,7 @@ export default function Main() {
   );
 
   const isAmericano = tournament.format === 'americano';
+  const isPairs     = isAmericano || tournament.mode === 'pairs';
   const TABS = isAmericano ? AMERICANO_TABS : LIGA_TABS;
   const canEditMatches = isOwner && tournament.status !== 'finished';
 
@@ -121,22 +125,6 @@ export default function Main() {
     }
   }
 
-  const copyLink = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: tournament.name,
-          text: `¡Te invito a ver "${tournament.name}"! Seguí los resultados en vivo acá:`,
-          url: shareLink,
-        });
-      } catch { /* usuario canceló */ }
-    } else {
-      await navigator.clipboard.writeText(shareLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   return (
     <div className="bg-base text-content font-sans pb-24 sm:pb-15">
       <div className="px-6 pt-5 pb-5 border-b border-border bg-gradient-to-b from-surface/25 to-transparent">
@@ -161,7 +149,9 @@ export default function Main() {
           <div className="flex items-center gap-2">
             <Btn size="sm" onClick={() => window.open(shareLink, '_blank', 'noopener')} icon={Eye} title="Ver como espectador">
             </Btn>
-            <Btn variant="primary" size="sm" onClick={copyLink} icon={copied ? Check : Share2}>
+            <Btn size="sm" onClick={() => setQrOpen(true)} icon={QrCode} title="Código QR">
+            </Btn>
+            <Btn variant="primary" size="sm" onClick={() => setShareOpen(true)} icon={Share2}>
             </Btn>
           </div>
         </div>
@@ -198,40 +188,46 @@ export default function Main() {
           </div>
         )}
 
-        {/* Estado + ganador */}
-        <div className="flex items-center gap-3 flex-wrap mb-3">
+        {/* Estado + tipo + ganador */}
+        <div className="flex items-center gap-2.5 flex-wrap mb-3">
           <Badge variant="status" color={statusMeta.color}>
             {statusMeta.label}
           </Badge>
+          <span className="text-dim">·</span>
+          <span className="text-[12px] font-mono text-muted">
+            {isAmericano ? 'americano' : tournament.mode === 'pairs' ? 'parejas fijas' : 'equipos libres'}
+          </span>
           {winnerLabel && (
             <Badge variant="chip" color="brand" icon={Trophy}>{winnerLabel}</Badge>
           )}
         </div>
 
-        {/* Chips con datos del torneo */}
-        <div className="flex gap-1.5 flex-wrap">
-          <Badge icon={Calendar}>{fmt(tournament.event_date ?? tournament.createdAt)}</Badge>
-          <Badge icon={isAmericano ? Users : User}>
-            {isAmericano ? `${tournament.pairs.length}` : `${tournament.players.filter((p) => !p.removed).length}`}
-          </Badge>
-          <Badge icon={Flame}>{playedCount} PJ</Badge>
-          <Badge color={isAmericano ? 'brand' : tournament.mode === 'pairs' ? 'cyan' : 'brand'}>
-            {isAmericano ? 'americano' : tournament.mode === 'pairs' ? 'parejas fijas' : 'equipos libres'}
-          </Badge>
-        </div>
-
-        {/* Club */}
-        {tournament.club_id && (
-          <div className="flex gap-1.5 flex-wrap mt-2.5">
+        {/* Metadata — datos pasivos muted + club accesible */}
+        <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap text-[11px] font-mono text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <Calendar size={11} className="text-dim" />
+            {fmt(tournament.event_date ?? tournament.createdAt)}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            {isPairs ? <Users size={11} className="text-dim" /> : <User size={11} className="text-dim" />}
+            {isPairs
+              ? `${tournament.pairs.length} parejas`
+              : `${tournament.players.filter((p) => !p.removed).length} jugadores`}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Flame size={11} className="text-dim" />
+            {playedCount} jugados
+          </span>
+          {tournament.club_id && (
             <button
               onClick={() => navigate(`/club/${tournament.club_id}`)}
-              className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-3 py-1 cursor-pointer hover:border-brand transition-colors text-[11px] font-mono text-muted"
+              className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-2.5 py-0.5 cursor-pointer hover:border-brand transition-colors text-[11px] font-mono text-muted"
             >
               <Building2 size={11} className="text-brand" />
-              <span className="truncate max-w-[180px]">{tournament.club_name ?? 'Club'}</span>
+              <span className="truncate max-w-[160px]">{tournament.club_name ?? 'Club'}</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {isOwner && isAmericano && tournament.status === 'active' && tournament.bracket?.final?.winner_id && (
@@ -297,6 +293,7 @@ export default function Main() {
             onGenerateBracket={handleGenerateBracket}
             onUpdateMatch={handleUpdateBracketMatch}
             onSetBracket={handleSetBracket}
+            onDeleteBracket={handleDeleteBracket}
             onSetLiveMatch={handleSetLiveMatch}
           />
         )}
@@ -327,6 +324,25 @@ export default function Main() {
           isPremium={isPremium}
         />
       </div>
+
+      {shareOpen && (
+        <ShareModal
+          tournamentName={tournament.name}
+          categoryName={groupName}
+          clubName={tournament.club_name}
+          url={shareLink}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+
+      {qrOpen && (
+        <QrModal
+          tournamentName={tournament.name}
+          categoryName={groupName}
+          url={shareLink}
+          onClose={() => setQrOpen(false)}
+        />
+      )}
     </div>
   );
 }

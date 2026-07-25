@@ -242,6 +242,12 @@ export function useTournament(groupId, tournamentId) {
     await reload();
   }
 
+  async function handleDeleteBracket() {
+    await api.tournaments.deleteBracket(tournament.id);
+    localStorage.removeItem(`bracket_live_${tournament.id}`);
+    await reload();
+  }
+
   function getShareLink() {
     if (!tournament) return '';
     return `${window.location.origin}/view/${tournament.id}`;
@@ -258,7 +264,7 @@ export function useTournament(groupId, tournamentId) {
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
     getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
-    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket,
+    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket, handleDeleteBracket,
     handleUpdateMode,
     refresh: () => reload(true),
   };
