@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Zap, Check, Loader2, AlertCircle } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Zap, Check, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { api } from '../../utils/api'
 import { useAuth } from '../../context/useAuth'
+import ClaimPremiumRequest from '../shared/ClaimPremiumRequest'
 
 const PREMIUM_FEATURES = [
   'Categorías ilimitadas',
@@ -18,17 +19,23 @@ const POLL_INTERVAL = 2000
 
 export default function SubscriptionSuccess() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { refreshUser } = useAuth()
   const [status, setStatus] = useState('polling') // polling | active | failed
+  const [retryKey, setRetryKey] = useState(0)
   const pollCount = useRef(0)
+
+  // MP agrega el preapproval_id al back_url tras el pago. Es lo que nos permite
+  // vincular la suscripción al usuario logueado, sin pedir el email de MP.
+  const preapprovalId = searchParams.get('preapproval_id')
 
   useEffect(() => {
     let timer
 
     async function poll() {
       try {
-        // Intentar activar activamente consultando MP (fallback al webhook)
-        await api.subscriptions.sync()
+        // Activar consultando MP con el preapproval_id del redirect.
+        await api.subscriptions.sync(preapprovalId)
         const sub = await api.subscriptions.me()
         if (sub?.status === 'active' && sub?.plan === 'premium') {
           await refreshUser()
@@ -47,7 +54,13 @@ export default function SubscriptionSuccess() {
 
     poll()
     return () => clearTimeout(timer)
-  }, [refreshUser])
+  }, [refreshUser, preapprovalId, retryKey])
+
+  function retry() {
+    pollCount.current = 0
+    setStatus('polling')
+    setRetryKey((k) => k + 1)
+  }
 
   if (status === 'polling') {
     return (
@@ -72,16 +85,29 @@ export default function SubscriptionSuccess() {
         <div>
           <p className="font-condensed font-bold text-xl text-white">No se pudo confirmar aún</p>
           <p className="text-secondary text-sm mt-1 max-w-xs mx-auto">
-            Mercado Pago puede tardar unos minutos en confirmar el pago. Si ya pagaste, tu cuenta se activará automáticamente en breve.
+            Mercado Pago puede tardar unos minutos en confirmar el pago. Si ya pagaste, tu cuenta se activará en breve.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="px-6 py-3 bg-surface-alt border border-border-strong text-white font-semibold rounded-xl hover:bg-surface transition text-sm"
-        >
-          Ir al inicio
-        </button>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button
+            type="button"
+            onClick={retry}
+            className="w-full flex items-center justify-center gap-2 bg-brand text-black font-condensed font-bold tracking-wide py-3 rounded-xl hover:brightness-110 active:brightness-90 transition"
+          >
+            <RefreshCw size={16} />
+            Reintentar
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="w-full px-6 py-3 bg-surface-alt border border-border-strong text-white font-semibold rounded-xl hover:bg-surface transition text-sm"
+          >
+            Ir al inicio
+          </button>
+        </div>
+        <div className="w-full max-w-xs">
+          <ClaimPremiumRequest onActivated={() => setStatus('active')} />
+        </div>
       </div>
     )
   }

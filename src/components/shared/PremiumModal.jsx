@@ -1,7 +1,15 @@
 import { useState } from 'react';
-import { X, Check, Zap, Star, Gift, ChevronDown, Loader2 } from 'lucide-react';
+import { X, Check, Zap, Gift, ChevronDown, Loader2 } from 'lucide-react';
 import { api } from '../../utils/api';
-import { useAuth } from '../../context/useAuth';
+import sofiaImg from '../../assets/Sofia.png';
+import romanImg from '../../assets/Romannn.png';
+import leitoImg from '../../assets/Leito.png';
+
+const SOCIAL_AVATARS = [
+  { src: sofiaImg, alt: 'Sofía' },
+  { src: romanImg, alt: 'Román' },
+  { src: leitoImg, alt: 'Leito' },
+];
 
 const FREE_FEATURES = [
   '2 categorías máximo',
@@ -30,7 +38,7 @@ const COMPARISON = [
 const FAQS = [
   {
     q: '¿Cómo funciona la prueba gratuita de 7 días?',
-    a: 'Al suscribirte tendrás 7 días gratis sin cargo. Podés cancelar antes de que finalice sin ningún costo.',
+    a: 'La primera vez que quieras ser parte de Premium te regalamos 7 días de prueba. Solicitalo mandándonos un mail a fabricando.dev@gmail.com.',
   },
   {
     q: '¿Puedo cancelar en cualquier momento?',
@@ -40,6 +48,10 @@ const FAQS = [
     q: '¿Qué pasa con mis datos si cancelo?',
     a: 'Tus datos y estadísticas se mantienen. Solo perdés acceso a las funciones premium hasta que te vuelvas a suscribir.',
   },
+  {
+    q: '¿Con qué cuenta de Mercado Pago pago?',
+    a: 'Con la que quieras. Después de pagar, tocá "Volver al sitio" en Mercado Pago y activamos tu Premium automáticamente, sin importar el email de tu cuenta.',
+  },
 ];
 
 const ORIGINAL_PRICE = 7000;
@@ -47,24 +59,18 @@ const MONTHLY_PRICE  = 3500;
 const ANNUAL_PRICE   = Math.round(ORIGINAL_PRICE * 0.8);
 
 export default function PremiumModal({ onClose }) {
-  const { user } = useAuth();
   const [billing, setBilling] = useState('monthly');
   const [openFaq, setOpenFaq] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [mpEmail, setMpEmail] = useState(user?.email ?? '');
 
   const price = billing === 'monthly' ? MONTHLY_PRICE : ANNUAL_PRICE;
 
   async function handleCheckout() {
-    if (!mpEmail.trim()) {
-      setError('Ingresá el email de tu cuenta de Mercado Pago.');
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const data = await api.subscriptions.checkout(billing, mpEmail.trim());
+      const data = await api.subscriptions.checkout(billing);
       window.location.href = data.init_point;
     } catch (e) {
       setError(e.message || 'Error al iniciar el pago. Intentá de nuevo.');
@@ -78,7 +84,7 @@ export default function PremiumModal({ onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-border-strong rounded-2xl w-full max-w-md relative"
+        className="bg-surface border border-border-strong rounded-2xl w-full max-w-md lg:max-w-6xl xl:max-w-7xl relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
@@ -91,7 +97,7 @@ export default function PremiumModal({ onClose }) {
         </button>
 
         {/* Hero */}
-        <div className="text-center pt-10 pb-6 px-6">
+        <div className="text-center pt-10 pb-6 px-6 lg:px-10">
           <h2 className="font-condensed font-bold text-3xl text-white tracking-wide mb-2">
             Unite al club Premium
           </h2>
@@ -100,34 +106,35 @@ export default function PremiumModal({ onClose }) {
           {/* Social proof */}
           <div className="inline-flex items-center gap-2 bg-surface-alt border border-border-strong rounded-full px-4 py-2 mt-5">
             <div className="flex -space-x-2">
-              {['var(--color-cyan)', 'var(--color-brand)', 'var(--color-danger)'].map((c, i) => (
-                <div
-                  key={i}
-                  className="w-6 h-6 rounded-full border-2 border-surface"
-                  style={{ backgroundColor: c }}
+              {SOCIAL_AVATARS.map((a) => (
+                <img
+                  key={a.alt}
+                  src={a.src}
+                  alt={a.alt}
+                  className="w-6 h-6 rounded-full border-2 border-surface object-cover"
                 />
               ))}
             </div>
-            <span className="text-xs text-soft">Sé parte de Padeleando</span>
-            <div className="flex gap-0.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} size={10} className="text-brand fill-brand" />
-              ))}
-            </div>
+            <span className="text-xs text-soft">
+              <span className="text-brand font-semibold">+100 padeleros</span> ya son Premium
+            </span>
           </div>
         </div>
 
-        {/* Free trial banner */}
-        <div className="mx-6 mb-5 bg-brand/10 border border-brand/30 rounded-xl px-4 py-3 flex items-center gap-3">
+        {/* Body */}
+        <div className="px-6 lg:px-10 pb-6">
+
+        {/* Free trial banner (centrado) */}
+        <div className="max-w-lg mx-auto mb-5 bg-brand/10 border border-brand/30 rounded-xl px-4 py-3 flex items-center gap-3">
           <Gift size={18} className="text-brand shrink-0" />
           <div>
-            <p className="text-brand text-sm font-semibold">Probá PREMIUM gratis por 7 días</p>
-            <p className="text-secondary text-xs mt-0.5">Sin compromiso. Cancelá cuando quieras.</p>
+            <p className="text-brand text-sm font-semibold">Probá PREMIUM GRATIS por 7 días</p>
+            <p className="text-secondary text-xs mt-0.5">Sin compromiso. Probás y si no te gusta no pasa nada.</p>
           </div>
         </div>
 
-        {/* Billing toggle */}
-        <div className="mx-6 mb-6 flex items-center bg-surface-alt rounded-xl p-1 border border-border-strong">
+        {/* Billing toggle (centrado) */}
+        <div className="max-w-lg mx-auto mb-8 flex items-center bg-surface-alt rounded-xl p-1 border border-border-strong">
           <button
             type="button"
             onClick={() => setBilling('monthly')}
@@ -151,7 +158,8 @@ export default function PremiumModal({ onClose }) {
           </button>
         </div>
 
-        <div className="px-6 flex flex-col gap-4 pb-6">
+        {/* Planes (2 columnas en desktop) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start mt-2">
           {/* Free plan */}
           <div className="border border-border-strong rounded-xl p-5">
             <div className="flex items-center gap-2 mb-1">
@@ -211,20 +219,6 @@ export default function PremiumModal({ onClose }) {
               ))}
             </ul>
 
-            <div className="mb-3">
-              <label className="block text-xs text-secondary mb-1.5">
-                Email de la cuenta de Mercado Pago con la que vas a realizar el pago
-              </label>
-              <input
-                type="email"
-                value={mpEmail}
-                onChange={(e) => setMpEmail(e.target.value)}
-                placeholder="tu@email.com"
-                disabled={loading}
-                className="w-full bg-surface border border-border-strong rounded-xl px-4 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:border-brand transition disabled:opacity-60"
-              />
-            </div>
-
             <button
               type="button"
               onClick={handleCheckout}
@@ -243,14 +237,21 @@ export default function PremiumModal({ onClose }) {
             )}
             {!error && (
               <p className="text-center text-[11px] text-muted mt-2">
-                ¿Primera vez? Te regalamos 7 días de prueba. Luego AR${price}/mes. Cancelá cuando quieras.
+                ¿Primera vez? Mandanos un mail a <a href='mailto:fabricando.dev@gmail.com' className="text-brand hover:underline">
+                  fabricando.dev@gmail.com
+                </a> y te regalamos 7 días de Premium.
               </p>
             )}
+
           </div>
         </div>
+        {/* End planes */}
+
+        {/* Comparación + FAQ (2 columnas en desktop) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-10">
 
         {/* Comparison table */}
-        <div className="px-6 pb-6">
+        <div>
           <div className="flex items-center gap-2 mb-4">
             <Zap size={12} className="text-brand" />
             <span className="text-[10px] font-mono tracking-widest text-dim uppercase">
@@ -291,7 +292,7 @@ export default function PremiumModal({ onClose }) {
         </div>
 
         {/* FAQ */}
-        <div className="px-6 pb-6">
+        <div>
           <div className="flex items-center gap-2 mb-4">
             <span className="text-[10px] font-mono tracking-widest text-dim uppercase">
               Preguntas frecuentes
@@ -323,8 +324,14 @@ export default function PremiumModal({ onClose }) {
           </div>
         </div>
 
+        </div>
+        {/* End comparación + FAQ */}
+
+        </div>
+        {/* End body */}
+
         {/* Legal */}
-        <div className="px-6 pb-8">
+        <div className="px-6 lg:px-10 pb-8">
           <p className="text-[11px] text-dim text-center leading-relaxed">
             La suscripción se renueva automáticamente al final de cada período. Podés cancelar en cualquier momento desde la sección "Suscripciones" dentro de tu cuenta de Mercado Pago. Al suscribirte aceptás nuestros{' '}
             <span className="text-brand/70 cursor-pointer hover:text-brand transition">Términos de Servicio</span>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
+import { renderRichText } from '../../utils/richText';
 import PlayerAvatar from '../shared/PlayerAvatar';
 import Loader from '../Loader/Loader';
 
@@ -189,12 +190,14 @@ export default function NotificationsView() {
 function NotifRow({ n, navigate, onFollow, onInvitation, onJoinRequest, onCollabInvite, onTransfer }) {
   const unread = !n.read;
   const isAdmin = n.type === 'admin_message';
+  const isOwnership = n.type === 'ownership_received';
+  const isSystem = isAdmin || isOwnership;
   return (
     <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors ${unread ? 'bg-surface border-brand/20' : 'bg-surface border-border-mid'}`}>
       {unread && <div className="shrink-0 mt-2 w-1.5 h-1.5 rounded-full bg-brand" />}
       <div className={`shrink-0 ${unread ? '' : 'ml-[18px]'}`}>
-        {isAdmin ? (
-          <div className="w-[38px] h-[38px] rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-brand text-[16px]">📢</div>
+        {isSystem ? (
+          <div className="w-[38px] h-[38px] rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center text-brand text-[16px]">{isOwnership ? '👑' : '📢'}</div>
         ) : (
           <div
             className="cursor-pointer"
@@ -232,7 +235,7 @@ function NotifText({ n, navigate }) {
     return (
       <div>
         <div className="text-[13px] font-semibold text-white">{n.title}</div>
-        <div className="text-[12px] text-secondary mt-0.5 whitespace-pre-wrap">{n.body}</div>
+        <div className="text-[12px] text-secondary mt-0.5 whitespace-pre-wrap">{renderRichText(n.body)}</div>
       </div>
     );
   }
@@ -262,6 +265,7 @@ function NotifText({ n, navigate }) {
       <div className="text-[13px] text-secondary">
         {actorEl} solicitó unirse al torneo{' '}
         <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span>
+        {n.requested_player_name ? <> como <span className="text-brand">{n.requested_player_name}</span></> : null}
       </div>
     );
   }
@@ -290,6 +294,24 @@ function NotifText({ n, navigate }) {
       </div>
     );
   }
+  if (n.type === 'ownership_received') {
+    return (
+      <div className="text-[13px] text-secondary">
+        Ahora sos dueño de{' '}
+        {n.group_id ? (
+          <span
+            onClick={() => navigate(`/cat/${n.group_id}`)}
+            className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+          >
+            {n.group_name ?? 'una categoría'}
+          </span>
+        ) : (
+          <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+        )}{' '}
+        porque su organizador eliminó su cuenta.
+      </div>
+    );
+  }
   if (n.type === 'club_request') {
     return (
       <div className="text-[13px] text-secondary">
@@ -299,6 +321,19 @@ function NotifText({ n, navigate }) {
           className="text-brand hover:underline bg-transparent border-none cursor-pointer p-0 font-mono text-[12px]"
         >
           Ver →
+        </button>
+      </div>
+    );
+  }
+  if (n.type === 'premium_claim') {
+    return (
+      <div className="text-[13px] text-secondary">
+        {actorEl} {n.body}{' '}
+        <button
+          onClick={() => navigate('/admin/users')}
+          className="text-brand hover:underline bg-transparent border-none cursor-pointer p-0 font-mono text-[12px]"
+        >
+          Ir a usuarios →
         </button>
       </div>
     );
@@ -321,7 +356,12 @@ function NotifActions({ n, onFollow, onInvitation, onJoinRequest, onCollabInvite
     setBusy(true);
     try {
       const data = await api.joinRequests.get(n.entity_id);
-      setAcceptModal({ players: data.unlinked_players ?? [], selectedId: data.unlinked_players?.[0]?.id ?? '' });
+      const players = data.unlinked_players ?? [];
+      // Preseleccionar el jugador que pidió el solicitante, si sigue disponible.
+      const requested = data.requested_player_id && players.some((p) => p.id === data.requested_player_id)
+        ? data.requested_player_id
+        : (players[0]?.id ?? '');
+      setAcceptModal({ players, selectedId: requested });
     } catch {
       //
     } finally {

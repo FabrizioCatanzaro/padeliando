@@ -203,7 +203,7 @@ export default function MapPicker({ initialLat, initialLon, onConfirm, onClose }
           <button
             onClick={handleConfirm}
             disabled={!hasPin || confirming}
-            style={{ background: '#e8f04a', color: '#0a0e1a', border: 'none', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 14, letterSpacing: 2, borderRadius: 4, cursor: hasPin ? 'pointer' : 'default', opacity: hasPin ? 1 : 0.4 }}
+            style={{ background: '#e8f04a', color: '#0a0e1a', border: 'none', fontFamily: "'Unbounded',sans-serif", fontWeight: 900, fontSize: 14, letterSpacing: 2, borderRadius: 4, cursor: hasPin ? 'pointer' : 'default', opacity: hasPin ? 1 : 0.4 }}
             className="flex-1 flex items-center justify-center gap-2 py-2"
           >
             {confirming && <Loader2 size={13} className="animate-spin" />}

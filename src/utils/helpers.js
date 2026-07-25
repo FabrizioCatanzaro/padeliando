@@ -1,5 +1,10 @@
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
+// Cuenta anónima que hereda torneos huérfanos cuando un dueño elimina su cuenta.
+// No tiene perfil público (el backend responde 404), así que no debe linkearse.
+export const DELETED_ACCOUNT_USERNAME = 'cuenta_eliminada';
+export const isDeletedAccount = (username) => username === DELETED_ACCOUNT_USERNAME;
+
 // ── Set helpers ───────────────────────────────────────────────────────────────
 // Un set tiene ganador cuando alguien llegó a 6+ (o 7 en tiebreak) y va ganando.
 export function setWinner(s) {
@@ -212,19 +217,32 @@ export const localDateStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// Estado a mostrar de un torneo. Solo hay 3 estados: finished / upcoming / active.
+// Límites de parejas del formato americano.
+export const AMERICANO_MIN_PAIRS = 8;
+export const AMERICANO_MAX_PAIRS = 16;
+
+// Un americano con menos de 8 parejas es un "borrador": se puede crear y seguir
+// cargando parejas, pero no se puede jugar (ni calendario, ni partidos, ni cuadro).
+export function isAmericanoDraft({ format, pairCount }) {
+  return format === 'americano' && (pairCount ?? 0) < AMERICANO_MIN_PAIRS;
+}
+
+// Estado a mostrar de un torneo. Solo hay 4 estados: finished / draft / active / upcoming.
 // - finished: el torneo está finalizado.
+// - draft ('borrador'): americano con menos parejas que el mínimo — todavía no se puede jugar.
 // - active ('en curso'): tiene un partido EN VIVO o ya tiene algún partido jugado.
 // - upcoming ('próximamente'): sin partidos jugados y sin partido en vivo (la fecha no importa).
-export function tournamentDisplayStatus({ status, hasLiveMatch, hasPlayed }) {
+export function tournamentDisplayStatus({ status, hasLiveMatch, hasPlayed, isDraft = false }) {
   if (status === 'finished') return 'finished';
+  if (isDraft) return 'draft';
   if (hasLiveMatch || hasPlayed) return 'active';
   return 'upcoming';
 }
 
 export const TOURNAMENT_STATUS_META = {
-  upcoming: { label: 'PRÓXIMAMENTE', color: 'cyan' },
-  active:   { label: 'EN CURSO',     color: 'green' },
+  draft:    { label: 'BORRADOR',     color: 'brand'   },
+  upcoming: { label: 'PRÓXIMAMENTE', color: 'cyan'    },
+  active:   { label: 'EN CURSO',     color: 'green'   },
   finished: { label: 'FINALIZADO',   color: 'default' },
 };
 

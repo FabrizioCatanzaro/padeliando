@@ -48,6 +48,7 @@ export default function AdminUsers() {
   const [busyId,   setBusyId]   = useState(null)
   const [grantUser,    setGrantUser]    = useState(null)
   const [grantDays,    setGrantDays]    = useState(30)
+  const [grantPreapproval, setGrantPreapproval] = useState('')
   const [revokeUser,   setRevokeUser]   = useState(null)
   const [deleteUser,   setDeleteUser]   = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -81,6 +82,7 @@ export default function AdminUsers() {
   function openGrantModal(user) {
     setModalError(null)
     setGrantDays(30)
+    setGrantPreapproval('')
     setGrantUser(user)
   }
 
@@ -94,7 +96,7 @@ export default function AdminUsers() {
     setBusyId(grantUser.id)
     setModalError(null)
     try {
-      await api.admin.grantPremium(grantUser.id, grantDays)
+      await api.admin.grantPremium(grantUser.id, grantDays, grantPreapproval.trim() || undefined)
       setGrantUser(null)
       await fetchUsers({ q, page, limit: PAGE_SIZE })
     } catch (e) { setModalError(e.message) }
@@ -274,19 +276,38 @@ export default function AdminUsers() {
           onCancel={() => setGrantUser(null)}
         >
           <p className="mb-4">
-            Otorgar plan <span className="text-brand font-semibold">premium (test)</span> a{' '}
+            Otorgar <span className="text-brand font-semibold">premium</span> a{' '}
             <span className="text-white font-semibold">{grantUser.name}</span>.
           </p>
-          <label className="block text-[11px] tracking-widest text-muted font-mono mb-1.5">DURACIÓN</label>
-          <select
-            value={grantDays}
-            onChange={e => setGrantDays(Number(e.target.value))}
+
+          <label className="block text-[11px] tracking-widest text-muted font-mono mb-1.5">
+            ID DE SUSCRIPCIÓN DE MP <span className="text-dim">(opcional)</span>
+          </label>
+          <input
+            type="text"
+            value={grantPreapproval}
+            onChange={e => setGrantPreapproval(e.target.value)}
+            placeholder="preapproval_id de Mercado Pago"
             className="w-full bg-base border border-border-strong rounded text-white text-sm font-mono px-3 py-2 outline-none focus:border-brand"
-          >
-            {DURATION_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          />
+          <p className="text-[11px] text-dim font-mono mt-1.5 mb-4 leading-relaxed">
+            Si lo pegás, vinculamos la suscripción real de MP y se <span className="text-secondary">renueva sola</span> cada mes. Lo encontrás en tu panel de MP → Suscripciones → el suscriptor. Si lo dejás vacío, es una cortesía por N días (no se renueva).
+          </p>
+
+          {!grantPreapproval.trim() && (
+            <>
+              <label className="block text-[11px] tracking-widest text-muted font-mono mb-1.5">DURACIÓN</label>
+              <select
+                value={grantDays}
+                onChange={e => setGrantDays(Number(e.target.value))}
+                className="w-full bg-base border border-border-strong rounded text-white text-sm font-mono px-3 py-2 outline-none focus:border-brand"
+              >
+                {DURATION_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </>
+          )}
           {modalError && <p className="text-danger text-xs font-mono mt-3">{modalError}</p>}
         </Modal>
       )}

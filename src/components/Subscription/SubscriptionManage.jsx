@@ -83,8 +83,8 @@ export default function SubscriptionManage() {
   }
 
   const isPremium = sub?.plan === 'premium' && sub?.status === 'active'
-  const isCancelled = sub?.status === 'cancelled'
-  const statusInfo = STATUS_LABEL[sub?.status] ?? null
+  const isCancelled = isPremium && sub?.cancel_at_period_end
+  const statusInfo = isCancelled ? STATUS_LABEL.cancelled : STATUS_LABEL[sub?.status] ?? null
 
   return (
     <div className="max-w-sm mx-auto px-4 py-8 flex flex-col gap-6">
@@ -178,7 +178,7 @@ export default function SubscriptionManage() {
       )}
 
       {/* Acciones */}
-      {isPremium && cancelStep !== 'done' && (
+      {isPremium && !isCancelled && cancelStep !== 'done' && (
         <div className="flex flex-col gap-3">
           {cancelStep === 'idle' && (
             <button

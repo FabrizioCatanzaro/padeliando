@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from '../../utils/helpers';
+import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
@@ -296,9 +296,15 @@ export default function GroupView() {
           {!isOwner && (
             <div className="flex items-center gap-2">
               <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} />
-              <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
-                <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
-              </span>
+              {isDeletedAccount(group.owner_username) ? (
+                <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1">
+                  <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>Cuenta eliminada</span>
+                </span>
+              ) : (
+                <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
+                  <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -457,12 +463,15 @@ export default function GroupView() {
             const CountIcon = isAmericano ? Users : User;
             const displayStatus = tournamentDisplayStatus({
               status: t.status, hasLiveMatch: !!t.live_match, hasPlayed: (t.match_count ?? 0) > 0,
+              isDraft: isAmericanoDraft({ format: t.format, pairCount: t.pair_count }),
             });
             const statusMeta = TOURNAMENT_STATUS_META[displayStatus];
-            // Línea superior: cyan si es próximo, verde si está en curso/en vivo, nada si finalizó.
-            const topLineClass = displayStatus === 'upcoming'
-              ? 'from-cyan/50 via-cyan/20 to-transparent'
-              : 'from-green/50 via-green/20 to-transparent';
+            // Línea superior: brand si es borrador, cyan si es próximo, verde si está en curso/en vivo, nada si finalizó.
+            const topLineClass = displayStatus === 'draft'
+              ? 'from-brand/50 via-brand/20 to-transparent'
+              : displayStatus === 'upcoming'
+                ? 'from-cyan/50 via-cyan/20 to-transparent'
+                : 'from-green/50 via-green/20 to-transparent';
             return (
             <FadeInCard key={t.id} delay={Math.min(i, 5) * 60}
               className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link"

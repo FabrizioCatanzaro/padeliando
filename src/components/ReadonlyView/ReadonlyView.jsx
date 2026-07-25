@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { calcStandings, courtLabel, getPairLabel } from "../../utils/helpers";
+import { calcStandings, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
 import Stats from "../Stats/Stats";
 import MatchCard from "../Matches/MatchCard";
@@ -10,12 +10,14 @@ import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
 import { AuthContext } from '../../context/useAuth';
-import { ChartNoAxesCombined, Check, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, Split, List, Trophy, User, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin } from "lucide-react";
+import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin } from "lucide-react";
 import courtSvg from "../../assets/padel-court.svg";
 import appLogo from "../../assets/padeleando.svg";
 import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
+import ShareModal from "../shared/ShareModal";
+import QrModal from "../shared/QrModal";
 
 const PHASE_LABEL = { previa: 'FASE PREVIA', octavos: 'OCTAVOS', cuartos: 'CUARTOS', semis: 'SEMIS', final: 'FINAL' };
 
@@ -46,6 +48,109 @@ const AMERICANO_TABS = [
   { id: "players",   label: "JUGADORES",  icon: User },
 ];
 
+// Contador de frescura: segundos transcurridos desde el último refresco de datos.
+// Se remonta (key=refreshTick) en cada poll de la vista readonly, reiniciando a 0.
+function LastUpdated() {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setSecs((s) => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  return (
+    <span className="text-[11px] font-mono text-cyan/70">
+      Actualizado hace {secs} {secs === 1 ? "segundo" : "segundos"}
+    </span>
+  );
+}
+
+// Cartel "¿Jugás en este torneo?" — reutilizable en la vista normal y en el Modo TV.
+// Invitados (sin cuenta) ven un CTA para iniciar sesión; los logueados que no son
+// jugadores ni dueños eligen a qué jugador reclamar y solicitan unirse.
+function JoinBanner({ user, tournament, joinStatus, claimablePlayers = [], hidden, busy, onRequest, onHide, onLogin }) {
+  const [selectedId, setSelectedId] = useState('');
+  // Valor efectivo: la elección del usuario si sigue disponible, si no el primero.
+  const effectiveId = claimablePlayers.some((p) => p.id === selectedId)
+    ? selectedId
+    : (claimablePlayers[0]?.id ?? '');
+
+  if (hidden || tournament?.status !== 'active') return null;
+
+  const closeBtn = (tone) => (
+    <button onClick={onHide} className={`${tone} cursor-pointer transition-colors shrink-0`}>✕</button>
+  );
+
+  // Invitado sin cuenta → CTA de inicio de sesión.
+  if (!user) {
+    return (
+      <div className="px-6 py-2.5 bg-brand/8 border-y border-brand/20 flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-[12px] font-mono text-brand/80">¿Jugás en este torneo?</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onLogin}
+            className="text-[11px] font-mono px-3 py-1.5 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors"
+          >
+            Iniciar sesión para unirte
+          </button>
+          {closeBtn('text-brand/60 hover:text-brand')}
+        </div>
+      </div>
+    );
+  }
+
+  // Logueado: sólo si no es jugador ni dueño y ya cargó el estado.
+  if (!joinStatus || joinStatus.is_player || joinStatus.is_owner) return null;
+  const req = joinStatus.request;
+
+  if (!req || req.status === 'rejected') {
+    return (
+      <div className="px-6 py-2.5 bg-brand/8 border-y border-brand/20 flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-[12px] font-mono text-brand/80 shrink-0">
+          {req?.status === 'rejected' ? 'Tu solicitud fue rechazada.' : '¿Jugás en este torneo?'}
+        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {claimablePlayers.length === 0 ? (
+            <span className="text-[11px] font-mono text-dim">No hay jugadores disponibles para reclamar.</span>
+          ) : (
+            <>
+              <select
+                value={effectiveId}
+                onChange={(e) => setSelectedId(e.target.value)}
+                className="bg-surface border border-brand/40 text-white text-[12px] font-mono rounded px-2 py-1.5 cursor-pointer outline-none max-w-[45vw] sm:max-w-none"
+              >
+                {claimablePlayers.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => onRequest(effectiveId)}
+                disabled={busy || !effectiveId}
+                className="text-[11px] font-mono px-3 py-1.5 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40"
+              >
+                {busy ? 'Enviando...' : 'Solicitar unirse'}
+              </button>
+            </>
+          )}
+          {closeBtn('text-brand/60 hover:text-brand')}
+        </div>
+      </div>
+    );
+  }
+
+  if (req.status === 'pending') {
+    return (
+      <div className="px-6 py-2.5 bg-surface border-y border-border-mid flex items-center justify-between gap-2">
+        <span className="text-[11px] font-mono text-muted">
+          ⏳ Solicitud pendiente de aprobación
+          {req.requested_player_name ? <> — pediste unirte como <span className="text-soft">{req.requested_player_name}</span></> : null}
+        </span>
+        {closeBtn('text-muted/60 hover:text-muted')}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function ReadonlyView() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -58,7 +163,8 @@ export default function ReadonlyView() {
   const [groupOwnerIsPremium, setGroupOwnerIsPremium] = useState(false);
   const [error, setError]           = useState(false);
   const [tab, setTab]               = useState("standings");
-  const [copied, setCopied]         = useState(false);
+  const [shareOpen, setShareOpen]   = useState(false);
+  const [qrOpen, setQrOpen]         = useState(false);
   const [joinStatus, setJoinStatus] = useState(null); // { is_player, request }
   const [joinBusy, setJoinBusy]     = useState(false);
   const [hideJoinBanner, setHideJoinBanner] = useState(false);
@@ -74,23 +180,6 @@ export default function ReadonlyView() {
   const [club, setClub]         = useState(null);
   const audioRef  = useRef(null);
   const soundSigRef = useRef(null);
-
-  async function copyLink() {
-    const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: tournament?.name ?? 'Torneo',
-          text: `¡Te invito a ver "${tournament?.name ?? 'este torneo'}"! Seguí los resultados en vivo acá:`,
-          url,
-        });
-      } catch { /* usuario canceló */ }
-    } else {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  }
 
   const load = useCallback(async () => {
     try {
@@ -213,11 +302,11 @@ export default function ReadonlyView() {
       .catch(() => {});
   }, [user, tournament?.id]);
 
-  async function handleJoinRequest() {
-    if (joinBusy) return;
+  async function handleJoinRequest(playerId) {
+    if (joinBusy || !playerId) return;
     setJoinBusy(true);
     try {
-      const result = await api.joinRequests.send(tournament.id);
+      const result = await api.joinRequests.send(tournament.id, playerId);
       setJoinStatus({ is_player: false, request: result });
     } catch {
       //
@@ -291,6 +380,20 @@ export default function ReadonlyView() {
       .filter(m => m.winner_id != null).length
     : 0;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
+  const isDraft = isAmericanoDraft({ format: tournament.format, pairCount: tournament.pairs?.length });
+
+  // Estado mostrado — mismo criterio que la vista del organizador (incluye "PRÓXIMAMENTE")
+  const liveMatches = Array.isArray(tournament.live_match) ? tournament.live_match : [];
+  const statusMeta = TOURNAMENT_STATUS_META[tournamentDisplayStatus({
+    status: tournament.status,
+    hasLiveMatch: liveMatches.some((m) => m.startedAt != null),
+    hasPlayed: playedCount > 0,
+    isDraft,
+  })];
+
+  // Cantidad de parejas o jugadores según el modo del torneo
+  const isPairs     = isAmericano || tournament.mode === 'pairs';
+  const entityCount = isPairs ? (tournament.pairs?.length ?? 0) : tournament.players.filter((p) => !p.removed).length;
 
   const MOBILE_LABEL = {
     standings: 'TABLA',
@@ -299,6 +402,28 @@ export default function ReadonlyView() {
     stats:     'STATS',
     bracket:   'CUADRO',
   };
+
+  // Jugadores del torneo que todavía no tienen una cuenta vinculada: son los que
+  // un espectador puede reclamar al solicitar unirse.
+  const claimablePlayers = (tournament.players ?? [])
+    .filter((p) => !p.removed && !p.linked_username)
+    .map((p) => ({ id: p.id, name: p.name }));
+
+  // Cartel de "¿Jugás en este torneo?" — se muestra en la vista normal y también
+  // dentro del Modo TV. Para invitados (sin cuenta) ofrece iniciar sesión.
+  const joinBanner = (
+    <JoinBanner
+      user={user}
+      tournament={tournament}
+      joinStatus={joinStatus}
+      claimablePlayers={claimablePlayers}
+      hidden={hideJoinBanner}
+      busy={joinBusy}
+      onRequest={handleJoinRequest}
+      onHide={() => setHideJoinBanner(true)}
+      onLogin={() => navigate(`/login?redirect=${encodeURIComponent(`/view/${id}`)}`)}
+    />
+  );
 
   return (
     <div className="bg-base text-content font-sans pb-24 sm:pb-15">
@@ -340,7 +465,8 @@ export default function ReadonlyView() {
           <div className="flex items-center gap-2">
             <Btn variant={tvMode ? 'primary' : 'secondary'} size="sm" onClick={toggleTv} icon={Tv}
               title={tvMode ? 'Salir del modo TV' : 'Modo TV (rotación automática)'} />
-            <Btn variant="primary" size="sm" onClick={copyLink} icon={copied ? Check : Share2} />
+            <Btn size="sm" onClick={() => setQrOpen(true)} icon={QrCode} title="Código QR" />
+            <Btn variant="primary" size="sm" onClick={() => setShareOpen(true)} icon={Share2} />
           </div>
         </div>
 
@@ -349,23 +475,54 @@ export default function ReadonlyView() {
           {tournament.name}
         </h1>
 
-        {/* Estado + ganador + progreso + dueño */}
+        {/* Estado + ganador + dueño */}
         <div className="flex items-center justify-center gap-2.5 flex-wrap">
-          <Badge variant="status" color={tournament.status === 'active' ? 'green' : 'default'}>
-            {tournament.status === 'active' ? 'EN CURSO' : 'FINALIZADA'}
+          <Badge variant="status" color={statusMeta.color}>
+            {statusMeta.label}
           </Badge>
           {winnerLabel && (
             <Badge variant="chip" color="brand" icon={Trophy}>{winnerLabel}</Badge>
           )}
-          <Badge icon={Flame}>{playedCount} PJ</Badge>
           {groupOwner && (
-            <span
-              onClick={() => navigate(`/u/${groupOwner.username}`)}
-              className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444] hover:text-white cursor-pointer transition-colors"
+            isDeletedAccount(groupOwner.username) ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444]">
+                <User size={11} />
+                Cuenta Eliminada
+              </span>
+            ) : (
+              <span
+                onClick={() => navigate(`/u/${groupOwner.username}`)}
+                className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444] hover:text-white cursor-pointer transition-colors"
+              >
+                <User size={11} />
+                @{groupOwner.username}
+              </span>
+            )
+          )}
+        </div>
+
+        {/* Metadata — fecha · cantidad · jugados · club */}
+        <div className="mt-3 flex items-center justify-center gap-x-3 gap-y-1.5 flex-wrap text-[11px] font-mono text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <Calendar size={11} className="text-dim" />
+            {fmt(tournament.event_date ?? tournament.createdAt)}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            {isPairs ? <Users size={11} className="text-dim" /> : <User size={11} className="text-dim" />}
+            {entityCount} {isPairs ? 'parejas' : 'jugadores'}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Flame size={11} className="text-dim" />
+            {playedCount} jugados
+          </span>
+          {tournament.club_id && (
+            <button
+              onClick={() => navigate(`/club/${tournament.club_id}`)}
+              className="inline-flex items-center gap-1.5 bg-surface border border-border-mid rounded-full px-2.5 py-0.5 cursor-pointer hover:border-brand transition-colors text-[11px] font-mono text-muted"
             >
-              <User size={11} />
-              @{groupOwner.username}
-            </span>
+              <Building2 size={11} className="text-brand" />
+              <span className="truncate max-w-[160px]">{tournament.club_name ?? club?.name ?? 'Club'}</span>
+            </button>
           )}
         </div>
       </div>
@@ -382,52 +539,12 @@ export default function ReadonlyView() {
         </div>
         <div className="px-6 py-1.5 flex items-center gap-2 flex-wrap">
           <Eye size={11} className="text-cyan/70" />
-          <span className="text-[11px] font-mono text-cyan/70">Vista de espectadores</span>
+          <LastUpdated key={refreshTick} />
         </div>
       </div>
 
       {/* Banner de solicitud de unión */}
-      {user && tournament?.status === 'active' && joinStatus && !joinStatus.is_player && !joinStatus.is_owner && !hideJoinBanner && (() => {
-        const req = joinStatus.request;
-        if (!req || req.status === 'rejected') {
-          return (
-            <div className="px-6 py-2.5 bg-brand/8 border-b border-brand/20 flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-[12px] font-mono text-brand/80">
-                {req?.status === 'rejected' ? 'Tu solicitud fue rechazada.' : '¿Jugás en este torneo?'}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleJoinRequest}
-                  disabled={joinBusy}
-                  className="text-[11px] font-mono px-3 py-1.5 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40"
-                >
-                  {joinBusy ? 'Enviando...' : req?.status === 'rejected' ? 'Volver a solicitar' : 'Solicitar unirse'}
-                </button>
-                <button
-                  onClick={() => setHideJoinBanner(true)}
-                  className="text-brand/60 hover:text-brand cursor-pointer transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          );
-        }
-        if (req.status === 'pending') {
-          return (
-            <div className="px-6 py-2.5 bg-surface border-b border-border-mid flex items-center justify-between gap-2">
-              <span className="text-[11px] font-mono text-muted">⏳ Solicitud pendiente de aprobación</span>
-              <button
-                onClick={() => setHideJoinBanner(true)}
-                className="text-muted/60 hover:text-muted cursor-pointer transition-colors shrink-0"
-              >
-                ✕
-              </button>
-            </div>
-          );
-        }
-        return null;
-      })()}
+      {joinBanner}
 
       <LiveTicker tournament={tournament} isAmericano={isAmericano} />
 
@@ -460,9 +577,9 @@ export default function ReadonlyView() {
       <div className="p-6">
         {activeTab === "standings" && <Standings tournament={tournament} />}
         {activeTab === "stats"     && <Stats     tournament={tournament} ownerIsPremium={groupOwnerIsPremium} />}
-        {activeTab === "matches"   && <ReadonlyMatches tournament={tournament} />}
+        {activeTab === "matches"   && <><SpectatorLive tournament={tournament} isAmericano={isAmericano} scope="previa" /><ReadonlyMatches tournament={tournament} /></>}
         {activeTab === "players"   && <ReadonlyPlayers tournament={tournament} />}
-        {activeTab === "bracket"   && <Bracket tournament={tournament} isOwner={false} />}
+        {activeTab === "bracket"   && <><SpectatorLive tournament={tournament} isAmericano={isAmericano} scope="bracket" /><Bracket tournament={tournament} isOwner={false} /></>}
 
         <PhotoGallery tournamentId={tournament.id} isOwner={false} canUpload={false} />
       </div>
@@ -485,6 +602,26 @@ export default function ReadonlyView() {
           soundOn={soundOn}
           onToggleSound={toggleSound}
           playedCount={playedCount}
+          joinBanner={joinBanner}
+        />
+      )}
+
+      {shareOpen && (
+        <ShareModal
+          tournamentName={tournament.name}
+          categoryName={groupName}
+          clubName={tournament.club_name ?? club?.name}
+          url={window.location.href}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+
+      {qrOpen && (
+        <QrModal
+          tournamentName={tournament.name}
+          categoryName={groupName}
+          url={window.location.href}
+          onClose={() => setQrOpen(false)}
         />
       )}
     </div>
@@ -600,10 +737,27 @@ function FullscreenBtn() {
 }
 
 function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, onNext, onTogglePause, soundOn, onToggleSound, onExit }) {
-  const isActive = tournament.status === 'active';
   const clubName = club?.name ?? tournament.club_name ?? null;
   const clubLogo = club?.photo_url ?? null;
   const dateLabel = longEsDate(tournament.event_date);
+
+  // Estado del torneo con el mismo criterio del resto de la app, con un matiz
+  // extra para el scoreboard: "EN VIVO" cuando hay un partido jugándose ahora,
+  // "EN CURSO" si el torneo está en marcha pero sin partido activo.
+  const liveTv  = Array.isArray(tournament.live_match) ? tournament.live_match : [];
+  const hasLive = liveTv.some((m) => m.startedAt != null);
+  const dispStatus = tournamentDisplayStatus({
+    status: tournament.status,
+    hasLiveMatch: hasLive,
+    hasPlayed: countPlayed(tournament) > 0,
+    isDraft: isAmericanoDraft({ format: tournament.format, pairCount: tournament.pairs?.length }),
+  });
+  const status =
+      dispStatus === 'finished' ? { label: 'FINALIZADO',    cls: 'border-border-mid text-muted bg-surface', dot: null }
+    : dispStatus === 'draft'    ? { label: 'BORRADOR',      cls: 'border-brand/40 text-brand bg-brand/10',   dot: null }
+    : dispStatus === 'upcoming' ? { label: 'PRÓXIMAMENTE',  cls: 'border-cyan/40 text-cyan bg-cyan/10',      dot: null }
+    : hasLive                   ? { label: 'EN VIVO',       cls: 'border-danger/50 text-danger bg-danger/10', dot: 'bg-danger' }
+    :                             { label: 'EN CURSO',      cls: 'border-green/40 text-green bg-green/10',    dot: 'bg-green' };
 
   return (
     <header className="shrink-0 flex items-start gap-3 lg:gap-5 px-4 lg:px-8 py-3 border-b border-border bg-gradient-to-b from-surface/40 to-transparent">
@@ -620,11 +774,9 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
           {tournament.name}
         </h1>
         <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono tracking-wide ${
-            isActive ? 'border-green/40 text-green bg-green/10' : 'border-border-mid text-muted bg-surface'
-          }`}>
-            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />}
-            {isActive ? 'TORNEO EN VIVO' : 'FINALIZADO'}
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono tracking-wide ${status.cls}`}>
+            {status.dot && <span className={`w-1.5 h-1.5 rounded-full ${status.dot} animate-pulse`} />}
+            {status.label}
           </span>
           {clubName && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border-mid bg-surface text-[10px] font-mono tracking-wide text-soft">
@@ -754,7 +906,7 @@ function TvBracketScreen({ tournament }) {
   );
 }
 
-function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq, step, paused, onTogglePause, onPrev, onNext, onBarEnd, onExit, soundOn, onToggleSound, playedCount }) {
+function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq, step, paused, onTogglePause, onPrev, onNext, onBarEnd, onExit, soundOn, onToggleSound, playedCount, joinBanner }) {
   const current = seq[step] ?? seq[0];
   const screen  = current?.screen ?? 'standings';
 
@@ -807,6 +959,9 @@ function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq,
         {screen === 'live'      && <TvLiveScreen tournament={tournament} isAmericano={isAmericano} />}
         {screen === 'bracket'   && <TvBracketScreen tournament={tournament} />}
       </main>
+
+      {/* Cartel de "¿Jugás en este torneo?" (invitados y espectadores logueados) */}
+      {joinBanner && <div className="shrink-0">{joinBanner}</div>}
 
       {/* Live ticker (parte inferior) */}
       <div className="shrink-0">
@@ -1151,6 +1306,85 @@ function TickerItem({ item }) {
           <span className={`font-condensed font-semibold text-[14px] ${!item.win1 ? "text-cyan" : "text-secondary"}`}>{item.team2}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Partidos en vivo / próximos para el espectador (fuera del Modo TV) ─────────
+// Se inyecta arriba de la Previa (fase de grupos) y del Cuadro, filtrando por fase.
+const BRACKET_PHASES = new Set(['octavos', 'cuartos', 'semis', 'final']);
+
+// Cronómetro compacto que tickea desde el inicio del partido.
+function LiveClock({ startedAt }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const secs = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+  const ss = String(secs % 60).padStart(2, "0");
+  return <span className="font-mono text-[11px] text-brand tabular-nums shrink-0">{mm}:{ss}</span>;
+}
+
+function SpectatorLiveCard({ match, tournament, isAmericano }) {
+  const court = courtLabel(tournament, match.court);
+  const phaseLabel = isAmericano && match.phase ? (PHASE_LABEL[match.phase] ?? match.phase.toUpperCase()) : null;
+  const live = match.startedAt != null;
+  const t1 = splitNames(match.team1Label);
+  const t2 = splitNames(match.team2Label);
+  return (
+    <div className={`rounded-lg border px-4 py-3 ${live ? "bg-brand/8 border-brand/40" : "bg-surface border-border-mid"}`}>
+      <div className="flex items-center justify-between gap-2 mb-2.5 font-mono text-[10px] tracking-wide">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {live ? (
+            <span className="flex items-center gap-1 text-brand shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" /> EN VIVO
+            </span>
+          ) : (
+            <span className="text-muted shrink-0">PRÓXIMO</span>
+          )}
+          {phaseLabel && <span className="text-brand/40 truncate">· {phaseLabel}</span>}
+          {court != null && <span className="text-brand/40 shrink-0">· CANCHA {court}</span>}
+        </div>
+        {live && <LiveClock startedAt={match.startedAt} />}
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0 font-condensed font-bold text-[14px] text-white leading-tight text-left">
+          <div className="truncate">{t1[0]}</div>
+          {t1[1] && <div className="truncate">&amp; {t1[1]}</div>}
+        </div>
+        <span className="text-muted font-mono text-[11px] shrink-0">vs</span>
+        <div className="flex-1 min-w-0 font-condensed font-bold text-[14px] text-white leading-tight text-right">
+          <div className="truncate">{t2[0]}</div>
+          {t2[1] && <div className="truncate">&amp; {t2[1]}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SpectatorLive({ tournament, isAmericano, scope }) {
+  const all = Array.isArray(tournament.live_match) ? tournament.live_match : [];
+  const inScope = all.filter((m) => {
+    const isBracket = BRACKET_PHASES.has(m.phase);
+    return scope === 'bracket' ? isBracket : !isBracket;
+  });
+  if (inScope.length === 0) return null;
+  // EN VIVO (con cronómetro arrancado) primero, luego los próximos.
+  const sorted = [...inScope].sort((a, b) => Number(b.startedAt != null) - Number(a.startedAt != null));
+  const anyLive = inScope.some((m) => m.startedAt != null);
+  return (
+    <div className="mb-5">
+      <div className="flex items-center gap-2 mb-3 font-condensed font-bold text-[12px] tracking-[3px] text-muted">
+        <span className={`w-2 h-2 rounded-full ${anyLive ? "bg-danger animate-pulse" : "bg-border-strong"}`} />
+        {anyLive ? "EN VIVO" : "PRÓXIMOS"}
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {sorted.map((m, i) => (
+          <SpectatorLiveCard key={i} match={m} tournament={tournament} isAmericano={isAmericano} />
+        ))}
+      </div>
     </div>
   );
 }

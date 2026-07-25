@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef } from "react";
-import { expandPair, emptyForm, localDateStr, getPairLabel, visibleSetsCount } from "../../utils/helpers";
+import { expandPair, emptyForm, localDateStr, getPairLabel, visibleSetsCount, AMERICANO_MIN_PAIRS } from "../../utils/helpers";
 import MatchCard from "../Matches/MatchCard";
 import MatchForm from "../Matches/MatchForm";
 import Modal from "../shared/Modal";
+import { Trash2 } from "lucide-react";
 
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 const getLiveKey  = (id) => `live_${id}`;
@@ -60,6 +61,7 @@ export default function Previa({
   const [editId,       setEditId]       = useState(null);
   const [editForm,     setEditForm]     = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmClearSchedule, setConfirmClearSchedule] = useState(false);
 
   useEffect(() => {
     const key = getLiveKey(tournament.id);
@@ -225,6 +227,14 @@ export default function Previa({
     }
   }
 
+  // Borra el calendario sugerido. Es sólo una guía local: los partidos ya
+  // registrados no se tocan.
+  function handleClearSchedule() {
+    localStorage.removeItem(SCHEDULE_KEY);
+    setSchedule(null);
+    setShowSchedule(true);
+  }
+
   async function handleGenerateBracket() {
     setGeneratingBracket(true);
     try { await onGenerateBracket(); }
@@ -263,6 +273,12 @@ export default function Previa({
   // ¿Hay algún partido con el cronómetro corriendo? → bloquea regenerar el calendario
   const anyLiveRunning = liveMatches.some(m => m.timer.startedAt !== null && m.timer.stoppedAt === null);
 
+  // Borrador: todavía no hay parejas suficientes para jugar el americano.
+  // No se puede generar calendario, cargar partidos ni generar el cuadro.
+  const pairCount   = tournament.pairs.length;
+  const isDraft     = pairCount < AMERICANO_MIN_PAIRS;
+  const missingPairs = AMERICANO_MIN_PAIRS - pairCount;
+
   return (
     <div>
       {confirmDelete && (
@@ -275,10 +291,20 @@ export default function Previa({
           onCancel={() => setConfirmDelete(null)}
         />
       )}
+      {confirmClearSchedule && (
+        <Modal
+          title="Eliminar calendario sugerido"
+          message="El calendario es sólo una guía: los partidos ya registrados no se borran. Podés volver a generar uno con “AL AZAR”."
+          confirmText="Eliminar"
+          confirmDanger
+          onConfirm={() => { handleClearSchedule(); setConfirmClearSchedule(false); }}
+          onCancel={() => setConfirmClearSchedule(false)}
+        />
+      )}
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">FASE PREVIA</div>
-        {isOwner && (
+        {isOwner && !isDraft && (
           <div className="flex gap-2">
             <button
               onClick={handleGenerateSchedule}
@@ -298,15 +324,43 @@ export default function Previa({
         )}
       </div>
 
+      {/* Aviso de borrador — sin el mínimo de parejas no se puede jugar */}
+      {isDraft && (
+        <div className="bg-surface border border-brand/30 rounded-lg p-4 mb-5">
+          <div className="font-condensed font-bold text-[13px] tracking-[2px] text-brand mb-1.5">BORRADOR</div>
+          <p className="text-soft font-sans text-[13px] leading-relaxed">
+            Hay <strong className="text-white">{pairCount} {pairCount === 1 ? 'pareja' : 'parejas'}</strong> y
+            el americano necesita <strong className="text-white">{AMERICANO_MIN_PAIRS}</strong> para arrancar —
+            falta{missingPairs === 1 ? '' : 'n'} <strong className="text-white">{missingPairs}</strong>.
+          </p>
+          <p className="text-muted font-mono text-[12px] leading-relaxed mt-2">
+            {isOwner
+              ? 'Sumá los jugadores y armá las parejas desde GESTIÓN. Al llegar al mínimo se habilitan el calendario, los partidos y el cuadro.'
+              : 'El organizador todavía está armando las parejas.'}
+          </p>
+        </div>
+      )}
+
       {/* Schedule guide */}
-      {schedule && (
+      {schedule && !isDraft && (
         <div className="mb-5 bg-surface border border-border-mid rounded-lg overflow-hidden">
           <div
-            className="flex items-center justify-between px-4 py-2.5 cursor-pointer"
+            className="flex items-center justify-between gap-2 px-4 py-2.5 cursor-pointer"
             onClick={() => setShowSchedule(v => !v)}
           >
             <div className="text-[11px] tracking-[2px] text-brand font-mono">CALENDARIO SUGERIDO</div>
-            <span className="text-muted text-[11px] font-mono">{showSchedule ? '▲' : '▼'}</span>
+            <div className="flex items-center gap-3">
+              {isOwner && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmClearSchedule(true); }}
+                  title="Eliminar el calendario sugerido"
+                  className="bg-transparent border-0 text-muted cursor-pointer p-0 leading-none hover:text-danger transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+              <span className="text-muted text-[11px] font-mono">{showSchedule ? '▲' : '▼'}</span>
+            </div>
           </div>
           {showSchedule && (
             <div className="border-t border-border px-4 pb-3 pt-2">
@@ -402,10 +456,12 @@ export default function Previa({
 
       {/* Match list */}
       {sorted.length === 0 && liveMatches.length === 0 ? (
+        isDraft ? null : (
         <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
           No hay partidos registrados todavía.<br />
-          {isOwner ? 'Usá "AL AZAR" para generar el calendario o "+ NUEVO PARTIDO" para agregar uno manualmente.' : '¡Pronto habrá resultados!'}
+          {isOwner ? `Usá "AL AZAR" para generar el calendario o "NUEVO PARTIDO" para agregar uno manualmente.` : '¡Pronto habrá resultados!'}
         </div>
+        )
       ) : (
         <div className="flex flex-col gap-2.5">
           {sorted.map((m, i) => (
@@ -417,7 +473,7 @@ export default function Previa({
       )}
 
       {/* Generate bracket */}
-      {isOwner && !tournament.bracket && (allSchedulePlayed || !schedule) && tournament.matches.length > 0 && (
+      {isOwner && !isDraft && !tournament.bracket && (allSchedulePlayed || !schedule) && tournament.matches.length > 0 && (
         <button
           onClick={handleGenerateBracket}
           disabled={generatingBracket}

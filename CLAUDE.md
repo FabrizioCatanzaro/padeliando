@@ -73,6 +73,7 @@ npm start         # Start without hot reload
 | `GOOGLE_CLIENT_ID` | Google OAuth verification |
 | `RESEND_API_KEY` | Transactional email service |
 | `MAIL_FROM` | Sender address for emails (default: `Padeleando <onboarding@resend.dev>`) |
+| `SURVEY_URL` | Link to the satisfaction survey in the account-deletion goodbye email (falls back to `FRONTEND_URL`) |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud for image uploads |
 | `CLOUDINARY_API_KEY` | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret |

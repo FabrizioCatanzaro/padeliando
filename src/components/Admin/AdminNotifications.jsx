@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Send, Megaphone } from 'lucide-react'
+import { ArrowLeft, Send, Megaphone, Bold, Italic, Link2, X, User } from 'lucide-react'
 import { api } from '../../utils/api'
+import { renderRichText } from '../../utils/richText'
 import Loader from '../Loader/Loader'
 
-const TARGET_LABELS = { all: 'Todos los usuarios', free: 'Solo free', premium: 'Solo premium', user: 'Usuario específico' }
+const TARGET_LABELS = { all: 'Todos los usuarios', free: 'Solo free', premium: 'Solo premium', user: 'Usuarios específicos' }
 const CHANNEL_LABELS = { app: 'Solo en app', app_email: 'App + Email' }
 
 function formatDate(str) {
@@ -15,13 +16,14 @@ function formatDate(str) {
 }
 
 export default function AdminNotifications() {
-  const [form, setForm]         = useState({ title: '', body: '', target: 'all', target_user_id: '', channel: 'app' })
+  const [form, setForm]         = useState({ title: '', body: '', target: 'all', channel: 'app' })
   const [userSearch, setUserSearch] = useState('')
   const [userResults, setUserResults] = useState([])
-  const [selectedUser, setSelectedUser] = useState(null)
+  const [selectedUsers, setSelectedUsers] = useState([])
   const [sending, setSending]   = useState(false)
   const [sendResult, setSendResult] = useState(null)
   const [sendError, setSendError]   = useState(null)
+  const bodyRef = useRef(null)
 
   const [history, setHistory]       = useState([])
   const [histTotal, setHistTotal]   = useState(0)
@@ -57,11 +59,63 @@ export default function AdminNotifications() {
     return () => clearTimeout(t)
   }, [userSearch, form.target])
 
-  function selectUser(u) {
-    setSelectedUser(u)
-    setForm(f => ({ ...f, target_user_id: u.id }))
-    setUserSearch(u.name + (u.username ? ` (@${u.username})` : ''))
+  function addUser(u) {
+    setSelectedUsers(prev => (prev.some(x => x.id === u.id) ? prev : [...prev, u]))
+    setUserSearch('')
     setUserResults([])
+  }
+
+  function removeUser(id) {
+    setSelectedUsers(prev => prev.filter(u => u.id !== id))
+  }
+
+  // Envuelve la selección del textarea con marcadores Markdown (negrita/itálica).
+  function wrapSelection(before, after = before, placeholder = 'texto') {
+    const ta = bodyRef.current
+    if (!ta) return
+    const { selectionStart: s, selectionEnd: e } = ta
+    const val = form.body
+    const sel = val.slice(s, e) || placeholder
+    const next = val.slice(0, s) + before + sel + after + val.slice(e)
+    setForm(f => ({ ...f, body: next }))
+    requestAnimationFrame(() => {
+      ta.focus()
+      ta.setSelectionRange(s + before.length, s + before.length + sel.length)
+    })
+  }
+
+  // Inserta texto tal cual en la posición del cursor (p. ej. el placeholder {nombre}).
+  function insertText(text) {
+    const ta = bodyRef.current
+    if (!ta) {
+      setForm(f => ({ ...f, body: f.body + text }))
+      return
+    }
+    const { selectionStart: s, selectionEnd: e } = ta
+    const val = form.body
+    const next = val.slice(0, s) + text + val.slice(e)
+    setForm(f => ({ ...f, body: next }))
+    requestAnimationFrame(() => {
+      ta.focus()
+      ta.setSelectionRange(s + text.length, s + text.length)
+    })
+  }
+
+  // Inserta la plantilla de un link y deja seleccionado el placeholder "url".
+  function insertLink() {
+    const ta = bodyRef.current
+    if (!ta) return
+    const { selectionStart: s, selectionEnd: e } = ta
+    const val = form.body
+    const label = val.slice(s, e) || 'texto'
+    const snippet = `[${label}](url)`
+    const next = val.slice(0, s) + snippet + val.slice(e)
+    setForm(f => ({ ...f, body: next }))
+    const urlStart = s + 1 + label.length + 2 // tras `[label](`
+    requestAnimationFrame(() => {
+      ta.focus()
+      ta.setSelectionRange(urlStart, urlStart + 3) // selecciona "url"
+    })
   }
 
   async function handleSend(e) {
@@ -72,23 +126,23 @@ export default function AdminNotifications() {
       setSendError('Completá título y cuerpo.')
       return
     }
-    if (form.target === 'user' && !form.target_user_id) {
-      setSendError('Seleccioná un usuario.')
+    if (form.target === 'user' && selectedUsers.length === 0) {
+      setSendError('Seleccioná al menos un usuario.')
       return
     }
     setSending(true)
     try {
       const res = await api.admin.broadcast({
-        title:          form.title.trim(),
-        body:           form.body.trim(),
-        target:         form.target,
-        target_user_id: form.target === 'user' ? form.target_user_id : undefined,
-        channel:        form.channel,
+        title:           form.title.trim(),
+        body:            form.body.trim(),
+        target:          form.target,
+        target_user_ids: form.target === 'user' ? selectedUsers.map(u => u.id) : undefined,
+        channel:         form.channel,
       })
       setSendResult(res.recipients)
-      setForm({ title: '', body: '', target: 'all', target_user_id: '', channel: 'app' })
+      setForm({ title: '', body: '', target: 'all', channel: 'app' })
       setUserSearch('')
-      setSelectedUser(null)
+      setSelectedUsers([])
       loadHistory(1)
     } catch (err) {
       setSendError(err.message ?? 'Error al enviar')
@@ -96,6 +150,10 @@ export default function AdminNotifications() {
       setSending(false)
     }
   }
+
+  // Nombre de muestra para el preview: el del primer destinatario elegido, o genérico.
+  const sampleName = (form.target === 'user' && selectedUsers[0]?.name) || 'Nombre'
+  const previewBody = form.body.replace(/\{nombre\}/gi, sampleName)
 
   return (
     <div className="px-4 sm:px-6 py-6 max-w-3xl mx-auto">
@@ -124,8 +182,8 @@ export default function AdminNotifications() {
             <select
               value={form.target}
               onChange={e => {
-                setForm(f => ({ ...f, target: e.target.value, target_user_id: '' }))
-                setSelectedUser(null)
+                setForm(f => ({ ...f, target: e.target.value }))
+                setSelectedUsers([])
                 setUserSearch('')
               }}
               className="bg-base border border-border-strong text-white text-[12px] font-mono rounded px-3 py-2 cursor-pointer"
@@ -149,36 +207,59 @@ export default function AdminNotifications() {
           </div>
         </div>
 
-        {/* Búsqueda de usuario específico */}
+        {/* Búsqueda de usuarios específicos (multi-select) */}
         {form.target === 'user' && (
           <div className="flex flex-col gap-1.5 relative">
-            <label className="text-[11px] font-mono text-muted">Buscar usuario</label>
+            <label className="text-[11px] font-mono text-muted">Buscar usuarios</label>
             <input
               type="text"
               value={userSearch}
-              onChange={e => { setUserSearch(e.target.value); setSelectedUser(null); setForm(f => ({ ...f, target_user_id: '' })) }}
+              onChange={e => setUserSearch(e.target.value)}
               placeholder="Nombre, email o username…"
               className="bg-base border border-border-strong text-white text-[13px] font-mono rounded px-3 py-2 placeholder:text-dim outline-none focus:border-brand transition-colors"
             />
             {userResults.length > 0 && (
               <div className="absolute top-full left-0 right-0 z-20 bg-surface border border-border-strong rounded-b shadow-lg">
-                {userResults.map(u => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => selectUser(u)}
-                    className="w-full text-left px-3 py-2 text-[12px] font-mono text-white hover:bg-base transition-colors border-b border-border last:border-0"
-                  >
-                    {u.name}
-                    {u.username && <span className="text-muted ml-1">@{u.username}</span>}
-                    <span className="text-dim ml-1">— {u.email}</span>
-                  </button>
-                ))}
+                {userResults.map(u => {
+                  const already = selectedUsers.some(x => x.id === u.id)
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      disabled={already}
+                      onClick={() => addUser(u)}
+                      className="w-full text-left px-3 py-2 text-[12px] font-mono text-white hover:bg-base transition-colors border-b border-border last:border-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {u.name}
+                      {u.username && <span className="text-muted ml-1">@{u.username}</span>}
+                      <span className="text-dim ml-1">— {u.email}</span>
+                      {already && <span className="text-brand ml-1">✓</span>}
+                    </button>
+                  )
+                })}
               </div>
             )}
-            {selectedUser && (
-              <div className="text-[11px] font-mono text-brand">
-                Seleccionado: {selectedUser.name} ({selectedUser.email})
+            {selectedUsers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {selectedUsers.map(u => (
+                  <span
+                    key={u.id}
+                    className="inline-flex items-center gap-1 bg-base border border-border-strong rounded-full pl-2.5 pr-1 py-0.5 text-[11px] font-mono text-white"
+                  >
+                    {u.name}{u.username && <span className="text-muted">@{u.username}</span>}
+                    <button
+                      type="button"
+                      onClick={() => removeUser(u.id)}
+                      className="text-muted hover:text-danger transition-colors cursor-pointer"
+                      aria-label={`Quitar ${u.name}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+                <span className="text-[11px] font-mono text-dim self-center">
+                  {selectedUsers.length} seleccionado{selectedUsers.length !== 1 ? 's' : ''}
+                </span>
               </div>
             )}
           </div>
@@ -197,17 +278,61 @@ export default function AdminNotifications() {
           />
         </div>
 
-        {/* Cuerpo */}
+        {/* Cuerpo con toolbar de formato */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-mono text-muted">Mensaje</label>
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-mono text-muted">Mensaje</label>
+            <div className="flex items-center gap-1">
+              <ToolbarButton label="Negrita" onClick={() => wrapSelection('**')}>
+                <Bold size={13} />
+              </ToolbarButton>
+              <ToolbarButton label="Itálica" onClick={() => wrapSelection('*')}>
+                <Italic size={13} />
+              </ToolbarButton>
+              <ToolbarButton label="Insertar link" onClick={insertLink}>
+                <Link2 size={13} />
+              </ToolbarButton>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => insertText('{nombre}')}
+                title="Insertar el nombre del destinatario"
+                className="inline-flex items-center gap-1 text-muted hover:text-white hover:bg-base transition-colors rounded px-2 py-1.5 cursor-pointer border border-transparent hover:border-border-strong text-[10px] font-mono"
+              >
+                <User size={12} /> Nombre
+              </button>
+            </div>
+          </div>
           <textarea
+            ref={bodyRef}
             value={form.body}
             onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
             rows={4}
             placeholder="Contenido del mensaje…"
             className="bg-base border border-border-strong text-white text-[13px] font-mono rounded px-3 py-2 placeholder:text-dim outline-none focus:border-brand transition-colors resize-y"
           />
+          <p className="text-[10px] font-mono text-dim">
+            Formato: <span className="text-secondary">**negrita**</span>,{' '}
+            <span className="text-secondary">*itálica*</span>,{' '}
+            <span className="text-secondary">[texto](https://…)</span>.{' '}
+            <span className="text-secondary">{'{nombre}'}</span> se reemplaza por el nombre de cada destinatario.
+          </p>
         </div>
+
+        {/* Preview en vivo */}
+        {form.body.trim() && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-mono text-muted">Vista previa</label>
+            <div className="bg-base border border-border rounded p-3">
+              {form.title.trim() && (
+                <div className="text-[13px] font-semibold text-white mb-1">{form.title}</div>
+              )}
+              <div className="text-[12px] text-secondary whitespace-pre-wrap">
+                {renderRichText(previewBody)}
+              </div>
+            </div>
+          </div>
+        )}
 
         {sendError && <div className="text-danger text-[12px] font-mono">{sendError}</div>}
         {sendResult !== null && (
@@ -260,8 +385,30 @@ export default function AdminNotifications() {
   )
 }
 
+function ToolbarButton({ label, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onMouseDown={e => e.preventDefault()} // no perder la selección del textarea
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="text-muted hover:text-white hover:bg-base transition-colors rounded p-1.5 cursor-pointer border border-transparent hover:border-border-strong"
+    >
+      {children}
+    </button>
+  )
+}
+
 function BroadcastRow({ b }) {
   const [expanded, setExpanded] = useState(false)
+  const targetLabel = TARGET_LABELS[b.target] ?? b.target
+  const targetDetail =
+    b.target === 'user'
+      ? b.target_user_name
+        ? ` — ${b.target_user_name}`
+        : ` — ${b.recipients} usuario${b.recipients !== 1 ? 's' : ''}`
+      : ''
   return (
     <div className="bg-surface border border-border rounded-lg p-4">
       <div className="flex items-start justify-between gap-3">
@@ -269,9 +416,7 @@ function BroadcastRow({ b }) {
           <div className="text-white font-semibold text-[13px] truncate">{b.title}</div>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
             <span className="text-[11px] font-mono text-muted">{formatDate(b.created_at)}</span>
-            <span className="text-[11px] font-mono text-brand">{TARGET_LABELS[b.target] ?? b.target}
-              {b.target === 'user' && b.target_user_name && ` — ${b.target_user_name}`}
-            </span>
+            <span className="text-[11px] font-mono text-brand">{targetLabel}{targetDetail}</span>
             <span className="text-[11px] font-mono text-muted">{CHANNEL_LABELS[b.channel] ?? b.channel}</span>
             <span className="text-[11px] font-mono text-dim">{b.recipients} destinatario{b.recipients !== 1 ? 's' : ''}</span>
           </div>
@@ -284,8 +429,8 @@ function BroadcastRow({ b }) {
         </button>
       </div>
       {expanded && (
-        <div className="mt-3 pt-3 border-t border-border text-[12px] font-mono text-secondary whitespace-pre-wrap">
-          {b.body}
+        <div className="mt-3 pt-3 border-t border-border text-[12px] text-secondary whitespace-pre-wrap">
+          {renderRichText(b.body)}
         </div>
       )}
     </div>

@@ -298,7 +298,7 @@ export default function PhotoGallery({ tournamentId, isOwner = false, isPremium 
                       }}
                       maxLength={MAX_CAPTION_LEN}
                       placeholder="Descripción"
-                      className="flex-1 bg-base border border-border-mid text-white px-2.5 py-1.5 rounded text-[12px] outline-none font-[Barlow]"
+                      className="flex-1 bg-base border border-border-mid text-white px-2.5 py-1.5 rounded text-[12px] outline-none font-sans"
                     />
                     <button
                       type="button"
@@ -425,7 +425,7 @@ export default function PhotoGallery({ tournamentId, isOwner = false, isPremium 
               onChange={(e) => setCaptionDraft(e.target.value)}
               maxLength={MAX_CAPTION_LEN}
               placeholder="Ej: Final del torneo"
-              className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-[Barlow]"
+              className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 rounded text-sm outline-none font-sans"
             />
             {uploadError && <div className="text-xs text-danger font-mono mt-3">{uploadError}</div>}
             <div className="flex gap-2.5 justify-end mt-5">
