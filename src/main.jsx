@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')).render(
           <AuthProvider>
             <App />
             <Analytics />
+            <SpeedInsights />
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>
