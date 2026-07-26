@@ -52,7 +52,9 @@
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400..900;1,400..700&family=Unbounded:wght@400..900&display=swap">
     </noscript>
 
-    <script src="https://accounts.google.com/gsi/client" async></script>
+    <!-- El script de Google Identity ya no se carga acá: pesaba 98,6 KB con un
+         83 % de código sin ejecutar en toda visita, y sólo hace falta en el
+         formulario de acceso. Lo pide AuthView al montarse. -->
   </head>
   <body>
     <div id="root"></div>
