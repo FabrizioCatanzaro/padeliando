@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
 import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount } from '../../utils/helpers';
@@ -12,7 +12,11 @@ import Btn from '../shared/Btn';
 import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
 import FadeInCard from '../shared/FadeInCard';
-import { HistoricalStats } from '../Stats/Stats';
+import WhenVisible from '../shared/WhenVisible';
+// Este bloque ocupa 2872 px de los 3935 de la página y arranca en y=1064, o sea
+// entero bajo el pliegue, pero arrastraba los 111 KB de Recharts a la carga
+// inicial. Se difiere hasta que está por entrar en pantalla.
+const HistoricalStats = lazy(() => import('../Stats/Stats').then(m => ({ default: m.HistoricalStats })));
 import PremiumModal from '../shared/PremiumModal';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
@@ -542,7 +546,11 @@ export default function GroupView() {
           </div>
         )}
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border mt-10">ESTADÍSTICAS HISTÓRICAS</div>
-        <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} groupName={group.name} />
+        <WhenVisible>
+          <Suspense fallback={<div style={{ minHeight: 600 }} />}>
+            <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} groupName={group.name} />
+          </Suspense>
+        </WhenVisible>
       </div>
 
       {/* Modal emojis */}
