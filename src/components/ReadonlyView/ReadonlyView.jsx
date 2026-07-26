@@ -12,6 +12,7 @@ import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
 import { AuthContext } from '../../context/useAuth';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin } from "lucide-react";
 import courtSvg from "../../assets/padel-court.svg";
 import appLogo from "../../assets/padeleando.svg";
@@ -336,6 +337,8 @@ export default function ReadonlyView() {
       setJoinBusy(false);
     }
   }
+
+  useDocumentTitle(tournament?.name);
 
   if (error) {
     return (

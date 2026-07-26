@@ -6,6 +6,7 @@ import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, 
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useParams } from 'react-router-dom';
 import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, ArrowLeftRight, Link2, LogOut, Copy } from 'lucide-react';
 import Btn from '../shared/Btn';
@@ -231,6 +232,8 @@ export default function GroupView() {
       showToast(e.message, 'error');
     }
   }
+
+  useDocumentTitle(group?.name);
 
   // min-h-screen no es decorativo: el esqueleto reservaba 406 px para una lista
   // que rinde 1547, así que el pie quedaba visible en y=760 y el contenido real

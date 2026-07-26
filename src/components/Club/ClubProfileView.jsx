@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../utils/api'
 import { useAuth } from '../../context/useAuth'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { fmt, TOURNAMENT_STATUS_META } from '../../utils/helpers'
 import { scheduleLines, whatsappLink, socialUrl, socialLabel } from './clubForm'
 import courtBg from '../../assets/padelcourt.webp'
@@ -103,6 +104,8 @@ export default function ClubProfileView() {
   }, [])
 
   useEffect(() => { fetchData(id) }, [id, fetchData])
+
+  useDocumentTitle(club?.name)
 
   if (loading) return <Loader />
   if (error)   return <p className="text-danger text-sm font-mono p-6">{error}</p>

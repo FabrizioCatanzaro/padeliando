@@ -3,6 +3,7 @@ import { api } from '../../utils/api';
 import { fmt } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck, Share2 } from 'lucide-react';
 // Recharts sólo lo necesita este bloque, que además casi nunca se muestra.
 const AdvancedStats = lazy(() => import('./AdvancedStats'));
@@ -293,6 +294,8 @@ export default function ProfileView() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [username]);
+
+  useDocumentTitle(data?.owner?.name);
 
   // El perfil siempre rinde más alto que la pantalla, así que el hueco de carga
   // debe empujar el pie fuera del viewport en vez de dejarlo asomar.

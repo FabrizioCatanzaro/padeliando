@@ -328,6 +328,31 @@ export const TOURNAMENT_STATUS_META = {
   finished: { label: 'FINALIZADO',   color: 'default' },
 };
 
+// Avisos que el organizador resuelve desde la pestaña de gestión. Es la fuente
+// única: la pestaña muestra el "!" cuando esto devuelve algo y los carteles de
+// gestión se renderizan a partir de las mismas entradas, así no se desincronizan.
+//   - americano-min-pairs: americano en borrador, faltan parejas para el mínimo.
+//   - players-without-pair: modo parejas con jugadores activos sin pareja armada.
+export function managementWarnings(tournament) {
+  if (!tournament) return [];
+  const { players = [], pairs = [], format, mode } = tournament;
+  const activePlayers = players.filter((p) => !p.removed);
+  const warnings = [];
+
+  if (format === 'americano') {
+    const missing = AMERICANO_MIN_PAIRS - pairs.length;
+    if (missing > 0) warnings.push({ id: 'americano-min-pairs', missing });
+  }
+
+  if (mode === 'pairs') {
+    const assigned = new Set(pairs.flatMap((p) => [p.p1, p.p2]));
+    const free = activePlayers.filter((p) => !assigned.has(p.id));
+    if (free.length > 0) warnings.push({ id: 'players-without-pair', players: free });
+  }
+
+  return warnings;
+}
+
 export const emptyForm = () => ({
   team1: ["", ""],
   team2: ["", ""],
