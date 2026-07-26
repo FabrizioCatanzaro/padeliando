@@ -294,7 +294,9 @@ export default function ProfileView() {
       .finally(() => setLoading(false));
   }, [username]);
 
-  if (loading) return <Loader />;
+  // El perfil siempre rinde más alto que la pantalla, así que el hueco de carga
+  // debe empujar el pie fuera del viewport en vez de dejarlo asomar.
+  if (loading) return <Loader minHeight="100vh" />;
   if (error)   return <div className="text-danger p-10">{error}</div>;
 
   const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats } = data;
