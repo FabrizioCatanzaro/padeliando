@@ -1,6 +1,6 @@
 import { Phone, UserRoundSearch } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import logoTxtUrl from '../../assets/padeleando-txt.png'
+import logoTxtUrl from '../../assets/padeleando-txt.webp'
 
 const legalLinks = [
   { to: '/sobre-nosotros', label: 'Sobre nosotros' },

@@ -1,3 +1,13 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+
+# Rutas privadas o sin valor para un buscador.
+Disallow: /admin
+Disallow: /notifications
+Disallow: /subscription
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /invitacion
+
+Sitemap: https://padeleando.ar/sitemap.xml

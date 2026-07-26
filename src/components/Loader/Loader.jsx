@@ -1,4 +1,4 @@
-import logo from "../../assets/padeleando.ico";
+import logo from "../../assets/padeleando-logo.webp";
 import "./Loader.css";
 
 export default function Loader() {

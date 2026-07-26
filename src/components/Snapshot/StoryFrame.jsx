@@ -4,7 +4,7 @@
 // html-to-image sea consistente.
 
 import { STORY_W, STORY_H, C, fonts } from './story-theme';
-import logoTxtUrl from '../../assets/padeleando-txt.png';
+import logoTxtUrl from '../../assets/padeleando-txt-hd.webp';
 
 export default function StoryFrame({
   eyebrow,

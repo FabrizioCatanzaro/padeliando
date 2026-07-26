@@ -4,8 +4,8 @@ import { User, CircleHelp, Bell } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 import { api } from '../../utils/api'
 import { renderRichText } from '../../utils/richText'
-import logoUrl from '../../assets/padeleando.ico'
-import logoTxtUrl from '../../assets/padeleando-txt.png'
+import logoUrl from '../../assets/padeleando-logo.webp'
+import logoTxtUrl from '../../assets/padeleando-txt.webp'
 import PlayerAvatar from './PlayerAvatar'
 
 
@@ -100,12 +100,28 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // El contador se refresca al montar y cada 2 minutos, sólo con la pestaña
+  // visible. Antes dependía de location.pathname, así que cada navegación
+  // interna del SPA disparaba una petición al backend.
   useEffect(() => {
-    if (!isLoggedIn) return;
-    api.notifications.count()
-      .then(d => setNotifCount(d.count ?? 0))
-      .catch(() => {})
-  }, [isLoggedIn, location.pathname])
+    if (!isLoggedIn) { setNotifCount(0); return; }
+
+    const fetchCount = () => {
+      if (document.hidden) return;
+      api.notifications.count()
+        .then(d => setNotifCount(d.count ?? 0))
+        .catch(() => {});
+    };
+
+    fetchCount();
+    const id = setInterval(fetchCount, 120_000);
+    // Al volver a la pestaña, ponerse al día sin esperar al próximo intervalo.
+    document.addEventListener('visibilitychange', fetchCount);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', fetchCount);
+    };
+  }, [isLoggedIn])
 
   const openNotifications = useCallback(async () => {
     if (notifOpen) { setNotifOpen(false); return; }

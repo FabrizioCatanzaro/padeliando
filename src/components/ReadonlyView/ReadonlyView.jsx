@@ -181,18 +181,11 @@ export default function ReadonlyView() {
   const audioRef  = useRef(null);
   const soundSigRef = useRef(null);
 
+  // Sólo el torneo: es lo único que cambia entre ciclos de refresco.
   const load = useCallback(async () => {
     try {
       const t = await api.readonly.get(id);
       setTournament(adaptTournament(t));
-      if (t.group_id) {
-        const g = await api.groups.get(t.group_id);
-        setGroupName(g.name);
-        setGroupEmojis(g.emojis ?? []);
-        setGroupIsPublic(g.is_public ?? true);
-        setGroupOwnerIsPremium(g.owner_is_premium ?? false);
-        if (g.owner_username) setGroupOwner({ username: g.owner_username, name: g.owner_name });
-      }
       setRefreshTick((x) => x + 1);
     } catch {
       setError(true);
@@ -202,9 +195,45 @@ export default function ReadonlyView() {
   const REFRESH_MS = 30_000;
   useEffect(() => {
     load();
-    const interval = setInterval(load, REFRESH_MS);
-    return () => clearInterval(interval);
+    // Con la pestaña oculta no se refresca: una TV del club con el torneo
+    // proyectado hacía 120 peticiones/hora aunque nadie la estuviera mirando.
+    // Al volver a primer plano se recarga en el acto.
+    let interval = null;
+    const start = () => { if (!interval) interval = setInterval(load, REFRESH_MS); };
+    const stop  = () => { if (interval) { clearInterval(interval); interval = null; } };
+
+    const onVisibility = () => {
+      if (document.hidden) { stop(); return; }
+      load();
+      start();
+    };
+
+    if (!document.hidden) start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [load]);
+
+  // Metadata de la categoría: nombre, emojis y dueño no cambian durante un
+  // torneo, así que se pide una sola vez y no en cada ciclo de refresco.
+  useEffect(() => {
+    const gid = tournament?.group_id;
+    if (!gid) return;
+    let cancelled = false;
+    api.groups.get(gid)
+      .then((g) => {
+        if (cancelled) return;
+        setGroupName(g.name);
+        setGroupEmojis(g.emojis ?? []);
+        setGroupIsPublic(g.is_public ?? true);
+        setGroupOwnerIsPremium(g.owner_is_premium ?? false);
+        if (g.owner_username) setGroupOwner({ username: g.owner_username, name: g.owner_name });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [tournament?.group_id]);
 
   // Datos del club (logo + nombre) para el header del modo TV
   useEffect(() => {

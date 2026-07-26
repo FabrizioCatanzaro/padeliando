@@ -4,7 +4,7 @@ import { api } from '../../utils/api';
 import { useNavigate } from 'react-router-dom'
 import { useAuth }     from '../../context/useAuth'
 import { Globe, Lock, Plus, X, Search, MapPin, Smile, Check, Loader2, Trophy, ChevronLeft, ChevronRight, BarChart3, Radio, UserRound, Building2, Navigation } from 'lucide-react';
-import logoUrl from '../../assets/padeleando.ico'
+import logoUrl from '../../assets/padeleando-logo.webp'
 import FadeInCard from '../shared/FadeInCard'
 import GroupCard from '../shared/GroupCard'
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
