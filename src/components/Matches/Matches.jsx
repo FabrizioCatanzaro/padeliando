@@ -4,12 +4,14 @@ import { expandPair, emptyForm, localDateStr, getPairLabel, visibleSetsCount } f
 import MatchCard from "./MatchCard";
 import MatchForm from "./MatchForm";
 import Modal from "../shared/Modal";
+import ShareFixtureModal from "../shared/ShareFixtureModal";
+import { Share2 } from "lucide-react";
 
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 const getLiveKey  = (id) => `live_${id}`;
 const genId       = () => Math.random().toString(36).slice(2, 7);
 
-export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, onDeleteMatch, onSetLiveMatch }) {
+export default function Matches({ tournament, isOwner, categoryName, onAddMatch, onEditMatch, onDeleteMatch, onSetLiveMatch }) {
   const isPairs = tournament.mode === "pairs";
   const canEdit = isOwner && tournament.status !== 'finished';
 
@@ -29,6 +31,7 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
   const [editId,        setEditId]        = useState(null);
   const [editForm,      setEditForm]      = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [shareFixture,  setShareFixture]  = useState(false);
 
   // Persistir a localStorage
   useEffect(() => {
@@ -252,16 +255,36 @@ export default function Matches({ tournament, isOwner, onAddMatch, onEditMatch, 
           onCancel={() => setConfirmDelete(null)}
         />
       )}
+      {shareFixture && (
+        <ShareFixtureModal
+          tournament={tournament}
+          matches={tournament.matches}
+          categoryName={categoryName}
+          onClose={() => setShareFixture(false)}
+        />
+      )}
       <div className="flex justify-between items-center mb-4">
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">PARTIDOS</div>
-        {canEdit && (
-          <button
-            onClick={addNewMatch}
-            className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap"
-          >
-            + NUEVO PARTIDO
-          </button>
-        )}
+        <div className="flex gap-2">
+          {sorted.length > 0 && (
+            <button
+              onClick={() => setShareFixture(true)}
+              title="Compartir partidos"
+              aria-label="Compartir partidos"
+              className="bg-transparent text-muted border border-border-strong px-3 py-2.5 cursor-pointer rounded-sm hover:text-white transition-colors"
+            >
+              <Share2 size={15} />
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={addNewMatch}
+              className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap"
+            >
+              + NUEVO PARTIDO
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Formularios de partidos en progreso */}
