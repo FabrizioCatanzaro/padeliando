@@ -1,8 +1,10 @@
-import { useState, useEffect, useContext, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useContext, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { calcStandings, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
-import Stats from "../Stats/Stats";
+// Sólo se monta al abrir la pestaña: importarlo estático arrastraba los
+// 111 KB de Recharts a toda visita del modo espectador.
+const Stats = lazy(() => import("../Stats/Stats"));
 import MatchCard from "../Matches/MatchCard";
 import Bracket from "../Americano/Bracket";
 import PhotoGallery from "../Photos/PhotoGallery";
@@ -606,7 +608,7 @@ export default function ReadonlyView() {
 
       <div className="p-6">
         {activeTab === "standings" && <Standings tournament={tournament} />}
-        {activeTab === "stats"     && <Stats     tournament={tournament} ownerIsPremium={groupOwnerIsPremium} />}
+        {activeTab === "stats"     && <Suspense fallback={<div style={{ minHeight: 400 }} />}><Stats tournament={tournament} ownerIsPremium={groupOwnerIsPremium} /></Suspense>}
         {activeTab === "matches"   && <><SpectatorLive tournament={tournament} isAmericano={isAmericano} scope="previa" /><ReadonlyMatches tournament={tournament} groupName={groupName} /></>}
         {activeTab === "players"   && <ReadonlyPlayers tournament={tournament} />}
         {activeTab === "bracket"   && <><SpectatorLive tournament={tournament} isAmericano={isAmericano} scope="bracket" /><Bracket tournament={tournament} isOwner={false} /></>}

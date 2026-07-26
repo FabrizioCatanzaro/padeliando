@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fmt, calcStandings, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import { useAuth } from "../../context/useAuth";
 import Standings    from "../Standings/Standings";
 import Matches      from "../Matches/Matches";
-import Stats        from "../Stats/Stats";
+// Sólo se monta al abrir la pestaña: importarlo estático arrastraba los
+// 111 KB de Recharts a toda visita del torneo.
+const Stats = lazy(() => import("../Stats/Stats"));
 import Management   from "../Management/Management";
 import Previa       from "../Americano/Previa";
 import Bracket      from "../Americano/Bracket";
@@ -271,7 +273,7 @@ export default function Main() {
         {/* Liga tabs */}
         {activeTab === "standings"  && <Standings  tournament={tournament} />}
         {activeTab === "matches"    && <Matches    tournament={tournament} isOwner={canEditMatches} categoryName={groupName} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
-        {activeTab === "stats"      && <Stats      tournament={tournament} ownerIsPremium={groupOwnerIsPremium} />}
+        {activeTab === "stats"      && <Suspense fallback={<div style={{ minHeight: 400 }} />}><Stats tournament={tournament} ownerIsPremium={groupOwnerIsPremium} /></Suspense>}
 
         {/* Americano tabs */}
         {activeTab === "previa" && (

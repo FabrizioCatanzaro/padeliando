@@ -59,7 +59,7 @@ npm start         # Start without hot reload
 ### Frontend (`.env.local`)
 | Variable | Purpose |
 |----------|---------|
-| `VITE_API_URL` | Backend base URL (`http://localhost:3001` in dev, `https://padeliando-api.onrender.com` in prod) |
+| `VITE_API_URL` | Backend base URL (`http://localhost:3001` in dev, `https://padeleando-api.onrender.com` in prod) |
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |
 
 ### Backend (`.env`)
@@ -176,7 +176,7 @@ Browser
 | Layer | Platform | URL |
 |-------|----------|-----|
 | Frontend | Vercel | `vercel.json` handles SPA rewrites (all → `/index.html`) |
-| Backend | Render.com | `https://padeliando-api.onrender.com` |
+| Backend | Render.com | `https://padeleando-api.onrender.com` |
 | Database | Neon (serverless PostgreSQL) | Region: sa-east-1 (São Paulo) |
 | Images | Cloudinary | Avatars in `avatars/` folder, tournament photos in `tournament-photos/` |
 
