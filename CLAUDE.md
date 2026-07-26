@@ -157,6 +157,30 @@ Browser
 
 ---
 
+## Performance
+
+A July 2026 audit took the four main routes from 36–78 to 85–95 on mobile Lighthouse. **Every change must be evaluated for performance impact before it is considered done** — those gains disappear on their own if new features reintroduce the patterns below. Each one is a real regression this codebase already paid for.
+
+### Patterns to check before finishing a change
+
+- **Heavy static imports.** Recharts is 111 KB over the wire. If a component sits behind a tab, below the fold, or behind a narrow condition, load it with `React.lazy`. If it also sits at the bottom of a long page, wrap it in `WhenVisible` (`src/components/shared/WhenVisible.jsx`), which mounts it only as it approaches the viewport.
+- **Chained `await`s on queries.** With the Neon HTTP driver every `sql` tagged template is its own round-trip to São Paulo. Queries that don't feed each other belong in one `Promise.all`. This was the single most repeated problem in the audit: the public profile went from ~11 serial round-trips to 2, `GET /groups/:id` from 7 to 3.
+- **A second request that depends on the first.** Prefer returning those fields in the first response — it saves the round-trip *and* stops the data from arriving late and injecting content. See `/readonly/:id`, which now carries the category's name, emojis and visibility.
+- **Content that mounts above something already visible.** It pushes the page down and counts as CLS. Either reserve its height from the first render, or make the data arrive with the rest.
+- **Loading states shorter than the real content.** If the placeholder leaves the footer inside the viewport, the real content evicts it and that alone can cost 0.7 CLS. Pages whose content always exceeds the viewport should reserve `min-h-screen` (or `<Loader minHeight="100vh" />`).
+- **Images.** Always set `width`/`height`. Cloudinary images go through URL transformations (`f_auto,q_auto,w_N,c_limit`) — untransformed banners were 97% of the mobile page weight.
+
+### Verifying
+
+Do not claim an improvement without measuring it — reading the code is not enough, and several "obvious" hypotheses in the audit turned out to be false when executed.
+
+- Measure in a real browser against the **production build**, never the dev server: `npm run preview` serves bundled chunks, the dev server serves loose modules and proves nothing about code splitting. Confirm the HTML requests `/assets/index-*.js`, not `/@vite/client`.
+- Confirm the page actually rendered its data before trusting any number. A page that failed to load looks fast.
+- Diagnose CLS with `PerformanceObserver` on `layout-shift` entries, reading `previousRect`/`currentRect`. The obvious suspect is usually not the cause.
+- When touching an endpoint, diff the response against the previous code with keys normalized — byte-identical output is the bar.
+
+---
+
 ## What NOT to Do
 
 - **Don't bypass `api.js`** — the token refresh logic lives there; skipping it breaks auth.
@@ -168,6 +192,8 @@ Browser
 - **Don't hardcode player names** — always go through `adaptTournament` / `linked_name` pattern so invited users see their real name.
 - **Don't let co-organizers edit or delete a category** — those (plus transfer and managing co-organizers) are owner-only (`is_owner`). Co-organizers manage jornadas only (`can_manage`).
 - **Don't gate plan limits on the acting user** — evaluate premium/quota against the **category owner** (`groups.user_id` / `owner_is_premium`).
+- **Don't chain `await`ed queries that don't depend on each other** — each one is a separate round-trip on the Neon HTTP driver. Batch them with `Promise.all`. See [Performance](#performance).
+- **Don't import charting libraries statically** — Recharts must always be reached through `React.lazy`, otherwise it lands in the initial bundle of every route that touches it.
 
 ---
 
