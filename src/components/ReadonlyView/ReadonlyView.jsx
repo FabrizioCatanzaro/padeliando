@@ -159,11 +159,20 @@ export default function ReadonlyView() {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   const [tournament, setTournament] = useState(null);
-  const [groupName, setGroupName]         = useState(null);
-  const [groupEmojis, setGroupEmojis]     = useState([]);
-  const [groupIsPublic, setGroupIsPublic]       = useState(true);
-  const [groupOwner, setGroupOwner]             = useState(null);
-  const [groupOwnerIsPremium, setGroupOwnerIsPremium] = useState(false);
+  // Vienen dentro de la propia respuesta del torneo. Antes se pedían aparte a
+  // /groups/:id/meta, una llamada que sólo podía salir después de ésta y que al
+  // volver insertaba la píldora de la categoría sobre el título, empujando la
+  // página 39 px. Derivarlos elimina el salto y un round-trip.
+  const groupName           = tournament?.group_name ?? null;
+  const groupEmojis         = tournament?.group_emojis ?? [];
+  const groupIsPublic       = tournament?.group_is_public ?? true;
+  const groupOwnerIsPremium = tournament?.group_owner_is_premium ?? false;
+  const groupOwner = useMemo(
+    () => (tournament?.owner_username
+      ? { username: tournament.owner_username, name: tournament.owner_name }
+      : null),
+    [tournament?.owner_username, tournament?.owner_name],
+  );
   const [error, setError]           = useState(false);
   const [tab, setTab]               = useState("standings");
   const [shareOpen, setShareOpen]   = useState(false);
@@ -218,25 +227,6 @@ export default function ReadonlyView() {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [load]);
-
-  // Metadata de la categoría: nombre, emojis y dueño no cambian durante un
-  // torneo, así que se pide una sola vez y no en cada ciclo de refresco.
-  useEffect(() => {
-    const gid = tournament?.group_id;
-    if (!gid) return;
-    let cancelled = false;
-    api.groups.meta(gid)
-      .then((g) => {
-        if (cancelled) return;
-        setGroupName(g.name);
-        setGroupEmojis(g.emojis ?? []);
-        setGroupIsPublic(g.is_public ?? true);
-        setGroupOwnerIsPremium(g.owner_is_premium ?? false);
-        if (g.owner_username) setGroupOwner({ username: g.owner_username, name: g.owner_name });
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [tournament?.group_id]);
 
   // Datos del club (logo + nombre) para el header del modo TV
   useEffect(() => {

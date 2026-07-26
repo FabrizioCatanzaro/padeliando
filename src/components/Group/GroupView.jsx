@@ -232,8 +232,12 @@ export default function GroupView() {
     }
   }
 
+  // min-h-screen no es decorativo: el esqueleto reservaba 406 px para una lista
+  // que rinde 1547, así que el pie quedaba visible en y=760 y el contenido real
+  // lo expulsaba de la pantalla. Ese salto solo valía 0,75 de CLS. Reservando
+  // el alto de la pantalla el pie arranca bajo el pliegue y no se mueve.
   if (!group) return (
-    <div className="bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-15 min-h-screen">
       <div className="px-6 pt-6 pb-5 border-b border-border flex flex-col gap-3">
         <Skeleton className="h-7 w-20" />
         <Skeleton className="h-8 w-48" />
