@@ -199,8 +199,11 @@ export default function Header() {
         className="flex flex-row gap-2 items-center cursor-pointer"
         onClick={() => location.pathname === '/' ? navigate(0) : navigate('/')}
       >
-        <img className="w-8 hidden md:block" src={logoUrl} />
-        <img className="h-9" src={logoTxtUrl} />
+        {/* width/height explícitos: sin ellos el navegador no reserva espacio
+            hasta que la imagen carga, y el layout salta. Lighthouse lo midió
+            como un CLS de 0,685 originado en este <img>. */}
+        <img className="w-8 hidden md:block" src={logoUrl} width="32" height="32" alt="" />
+        <img className="h-9" src={logoTxtUrl} width="174" height="36" alt="Padeleando" />
       </div>
 
       <div className="flex items-center gap-2">
@@ -272,6 +275,8 @@ export default function Header() {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => { setNotifOpen(false); setMenuOpen(o => !o); }}
+            aria-label={isLoggedIn ? 'Abrir menú de tu cuenta' : 'Iniciar sesión'}
+            aria-expanded={menuOpen}
             className={`relative flex items-center bg-transparent rounded-full cursor-pointer transition-opacity hover:opacity-80 ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong text-muted hover:text-soft rounded-lg'}`}
           >
             {isLoggedIn

@@ -37,7 +37,20 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,100..900;1,100..900&family=Unbounded:wght@200..900&display=swap" rel="stylesheet">
+    <!-- La hoja de Google Fonts bloqueaba el render 786 ms (medido con
+         Lighthouse) y encadenaba HTML → CSS → woff2, 553 ms de ruta crítica.
+         Cargada como preload deja de bloquear; con display=swap el texto se
+         pinta antes con la fuente de sistema y se sustituye al llegar.
+         Los rangos de peso van acotados a los que la app usa de verdad
+         (400-900): el rango completo 100..900 traía glifos que nadie pide. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400..900;1,400..700&family=Unbounded:wght@400..900&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400..900;1,400..700&family=Unbounded:wght@400..900&display=swap">
+    </noscript>
 
     <script src="https://accounts.google.com/gsi/client" async></script>
   </head>

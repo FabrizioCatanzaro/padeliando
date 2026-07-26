@@ -63,14 +63,15 @@ function Layout() {
           <AdBanner slot="sidebar" />
         </aside>
 
-        {/* Contenido principal */}
-        <div className="flex-1 w-full max-w-7xl min-w-0 pb-16 xl:pb-0">
+        {/* Contenido principal. <main> es el landmark que los lectores de
+            pantalla usan para saltar la navegación repetida. */}
+        <main className="flex-1 w-full max-w-7xl min-w-0 pb-16 xl:pb-0">
           {/* El Loader reserva 70vh, así que la cabecera no salta cuando entra
               el chunk de la ruta. */}
           <Suspense fallback={<Loader />}>
             <Outlet />
           </Suspense>
-        </div>
+        </main>
 
         {/* Banner lateral derecho — solo desktop */}
         <aside className="hidden xl:flex flex-col items-center pt-4 w-40 shrink-0 px-2">

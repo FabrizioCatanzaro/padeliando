@@ -327,7 +327,7 @@ export default function HomeView() {
         {!isLoggedIn && !committedQ && (
           <div className="text-center pt-6 pb-12 sm:pt-12 sm:pb-16">
             <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-border-mid">
-              <img src={logoUrl} className="w-4 h-4" alt="" />
+              <img src={logoUrl} className="w-4 h-4" width="16" height="16" alt="" />
               <span className="font-mono text-[11px] tracking-widest text-secondary">PADELEANDO</span>
             </div>
             <h1 className="font-condensed font-bold text-3xl sm:text-5xl leading-[1.1] text-white max-w-2xl mx-auto">
@@ -377,6 +377,7 @@ export default function HomeView() {
             <button
               onClick={handleSearch}
               disabled={searchQ.trim().length < 2 || committing}
+              aria-label="Buscar"
               className="bg-surface border border-border-mid text-white px-4 py-3 rounded-lg cursor-pointer hover:border-border-strong transition-colors disabled:opacity-30"
             >
               {committing ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
