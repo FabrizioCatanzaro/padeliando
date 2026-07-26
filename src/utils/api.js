@@ -20,11 +20,16 @@ async function handleAuth401(method, path, retry, replay) {
 }
 
 async function req(method, path, body, retry = true) {
+  const hasBody = body !== undefined
   const res = await fetch(`${BASE}/api${path}`, {
     method,
-    headers:     { 'Content-Type': 'application/json' },
+    // Sólo se declara el tipo cuando hay cuerpo que describir. Mandarlo
+    // siempre sacaba a los GET de la lista segura de CORS y les anteponía un
+    // OPTIONS: 360 ms medidos antes de cada lectura, con la caché de preflight
+    // en los 5 s que asume el navegador por defecto.
+    headers:     hasBody ? { 'Content-Type': 'application/json' } : undefined,
     credentials: 'include',
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: hasBody ? JSON.stringify(body) : undefined,
   })
 
   if (res.status === 401) {
