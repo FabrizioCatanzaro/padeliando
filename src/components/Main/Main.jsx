@@ -270,7 +270,7 @@ export default function Main() {
       <div className="p-6">
         {/* Liga tabs */}
         {activeTab === "standings"  && <Standings  tournament={tournament} />}
-        {activeTab === "matches"    && <Matches    tournament={tournament} isOwner={canEditMatches} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
+        {activeTab === "matches"    && <Matches    tournament={tournament} isOwner={canEditMatches} categoryName={groupName} onAddMatch={handleAddMatch} onEditMatch={handleEditMatch} onDeleteMatch={handleDeleteMatch} onSetLiveMatch={handleSetLiveMatch} />}
         {activeTab === "stats"      && <Stats      tournament={tournament} ownerIsPremium={groupOwnerIsPremium} />}
 
         {/* Americano tabs */}
@@ -278,6 +278,7 @@ export default function Main() {
           <Previa
             tournament={tournament}
             isOwner={canEditMatches}
+            categoryName={groupName}
             onAddMatch={handleAddMatch}
             onEditMatch={handleEditMatch}
             onDeleteMatch={handleDeleteMatch}

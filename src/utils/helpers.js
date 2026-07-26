@@ -92,6 +92,9 @@ export function expandPair(pairId, pairs) {
 export function adaptMatch(m) {
   return {
     ...m,
+    // La API devuelve created_at; sin este alias los sort por createdAt daban NaN
+    // y el orden quedaba a merced del ORDER BY del backend.
+    createdAt:   m.created_at ?? m.createdAt ?? null,
     team1:       [m.team1_p1, m.team1_p2],
     team2:       [m.team2_p1, m.team2_p2],
     date:        m.played_at?.slice(0, 10) ?? m.date ?? '',
@@ -193,6 +196,85 @@ export function clubCourts(club) {
 export function courtLabel(tournament, court) {
   if (tournament?.number_of_courts === 0) return '-';
   return court != null ? String(court) : null;
+}
+
+/**
+ * Arma el texto plano del fixture de un torneo para compartir (WhatsApp, etc.).
+ *
+ *   NOMBRE TORNEO - Categoría
+ *   Club | 📅 26/07/2026
+ *
+ *   Partido #1 (12:34 min)
+ *   📍 Cancha 2: Ana & Bea [6] - 4 Caro & Dani
+ *
+ * El marcador del ganador va entre corchetes. Los partidos se numeran del más
+ * viejo al más nuevo (igual que el #N de las tarjetas).
+ *
+ * @param {object} tournament  torneo ya normalizado por adaptTournament
+ * @param {array}  matches     partidos a incluir (por defecto, los del torneo)
+ * @param {object} opts        { bold, categoryName } → bold envuelve torneo,
+ *                             categoría y "Partido #N" en * (negrita de WhatsApp)
+ */
+export function buildFixtureText(
+  tournament,
+  matches = tournament?.matches ?? [],
+  { bold = false, categoryName } = {},
+) {
+  const { players = [], pairs = [], mode } = tournament ?? {};
+
+  const teamLabel = (team = []) => {
+    if (mode === 'pairs') {
+      const pair = pairs?.find(
+        (p) => (p.p1 === team[0] && p.p2 === team[1]) || (p.p1 === team[1] && p.p2 === team[0])
+      );
+      if (pair) return getPairLabel(pair.id, pairs, players);
+    }
+    return team.map((id) => players.find((p) => p.id === id)?.name ?? '?').join(' & ');
+  };
+
+  // Del más viejo al más nuevo: el #1 del fixture es el primer partido jugado.
+  const playedAt = (m) => new Date(m.createdAt ?? m.created_at ?? m.date ?? 0).getTime();
+  const played = matches
+    .filter((m) => m.score1 !== '' && m.score1 != null && m.score2 !== '' && m.score2 != null)
+    .slice()
+    .sort((a, b) => playedAt(a) - playedAt(b));
+
+  const b = (s) => (bold ? `*${s}*` : s);
+
+  const category = categoryName ?? tournament?.group_name ?? null;
+  const title = `🎾 ${[tournament?.name, category].filter(Boolean).map(b).join(' - ')}`;
+  const place = `📍 ${tournament?.club_name || null}`;
+  const when  = `📅 ${fmt(tournament?.event_date ?? tournament?.createdAt)}`;
+  const header = [title, [place, when].filter(Boolean).join(' | ')].filter(Boolean).join('\n');
+
+  if (played.length === 0) return `${header}\n\nTodavía no hay partidos jugados.`;
+
+  const blocks = played.map((m, i) => {
+    // Con 1 set mostramos el score del set, no los sets ganados (que sería 1-0)
+    const s1 = m.sets_format === 1 ? (m.sets?.[0]?.s1 ?? m.score1) : m.score1;
+    const s2 = m.sets_format === 1 ? (m.sets?.[0]?.s2 ?? m.score2) : m.score2;
+    const win1 = parseInt(s1) > parseInt(s2);
+
+    const score = win1 ? `[${s1}] - ${s2}` : `${s1} - [${s2}]`;
+    const court = courtLabel(tournament, m.court);
+    const prefix = court != null ? `Cancha ${court}: ` : '';
+
+    // Parciales al final, sólo en partidos al mejor de 3 sets
+    const nv = m.sets_format === 3 ? visibleSetsCount(m.sets_format, m.sets) : 0;
+    const partials = nv > 0
+      ? ` (${(m.sets ?? []).slice(0, nv).map((s) => `${s.s1}-${s.s2}`).join(', ')})`
+      : '';
+
+    // Duración sólo si el partido se cronometró
+    const secs = m.duration_seconds;
+    const dur = secs != null
+      ? ` (${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')} min)`
+      : '';
+
+    return `${b(`Partido #${i + 1}`)}${dur}\n${prefix}${teamLabel(m.team1)} ${score} ${teamLabel(m.team2)}${partials}`;
+  });
+
+  return `${header}\n\n${blocks.join('\n\n')}`;
 }
 
 export function adaptTournament(t) {

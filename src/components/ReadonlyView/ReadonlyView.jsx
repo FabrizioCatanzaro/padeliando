@@ -17,6 +17,7 @@ import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
 import ShareModal from "../shared/ShareModal";
+import ShareFixtureModal from "../shared/ShareFixtureModal";
 import QrModal from "../shared/QrModal";
 
 const PHASE_LABEL = { previa: 'FASE PREVIA', octavos: 'OCTAVOS', cuartos: 'CUARTOS', semis: 'SEMIS', final: 'FINAL' };
@@ -606,7 +607,7 @@ export default function ReadonlyView() {
       <div className="p-6">
         {activeTab === "standings" && <Standings tournament={tournament} />}
         {activeTab === "stats"     && <Stats     tournament={tournament} ownerIsPremium={groupOwnerIsPremium} />}
-        {activeTab === "matches"   && <><SpectatorLive tournament={tournament} isAmericano={isAmericano} scope="previa" /><ReadonlyMatches tournament={tournament} /></>}
+        {activeTab === "matches"   && <><SpectatorLive tournament={tournament} isAmericano={isAmericano} scope="previa" /><ReadonlyMatches tournament={tournament} groupName={groupName} /></>}
         {activeTab === "players"   && <ReadonlyPlayers tournament={tournament} />}
         {activeTab === "bracket"   && <><SpectatorLive tournament={tournament} isAmericano={isAmericano} scope="bracket" /><Bracket tournament={tournament} isOwner={false} /></>}
 
@@ -1418,15 +1419,40 @@ function SpectatorLive({ tournament, isAmericano, scope }) {
   );
 }
 
-function ReadonlyMatches({ tournament }) {
-  const played = tournament.matches.filter((m) => m.score1 !== "" && m.score2 !== "");
+function ReadonlyMatches({ tournament, groupName }) {
+  const [shareFixture, setShareFixture] = useState(false);
+  // Más nuevo primero, igual que en la vista del organizador: así el #1 (played.length - i)
+  // le toca al primer partido jugado.
+  const played = tournament.matches
+    .filter((m) => m.score1 !== "" && m.score2 !== "")
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   if (played.length === 0)
     return <div className="text-center text-dim py-10 font-sans">No hay partidos jugados todavía.</div>;
   return (
-    <div className="flex flex-col gap-2.5">
-      {played.map((m, i) => (
-        <MatchCard key={m.id} match={m} tournament={tournament} isOwner={false} matchNum={played.length - i} />
-      ))}
+    <div>
+      {shareFixture && (
+        <ShareFixtureModal
+          tournament={tournament}
+          matches={played}
+          categoryName={groupName}
+          onClose={() => setShareFixture(false)}
+        />
+      )}
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={() => setShareFixture(true)}
+          title="Compartir partidos"
+          aria-label="Compartir partidos"
+          className="inline-flex items-center gap-2 bg-transparent text-muted border border-border-strong px-3 py-2 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm hover:text-white transition-colors"
+        >
+          <Share2 size={14} /> COMPARTIR
+        </button>
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {played.map((m, i) => (
+          <MatchCard key={m.id} match={m} tournament={tournament} isOwner={false} matchNum={played.length - i} />
+        ))}
+      </div>
     </div>
   );
 }
