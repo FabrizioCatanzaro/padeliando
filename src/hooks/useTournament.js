@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
-import { adaptTournament, getTournamentWinnerLabel } from '../utils/helpers';
+import { adaptTournament, adaptMatch, getTournamentWinnerLabel } from '../utils/helpers';
 import { useAuth } from '../context/useAuth';
 import { useToast } from '../context/useToast';
 
@@ -88,8 +88,13 @@ export function useTournament(groupId, tournamentId) {
   }
  
   // ── Partidos ────────────────────────────────────────────────────────
+  // Cargar y corregir resultados es la acción más repetida del producto: se
+  // hace decenas de veces durante un torneo. Los tres endpoints devuelven la
+  // fila afectada (RETURNING *), así que se aplica esa respuesta al estado
+  // local en vez de volver a pedir el torneo entero. La tabla de posiciones se
+  // deriva de `matches` en el cliente, de modo que se actualiza sola.
   async function handleAddMatch(matchData) {
-    await api.matches.create({
+    const created = await api.matches.create({
       tournamentId: tournament.id,
       team1:        matchData.team1,
       team2:        matchData.team2,
@@ -101,13 +106,16 @@ export function useTournament(groupId, tournamentId) {
       sets:         matchData.sets ?? [],
       court:        matchData.court ?? null,
     });
-    await reload();
+    // El backend ordena por created_at DESC: el nuevo va al principio.
+    setTournament((prev) =>
+      prev ? { ...prev, matches: [adaptMatch(created), ...prev.matches] } : prev
+    );
     flash();
     showToast('Partido registrado');
   }
 
   async function handleEditMatch(matchId, matchData) {
-    await api.matches.update(matchId, {
+    const updated = await api.matches.update(matchId, {
       team1:            matchData.team1,
       team2:            matchData.team2,
       score1:           matchData.score1,
@@ -118,14 +126,20 @@ export function useTournament(groupId, tournamentId) {
       sets:             matchData.sets ?? [],
       court:            matchData.court ?? null,
     });
-    await reload();
+    setTournament((prev) =>
+      prev
+        ? { ...prev, matches: prev.matches.map((m) => (m.id === matchId ? adaptMatch(updated) : m)) }
+        : prev
+    );
     flash();
     showToast('Partido actualizado');
   }
 
   async function handleDeleteMatch(matchId) {
     await api.matches.delete(matchId);
-    await reload();
+    setTournament((prev) =>
+      prev ? { ...prev, matches: prev.matches.filter((m) => m.id !== matchId) } : prev
+    );
     showToast('Partido eliminado', 'error');
   }
  
@@ -207,24 +221,32 @@ export function useTournament(groupId, tournamentId) {
     showToast('Torneo eliminado', 'error');
   }
 
+  // PATCH devuelve la fila de tournaments, sin players/pairs/matches ni los
+  // campos derivados de los JOIN (club_name, owner_is_premium…). Por eso se
+  // fusionan sólo los campos escalares que la propia respuesta trae, en vez de
+  // reemplazar el torneo entero.
   async function handleToggleStatus() {
     const newStatus = tournament.status === 'active' ? 'finished' : 'active';
     const body = { status: newStatus };
     if (newStatus === 'finished') body.winner_label = getTournamentWinnerLabel(tournament) ?? '';
-    await api.tournaments.update(tournament.id, body);
-    await reload();
+    const updated = await api.tournaments.update(tournament.id, body);
+    setTournament((prev) =>
+      prev ? { ...prev, status: updated.status, winner_label: updated.winner_label } : prev
+    );
     showToast(newStatus === 'finished' ? 'Torneo finalizado' : 'Torneo reanudado', 'info');
   }
 
   async function handleUpdateName(name) {
-    await api.tournaments.update(tournament.id, { name });
-    await reload();
+    const updated = await api.tournaments.update(tournament.id, { name });
+    setTournament((prev) => (prev ? { ...prev, name: updated.name } : prev));
     showToast('Nombre actualizado');
   }
 
+  // Acá sí hace falta recargar: club_name y club_courts salen de un JOIN con
+  // clubs que el PATCH no devuelve.
   async function handleUpdateClubEvent({ club_id, event_date, number_of_courts }) {
     await api.tournaments.update(tournament.id, { club_id, event_date, number_of_courts });
-    await reload();
+    await reload(true);
     showToast('Club y fecha actualizados');
   }
 
