@@ -1,6 +1,6 @@
 import { Phone, UserRoundSearch } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import logoTxtUrl from '../../assets/padeleando-txt.png'
+import logoTxtUrl from '../../assets/padeleando-txt.webp'
 
 const legalLinks = [
   { to: '/sobre-nosotros', label: 'Sobre nosotros' },
@@ -16,7 +16,7 @@ export default function Footer() {
     <footer className="border-t border-border bg-base px-6 py-6 flex flex-col items-center gap-4 mt-6">
       <div className="w-full flex flex-col items-center gap-4 sm:flex-row sm:justify-between sm:items-center">
         <div className="flex flex-row gap-2 items-center font-condensed font-black text-lg tracking-widest text-gray-700">
-          <img src={logoTxtUrl} alt="Padeleando" className="max-h-10 grayscale" />
+          <img src={logoTxtUrl} alt="Padeleando" width="193" height="40" className="max-h-10 grayscale" />
         </div>
         <div className="flex flex-row flex-wrap justify-center items-center gap-5 sm:justify-end">
           <span className="text-xs text-muted font-mono">

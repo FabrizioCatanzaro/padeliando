@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { calcStandings, adaptTournament, getTournamentWinnerLabel } from "../../utils/helpers";
 import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Swords, Trophy } from "lucide-react";
@@ -93,9 +93,9 @@ function CurrentStats({ tournament }) {
   const { players, mode, pairs: tournamentPairs } = tournament;
   const isPairs = mode === "pairs";
 
-  const matches = getAllMatches(tournament);
-  const played    = matches.filter((m) => m.score1 !== "" && m.score2 !== "");
-  const standings = calcStandings(players, matches);
+  const matches   = useMemo(() => getAllMatches(tournament), [tournament]);
+  const played    = useMemo(() => matches.filter((m) => m.score1 !== "" && m.score2 !== ""), [matches]);
+  const standings = useMemo(() => calcStandings(players, matches), [players, matches]);
   const isAmericano = tournament.format === 'americano';
 
   const partnerMap = {};
@@ -412,20 +412,24 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const [showStory, setShowStory] = useState(false);
   const navigate = useNavigate();
 
-  if (tournaments.length === 0)
-    return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos anteriores registrados.</div>;
-
-  const hasPairMode = tournaments.some((t) => t.mode === "pairs");
-  const allPairMode = tournaments.every((t) => t.mode === "pairs");
-
   // ── Standings individuales + movimiento de ranking ──────────────────────
-  const sortedByDate = [...tournaments].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  // buildIndividualRows llama a calcStandings una vez por torneo, así que
+  // recorre el histórico completo. Se invocaba hasta cuatro veces por render, y
+  // los tres useState de arriba (modal premium, orden del ranking, historia)
+  // rehacían todo el cálculo con cada clic.
+  const sortedByDate = useMemo(
+    () => [...tournaments].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+    [tournaments]
+  );
   // Base por rendimiento (%): se usa para las tarjetas y gráficos (mejor jugador, etc.).
-  const individualRows = buildIndividualRows(sortedByDate);
+  const individualRows = useMemo(() => buildIndividualRows(sortedByDate), [sortedByDate]);
   // Orden del ranking según el switch (rendimiento % o partidos ganados).
-  const rankedRows = rankMode === 'wins' ? buildIndividualRows(sortedByDate, 'wins') : individualRows;
+  const rankedRows = useMemo(
+    () => (rankMode === 'wins' ? buildIndividualRows(sortedByDate, 'wins') : individualRows),
+    [rankMode, sortedByDate, individualRows]
+  );
 
-  const movementMap = (() => {
+  const movementMap = useMemo(() => {
     if (sortedByDate.length < 2) return {};
     const prevRows = buildIndividualRows(sortedByDate.slice(0, -1), rankMode);
     const prevRank = Object.fromEntries(prevRows.map((r, i) => [r.name, i + 1]));
@@ -439,7 +443,13 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
         return [r.name, null];
       })
     );
-  })();
+  }, [sortedByDate, rankMode, rankedRows]);
+
+  if (tournaments.length === 0)
+    return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos anteriores registrados.</div>;
+
+  const hasPairMode = tournaments.some((t) => t.mode === "pairs");
+  const allPairMode = tournaments.every((t) => t.mode === "pairs");
 
   // ── Standings por pareja ────────────────────────────────────────────────
   const pairMap = {};

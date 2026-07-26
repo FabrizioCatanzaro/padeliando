@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Navigation, Loader2, Search } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
+// El CSS de Leaflet se importa junto al módulo, dentro del useEffect. Como
+// import estático se fundía en la hoja principal (15,6 KB de CSS bloqueante en
+// todas las páginas) aunque el JS ya se cargara bajo demanda.
 
 const PIN_HTML = `<div style="width:20px;height:20px;background:#e8f04a;border:3px solid #0a0e1a;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.6)"></div>`;
 // Sesgo hacia Argentina para la búsqueda de direcciones (bbox: minLon,minLat,maxLon,maxLat).
@@ -44,7 +46,10 @@ export default function MapPicker({ initialLat, initialLon, onConfirm, onClose }
   }
 
   useEffect(() => {
-    import('leaflet').then(({ default: L }) => {
+    Promise.all([
+      import('leaflet'),
+      import('leaflet/dist/leaflet.css'),
+    ]).then(([{ default: L }]) => {
       if (mapRef.current) return;
 
       const startLat = initialLat ?? -38;

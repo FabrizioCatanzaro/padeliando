@@ -1,20 +1,60 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./src/assets/padeleando.ico" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,100..900;1,100..900&family=Unbounded:wght@200..900&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Padeleando</title>
+
+    <!-- El isotipo SVG de la marca es negro sobre transparente, así que se
+         perdería en pestañas con tema oscuro: el favicon se genera del logo,
+         que lleva su propio fondo. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
+
+    <title>Padeleando — Organizá tus torneos de pádel</title>
+    <meta name="description" content="Armá torneos de pádel en formato Liga o Americano, cargá los resultados en vivo y compartí la tabla de posiciones con un link. Gratis." />
+
+    <!-- Open Graph: sin SSR estas etiquetas son fijas para todo el sitio. Los
+         enlaces a torneos y perfiles necesitan valores por página; eso requiere
+         una función en el borde que las inyecte según la ruta. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Padeleando" />
+    <meta property="og:locale" content="es_AR" />
+    <meta property="og:title" content="Padeleando — Organizá tus torneos de pádel" />
+    <meta property="og:description" content="Armá torneos en formato Liga o Americano, cargá los resultados en vivo y compartí la tabla con un link." />
+    <meta property="og:image" content="/logo512.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Padeleando — Organizá tus torneos de pádel" />
+    <meta name="twitter:description" content="Armá torneos en formato Liga o Americano, cargá los resultados en vivo y compartí la tabla con un link." />
+    <meta name="twitter:image" content="/logo512.png" />
+
     <meta name="theme-color" content="#0a0e1a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Padeleando" />
-    <link rel="apple-touch-icon" href="/logo192.png" />
-    <script src="https://accounts.google.com/gsi/client" async></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- La hoja de Google Fonts bloqueaba el render 786 ms (medido con
+         Lighthouse) y encadenaba HTML → CSS → woff2, 553 ms de ruta crítica.
+         Cargada como preload deja de bloquear; con display=swap el texto se
+         pinta antes con la fuente de sistema y se sustituye al llegar.
+         Los rangos de peso van acotados a los que la app usa de verdad
+         (400-900): el rango completo 100..900 traía glifos que nadie pide. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400..900;1,400..700&family=Unbounded:wght@400..900&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400..900;1,400..700&family=Unbounded:wght@400..900&display=swap">
+    </noscript>
+
+    <!-- El script de Google Identity ya no se carga acá: pesaba 98,6 KB con un
+         83 % de código sin ejecutar en toda visita, y sólo hace falta en el
+         formulario de acceso. Lo pide AuthView al montarse. -->
   </head>
   <body>
     <div id="root"></div>

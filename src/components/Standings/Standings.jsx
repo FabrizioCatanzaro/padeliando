@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Trophy } from "lucide-react";
 import { calcStandings } from "../../utils/helpers";
 import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
@@ -52,12 +52,21 @@ const POS_COLOR = ['text-amber-400', 'text-[#b0b8c8]', 'text-[#cd7f32]'];
 
 export default function Standings({ tournament }) {
   const [showStory, setShowStory] = useState(false);
-  const individualRows = calcStandings(tournament.players, tournament.matches);
+  // calcStandings recorre todos los partidos por cada jugador y ordena: sin
+  // memoizar se rehacía en cada render, incluido el de abrir el modal de
+  // historia.
+  const individualRows = useMemo(
+    () => calcStandings(tournament.players, tournament.matches),
+    [tournament.players, tournament.matches]
+  );
   const isPairs        = tournament.mode === "pairs";
   const isAmericano    = tournament.format === "americano";
   const hasPairs       = isPairs && tournament.pairs?.length > 0;
 
-  const playerById = Object.fromEntries(tournament.players.map((p) => [String(p.id), p]));
+  const playerById = useMemo(
+    () => Object.fromEntries(tournament.players.map((p) => [String(p.id), p])),
+    [tournament.players]
+  );
 
   let displayRows;
   if (hasPairs) {

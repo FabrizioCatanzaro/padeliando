@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { X, Check, Zap, Gift, ChevronDown, Loader2 } from 'lucide-react';
 import { api } from '../../utils/api';
-import sofiaImg from '../../assets/Sofia.png';
-import romanImg from '../../assets/Romannn.png';
-import leitoImg from '../../assets/Leito.png';
+import sofiaImg from '../../assets/Sofia.webp';
+import romanImg from '../../assets/Romannn.webp';
+import leitoImg from '../../assets/Leito.webp';
 
 const SOCIAL_AVATARS = [
   { src: sofiaImg, alt: 'Sofía' },

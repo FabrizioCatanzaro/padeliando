@@ -4,8 +4,8 @@ import { User, CircleHelp, Bell } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 import { api } from '../../utils/api'
 import { renderRichText } from '../../utils/richText'
-import logoUrl from '../../assets/padeleando.ico'
-import logoTxtUrl from '../../assets/padeleando-txt.png'
+import logoUrl from '../../assets/padeleando-logo.webp'
+import logoTxtUrl from '../../assets/padeleando-txt.webp'
 import PlayerAvatar from './PlayerAvatar'
 
 
@@ -100,12 +100,28 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // El contador se refresca al montar y cada 2 minutos, sólo con la pestaña
+  // visible. Antes dependía de location.pathname, así que cada navegación
+  // interna del SPA disparaba una petición al backend.
   useEffect(() => {
-    if (!isLoggedIn) return;
-    api.notifications.count()
-      .then(d => setNotifCount(d.count ?? 0))
-      .catch(() => {})
-  }, [isLoggedIn, location.pathname])
+    if (!isLoggedIn) { setNotifCount(0); return; }
+
+    const fetchCount = () => {
+      if (document.hidden) return;
+      api.notifications.count()
+        .then(d => setNotifCount(d.count ?? 0))
+        .catch(() => {});
+    };
+
+    fetchCount();
+    const id = setInterval(fetchCount, 120_000);
+    // Al volver a la pestaña, ponerse al día sin esperar al próximo intervalo.
+    document.addEventListener('visibilitychange', fetchCount);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', fetchCount);
+    };
+  }, [isLoggedIn])
 
   const openNotifications = useCallback(async () => {
     if (notifOpen) { setNotifOpen(false); return; }
@@ -183,8 +199,11 @@ export default function Header() {
         className="flex flex-row gap-2 items-center cursor-pointer"
         onClick={() => location.pathname === '/' ? navigate(0) : navigate('/')}
       >
-        <img className="w-8 hidden md:block" src={logoUrl} />
-        <img className="h-9" src={logoTxtUrl} />
+        {/* width/height explícitos: sin ellos el navegador no reserva espacio
+            hasta que la imagen carga, y el layout salta. Lighthouse lo midió
+            como un CLS de 0,685 originado en este <img>. */}
+        <img className="w-8 hidden md:block" src={logoUrl} width="32" height="32" alt="" />
+        <img className="h-9" src={logoTxtUrl} width="174" height="36" alt="Padeleando" />
       </div>
 
       <div className="flex items-center gap-2">
@@ -256,6 +275,8 @@ export default function Header() {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => { setNotifOpen(false); setMenuOpen(o => !o); }}
+            aria-label={isLoggedIn ? 'Abrir menú de tu cuenta' : 'Iniciar sesión'}
+            aria-expanded={menuOpen}
             className={`relative flex items-center bg-transparent rounded-full cursor-pointer transition-opacity hover:opacity-80 ${isLoggedIn ? 'p-0 border-0' : 'p-2 border border-border-strong text-muted hover:text-soft rounded-lg'}`}
           >
             {isLoggedIn
