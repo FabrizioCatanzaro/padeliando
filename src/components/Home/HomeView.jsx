@@ -45,10 +45,18 @@ function writeNearbyCache(items) {
 
 
 export default function HomeView() {
+  // Se lee antes que el resto del estado porque la vitrina de "se está jugando"
+  // necesita saber, ya en el primer render, si va a mostrarse.
+  const { isLoggedIn, user } = useAuth();
+
   const [groups,       setGroups]       = useState([]);
   const [partGroups,   setPartGroups]   = useState([]);
   const [coorgGroups,  setCoorgGroups]  = useState([]);
-  const [loading,      setLoading]      = useState(true);
+  // Sólo hay algo que esperar si hay sesión: un visitante no dispara ninguna
+  // petición para pintar la portada. Arrancando en true, el primer render
+  // devolvía el esqueleto de la vista con sesión y al apagarse se insertaba el
+  // hero completo, empujando el resto ~480 px. Ese era el CLS de 0,685.
+  const [loading,      setLoading]      = useState(isLoggedIn);
   const [name,         setName]         = useState('');
   const [desc,         setDesc]         = useState('');
   const [isPublic,     setIsPublic]     = useState(true);
@@ -75,14 +83,17 @@ export default function HomeView() {
   const [nearbyPage,     setNearbyPage]     = useState(NEARBY_INITIAL);
 
   const [featured,        setFeatured]        = useState([]);
-  const [featuredLoading, setFeaturedLoading] = useState(false);
+  // Arranca en true para visitantes: si empezara en false, la sección entera no
+  // existiría en el primer render y se insertaría al arrancar la carga,
+  // empujando todo lo de abajo. Ese salto era un CLS de 0,685 —el elemento que
+  // Lighthouse marcaba como desplazado— y no lo causaba el logo.
+  const [featuredLoading, setFeaturedLoading] = useState(!isLoggedIn);
   const featuredScrollRef = useRef(null);
   const [canScrollL,  setCanScrollL]  = useState(false);
   const [canScrollR,  setCanScrollR]  = useState(false);
   const [scrollThumb, setScrollThumb] = useState(1); // proporción visible (0-1)
   const [scrollPos,   setScrollPos]   = useState(0); // posición del pulgar (0-1)
 
-  const { isLoggedIn, user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
