@@ -95,6 +95,10 @@ export const api = {
     participating: ()         => req('GET',    '/groups/participating'),
     collaborating: ()         => req('GET',    '/groups/collaborating'),
     get:           (id)       => req('GET',    `/groups/${id}`),
+    // Metadata mínima (nombre, emojis, permisos): una sola consulta en el
+    // backend, frente a las ~10 de groups.get. Para vistas que sólo necesitan
+    // encabezar con el nombre de la categoría.
+    meta:          (id)       => req('GET',    `/groups/${id}/meta`),
     history:       (id)       => req('GET',    `/groups/${id}/history`),
     create:        (body)     => req('POST',   '/groups', body),
     update:        (id, b)    => req('PUT',    `/groups/${id}`, b),

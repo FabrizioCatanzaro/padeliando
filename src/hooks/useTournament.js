@@ -12,6 +12,8 @@ export function useTournament(groupId, tournamentId) {
   const [groupOwnerIsPremium, setGroupOwnerIsPremium] = useState(false);
   const [groupName,  setGroupName]  = useState(null);
   const [groupEmojis, setGroupEmojis] = useState([]);
+  // groupId puede venir de la URL o resolverse desde el torneo cargado.
+  const [groupIdResolved, setGroupIdResolved] = useState(groupId ?? null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [saved,      setSaved]      = useState(false);
@@ -22,8 +24,9 @@ export function useTournament(groupId, tournamentId) {
   const reload = useCallback(async (silent = false) => {
     if (!tournamentId) {
       if (groupId) {
+        setGroupIdResolved(groupId);
         try {
-          const g = await api.groups.get(groupId);
+          const g = await api.groups.meta(groupId);
           setGroupOwnerIsPremium(g.owner_is_premium ?? false);
         } catch { /* ignorar */ }
       }
@@ -36,20 +39,32 @@ export function useTournament(groupId, tournamentId) {
       setTournament(adaptTournament(t));
       setCanManage(t.can_manage ?? false);
       setGroupOwnerIsPremium(t.owner_is_premium ?? false);
-      const gId = groupId ?? t.group_id;
-      if (gId) {
-        const g = await api.groups.get(gId);
-        setGroupName(g.name);
-        setGroupEmojis(g.emojis ?? []);
-      }
+      setGroupIdResolved(groupId ?? t.group_id ?? null);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
   }, [tournamentId, groupId]);
- 
+
   useEffect(() => { reload(); }, [reload]);
+
+  // El nombre y los emojis de la categoría no cambian mientras se juega, así
+  // que se piden una vez y no en cada reload(). Antes iban encadenados dentro
+  // de reload() —una segunda petición en serie— y se repetían tras cada
+  // partido, jugador o pareja que se cargaba.
+  useEffect(() => {
+    if (!groupIdResolved) return;
+    let cancelled = false;
+    api.groups.meta(groupIdResolved)
+      .then((g) => {
+        if (cancelled) return;
+        setGroupName(g.name);
+        setGroupEmojis(g.emojis ?? []);
+      })
+      .catch(() => { /* el encabezado se muestra sin nombre de categoría */ });
+    return () => { cancelled = true; };
+  }, [groupIdResolved]);
  
   function flash() { setSaved(true); setTimeout(() => setSaved(false), 1500); }
  

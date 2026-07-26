@@ -1,37 +1,45 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { useAuth } from './context/useAuth'
 import Header       from './components/shared/Header'
 import Footer       from './components/shared/Footer'
 import AdBanner     from './components/shared/AdBanner'
+import Loader       from './components/Loader/Loader'
+
+// La portada y el login se cargan con el bundle inicial: son el punto de
+// entrada de casi todas las visitas.
 import HomeView     from './components/Home/HomeView'
-import GroupView    from './components/Group/GroupView'
 import AuthView     from './components/Auth/AuthView'
-import ProfileView  from './components/Auth/ProfileView'
-import ResetPassword from './components/Auth/ResetPassword'
-import VerifyEmail   from './components/Auth/VerifyEmail'
-import AdminDashboard      from './components/Admin/AdminDashboard'
-import AdminUsers          from './components/Admin/AdminUsers'
-import AdminTournaments    from './components/Admin/AdminTournaments'
-import AdminNotifications  from './components/Admin/AdminNotifications'
-import AdminClubs          from './components/Admin/AdminClubs'
-import AdminClubRequests   from './components/Admin/AdminClubRequests'
-import ClubProfileView     from './components/Club/ClubProfileView'
-import Setup        from './components/Setup/Setup'
-import MainView     from './components/Main/Main'
-import ReadonlyView    from './components/ReadonlyView/ReadonlyView'
-import InvitationsView    from './components/Invitations/InvitationsView'
-import InviteAccept        from './components/Invitations/InviteAccept'
-import NotificationsView  from './components/Notifications/NotificationsView'
-import TutorialView      from './components/Tutorial/TutorialView'
-import SubscriptionSuccess from './components/Subscription/SubscriptionSuccess'
-import SubscriptionFailure from './components/Subscription/SubscriptionFailure'
-import SubscriptionPending from './components/Subscription/SubscriptionPending'
-import SubscriptionManage  from './components/Subscription/SubscriptionManage'
-import FAQView      from './components/Legal/FAQView'
-import AboutView    from './components/Legal/AboutView'
-import ContactView  from './components/Legal/ContactView'
-import TermsView    from './components/Legal/TermsView'
-import PrivacyView  from './components/Legal/PrivacyView'
+
+// El resto viaja en chunks propios. Antes las 39 rutas colapsaban en un único
+// archivo de 1,29 MB, así que un visitante anónimo en /view/:id descargaba y
+// compilaba el panel de admin y las pantallas de suscripción.
+const GroupView    = lazy(() => import('./components/Group/GroupView'))
+const ProfileView  = lazy(() => import('./components/Auth/ProfileView'))
+const ResetPassword = lazy(() => import('./components/Auth/ResetPassword'))
+const VerifyEmail   = lazy(() => import('./components/Auth/VerifyEmail'))
+const AdminDashboard      = lazy(() => import('./components/Admin/AdminDashboard'))
+const AdminUsers          = lazy(() => import('./components/Admin/AdminUsers'))
+const AdminTournaments    = lazy(() => import('./components/Admin/AdminTournaments'))
+const AdminNotifications  = lazy(() => import('./components/Admin/AdminNotifications'))
+const AdminClubs          = lazy(() => import('./components/Admin/AdminClubs'))
+const AdminClubRequests   = lazy(() => import('./components/Admin/AdminClubRequests'))
+const ClubProfileView     = lazy(() => import('./components/Club/ClubProfileView'))
+const Setup        = lazy(() => import('./components/Setup/Setup'))
+const MainView     = lazy(() => import('./components/Main/Main'))
+const ReadonlyView = lazy(() => import('./components/ReadonlyView/ReadonlyView'))
+const InviteAccept        = lazy(() => import('./components/Invitations/InviteAccept'))
+const NotificationsView   = lazy(() => import('./components/Notifications/NotificationsView'))
+const TutorialView        = lazy(() => import('./components/Tutorial/TutorialView'))
+const SubscriptionSuccess = lazy(() => import('./components/Subscription/SubscriptionSuccess'))
+const SubscriptionFailure = lazy(() => import('./components/Subscription/SubscriptionFailure'))
+const SubscriptionPending = lazy(() => import('./components/Subscription/SubscriptionPending'))
+const SubscriptionManage  = lazy(() => import('./components/Subscription/SubscriptionManage'))
+const FAQView      = lazy(() => import('./components/Legal/FAQView'))
+const AboutView    = lazy(() => import('./components/Legal/AboutView'))
+const ContactView  = lazy(() => import('./components/Legal/ContactView'))
+const TermsView    = lazy(() => import('./components/Legal/TermsView'))
+const PrivacyView  = lazy(() => import('./components/Legal/PrivacyView'))
 
 // Redirige los enlaces antiguos /readonly/:id a la nueva ruta /view/:id
 function RedirectToView() {
@@ -57,7 +65,11 @@ function Layout() {
 
         {/* Contenido principal */}
         <div className="flex-1 w-full max-w-7xl min-w-0 pb-16 xl:pb-0">
-          <Outlet />
+          {/* El Loader reserva 70vh, así que la cabecera no salta cuando entra
+              el chunk de la ruta. */}
+          <Suspense fallback={<Loader />}>
+            <Outlet />
+          </Suspense>
         </div>
 
         {/* Banner lateral derecho — solo desktop */}

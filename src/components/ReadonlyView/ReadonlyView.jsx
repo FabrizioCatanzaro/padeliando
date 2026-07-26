@@ -222,7 +222,7 @@ export default function ReadonlyView() {
     const gid = tournament?.group_id;
     if (!gid) return;
     let cancelled = false;
-    api.groups.get(gid)
+    api.groups.meta(gid)
       .then((g) => {
         if (cancelled) return;
         setGroupName(g.name);
