@@ -136,8 +136,77 @@ function ActivityHeatmap({ dailyActivity }) {
   );
 }
 
+// ── Rendimiento por día de la semana ─────────────────────────────────────────
+// La semana arranca el lunes; el backend usa el DOW de Postgres (0 = domingo).
+const WEEK = [
+  { dow: 1, label: 'Lun' }, { dow: 2, label: 'Mar' }, { dow: 3, label: 'Mié' },
+  { dow: 4, label: 'Jue' }, { dow: 5, label: 'Vie' }, { dow: 6, label: 'Sáb' },
+  { dow: 0, label: 'Dom' },
+];
+
+function WeekdayStats({ weekdayStats }) {
+  const byDow = Object.fromEntries((weekdayStats ?? []).map((w) => [w.dow, w]));
+  const rows = WEEK.map(({ dow, label }) => {
+    const row = byDow[dow];
+    const partidos = row?.partidos ?? 0;
+    const victorias = row?.victorias ?? 0;
+    return { label, partidos, victorias, winRate: partidos > 0 ? Math.round((victorias / partidos) * 100) : 0 };
+  });
+  const total = rows.reduce((acc, r) => acc + r.partidos, 0);
+  if (total === 0) return null;
+
+  // "Tu día" es el que más jugás; a igualdad de partidos, el de mejor registro.
+  const favorito = rows.reduce((best, r) =>
+    r.partidos > best.partidos || (r.partidos === best.partidos && r.winRate > best.winRate) ? r : best, rows[0]);
+
+  // Una liga semanal se juega siempre el mismo día: con uno o dos días activos
+  // el gráfico serían cinco barras en cero, así que sólo queda la tarjeta.
+  const activeDays = rows.filter((r) => r.partidos > 0).length;
+
+  return (
+    <div className="mb-6">
+      <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">POR DÍA DE LA SEMANA</div>
+      {favorito.partidos > 0 && (
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong mb-3">
+          <div className="font-condensed font-black text-[22px] text-white leading-none">{favorito.label}</div>
+          <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>TU DÍA</div>
+          <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+            {favorito.partidos} {favorito.partidos === 1 ? 'partido' : 'partidos'} · {favorito.winRate}% de victorias
+          </div>
+          <div className="h-0.5 rounded-full mt-2 bg-cyan opacity-40" />
+        </div>
+      )}
+      {activeDays >= 3 && (
+        <ResponsiveContainer width="100%" height={130}>
+          <BarChart data={rows} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={14}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: '#444', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: '#ffffff06' }} />
+            <Legend wrapperStyle={{ fontSize: 9, fontFamily: 'monospace', color: '#555', paddingTop: 4 }} />
+            <Bar dataKey="partidos" name="Partidos" fill="#4ab8f0" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="victorias" name="Victorias" fill="#4af07a" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+      {activeDays === 2 && (
+        <div className="text-[10px] font-mono text-dim">
+          {rows.filter((r) => r.partidos > 0).map((r) => `${r.label}: ${r.partidos} (${r.winRate}%)`).join(' · ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Duración en horas y minutos: "16 h 39 m", o sólo minutos si no llega a una hora.
+function fmtDuracion(segundos) {
+  const min = Math.round(segundos / 60);
+  if (min < 60) return `${min} m`;
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} m`;
+}
+
 // ── Estadísticas avanzadas (premium) ─────────────────────────────────────────
-export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
+export default function AdvancedStats({ stats, monthlyStats, dailyActivity, weekdayStats }) {
   const gf   = stats.games_favor  ?? 0;
   const gc   = stats.games_contra ?? 0;
   const diff = gf - gc;
@@ -162,6 +231,12 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
     }
     return result;
   })();
+
+  const timedMatches = stats.partidos_con_duracion ?? 0;
+  // Rendimiento en los partidos que se definieron por un solo game: dice si
+  // rinde o se cae en los partidos parejos.
+  const tightRate  = stats.ajustados > 0 ? Math.round((stats.ajustados_ganados / stats.ajustados) * 100) : 0;
+  const tightColor = tightRate >= 60 ? '#4af07a' : tightRate >= 40 ? '#e8f04a' : '#f07a4a';
 
   const activeMonths = filledMonths.filter(m => m.partidos > 0).length;
   const avgPerMonth  = activeMonths > 0 ? (stats.partidos / activeMonths).toFixed(1) : '—';
@@ -235,6 +310,37 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
         </div>
       </div>
 
+      {/* Tiempo en cancha + partidos ajustados.
+          La duración se carga con el cronómetro, así que no está en todos los
+          partidos: se aclara sobre cuántos se midió para que el número no
+          parezca el total de todo lo jugado. */}
+      {(timedMatches > 0 || (stats.ajustados ?? 0) > 0) && (
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {timedMatches > 0 && (
+            <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+              <div className="font-condensed font-black text-[22px] text-white leading-none">{fmtDuracion(stats.segundos_jugados ?? 0)}</div>
+              <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>EN CANCHA</div>
+              <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+                {timedMatches} de {stats.partidos} con tiempo · {fmtDuracion(stats.segundos_jugados / timedMatches)} promedio
+              </div>
+              <div className="h-0.5 rounded-full mt-2 bg-cyan opacity-40" />
+            </div>
+          )}
+          {(stats.ajustados ?? 0) > 0 && (
+            <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+              <div className="font-condensed font-black text-[22px] leading-none" style={{ color: tightColor }}>
+                {tightRate}%
+              </div>
+              <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>EN PARTIDOS PAREJOS</div>
+              <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+                {stats.ajustados_ganados} de {stats.ajustados} definidos por 1 game
+              </div>
+              <div className="h-0.5 rounded-full mt-2 opacity-40" style={{ background: tightColor }} />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Meses activos + Promedio */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
@@ -288,6 +394,9 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Rendimiento por día de la semana */}
+      <WeekdayStats weekdayStats={weekdayStats} />
 
       {/* Heatmap de actividad */}
       <ActivityHeatmap dailyActivity={dailyActivity} />

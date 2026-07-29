@@ -140,6 +140,13 @@ Rules that keep the three from drifting:
 - **The winrate ranking is smoothed** (`rankedWinRate`, prior of 2 matches toward the category mean) so a 1-0 record doesn't outrank an 18-4 one. The table still displays the real percentage.
 - Neon returns `DATE` columns as JS `Date` objects: use `dayKey()` before comparing or sorting them as strings.
 
+**Check the data before building a stat.** A July 2026 pass found two ideas that looked good and had nothing behind them:
+
+- `matches.sets` is filled on 18% of matches and **no match has ever used the 3-set format**, so "sets won" is just "matches won" and comebacks cannot exist. Nothing derived from `sets` is worth showing until 3-set matches exist.
+- A fixed games threshold for a "thrashing" is meaningless: matches here are played to 3, 4 or 6 games, so 41% end with a 1-game margin and only 2% reach a 4-game one. Use the 1-game margin (`ajustados`) which means the same at any length, and leave "biggest win" to the per-tournament card that needs no threshold.
+- `duration_seconds` covers 69% of matches, so anything derived from it must say how many matches it measured.
+- Leagues run on a fixed weekday: the profile's weekday chart only renders with 3+ active days, otherwise it is five empty bars.
+
 ### Theming
 - Theme variables live in `src/index.css` as CSS custom properties under `@theme`.
 - Dark mode is the **default**. Light mode adds the `.light` class to `<html>`.

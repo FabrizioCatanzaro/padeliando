@@ -4,7 +4,7 @@ import { fmt, calcNivel } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck, Share2 } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck, Share2, MapPin } from 'lucide-react';
 // Recharts sólo lo necesita este bloque, que además casi nunca se muestra.
 const AdvancedStats = lazy(() => import('./AdvancedStats'));
 import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
@@ -301,7 +301,7 @@ export default function ProfileView() {
   if (loading) return <Loader minHeight="100vh" />;
   if (error)   return <div className="text-danger p-10">{error}</div>;
 
-  const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats } = data;
+  const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats, club_stats } = data;
   const isOwnProfile  = user?.username === owner.username;
   const displayAvatar = avatarUrl ?? (isOwnProfile ? user?.avatar_url : null) ?? null;
 
@@ -1000,6 +1000,42 @@ export default function ProfileView() {
           </div>
         )}
 
+        {/* Clubes donde juega.
+            Sólo aparecen los torneos que tienen club asignado, así que el total
+            de partidos de acá puede ser menor al de las estadísticas. */}
+        {club_stats?.length > 0 && (
+          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">DONDE JUEGA</div>
+            <div className="rounded-lg overflow-hidden border border-border-strong">
+              {club_stats.map((c, i) => {
+                const pct = c.partidos > 0 ? Math.round((c.victorias / c.partidos) * 100) : 0;
+                return (
+                  <div key={c.id}
+                    className="flex items-center gap-3 px-4 py-3 border-b border-border-strong last:border-b-0"
+                    style={{ background: '#0d0d0d' }}>
+                    <div className="shrink-0 font-condensed font-black text-[13px] w-4 text-center" style={{ color: '#333' }}>
+                      {i + 1}
+                    </div>
+                    <MapPin size={15} className="shrink-0 text-cyan" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-mono truncate text-white">{c.name}</div>
+                      {c.location_name && (
+                        <div className="text-[10px] font-mono text-dim truncate">{c.location_name}</div>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="font-condensed font-black text-[18px] text-white leading-none">{c.partidos}</div>
+                      <div className="text-[10px] font-mono text-dim">
+                        {c.partidos === 1 ? 'partido' : 'partidos'} · {pct}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Categorías */}
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">CATEGORÍAS PROPIAS</div>
         {groups.length === 0 && (
@@ -1017,9 +1053,17 @@ export default function ProfileView() {
         {isOwnProfile && stats?.partidos > 0 && (
           owner.is_premium ? (
             // El alto del respaldo iguala al del bloque ya cargado para que la
-            // llegada del chunk no desplace nada.
-            <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 760 }} />}>
-              <AdvancedStats stats={stats} monthlyStats={monthly_stats ?? []} dailyActivity={data.daily_activity ?? []} />
+            // llegada del chunk no desplace nada. Subió de 760 con las tarjetas
+            // de tiempo en cancha / partidos parejos y el bloque por día de la
+            // semana; el bloque por día se recorta si jugás siempre el mismo
+            // día, así que el valor apunta al caso con gráfico.
+            <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 1140 }} />}>
+              <AdvancedStats
+                stats={stats}
+                monthlyStats={monthly_stats ?? []}
+                dailyActivity={data.daily_activity ?? []}
+                weekdayStats={data.weekday_stats ?? []}
+              />
             </Suspense>
           ) : (
             <div className="relative mb-6 rounded-lg overflow-hidden select-none mx-auto border border-border-mid">

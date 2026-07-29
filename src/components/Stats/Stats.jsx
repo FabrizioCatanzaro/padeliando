@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, normalize } from "../../utils/helpers";
-import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Swords, Trophy } from "lucide-react";
+import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, MapPin, Scale, Swords, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -59,6 +59,13 @@ export default function Stats({ tournament, ownerIsPremium = false }) {
       }
     </div>
   );
+}
+
+// Duración legible: "1 h 05 m" o "42 m" si no llega a la hora.
+function fmtDuracion(segundos) {
+  const min = Math.round(segundos / 60);
+  if (min < 60) return `${min} m`;
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} m`;
 }
 
 function getAllMatches(tournament) {
@@ -131,6 +138,14 @@ function CurrentStats({ tournament }) {
       if (mDur > 0 && (curDur === 0 || mDur < curDur)) biggestWin = m;
     }
   });
+
+  // Tiempo de juego y partidos parejos del torneo. La duración sale del
+  // cronómetro, así que puede faltar en algunos partidos: se informa sobre
+  // cuántos se midió.
+  const timedMatches   = played.filter((m) => (m.duration_seconds ?? 0) > 0);
+  const totalSeconds   = timedMatches.reduce((acc, m) => acc + m.duration_seconds, 0);
+  const tightMatches   = played.filter((m) => Math.abs(+m.score1 - +m.score2) === 1);
+  const tightPct       = played.length > 0 ? Math.round((tightMatches.length / played.length) * 100) : 0;
 
   const longestMatch = played.reduce((max, m) => {
     if (m.duration_seconds > (max?.duration_seconds ?? 0)) {
@@ -335,6 +350,32 @@ function CurrentStats({ tournament }) {
             </div>
           );
         })()}
+        {timedMatches.length > 0 && (
+          <div className="flex flex-col bg-surface border border-cyan/27 rounded-lg text-center overflow-hidden">
+            <div className="bg-cyan text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-cyan/15">Tiempo de juego</div>
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+              <Hourglass size={30} className="text-cyan" />
+              <div className="font-condensed font-bold text-[26px] text-cyan leading-tight">{fmtDuracion(totalSeconds)}</div>
+              <div className="text-[13px] text-secondary font-mono">
+                {timedMatches.length === played.length
+                  ? `${fmtDuracion(totalSeconds / timedMatches.length)} por partido`
+                  : `${timedMatches.length} de ${played.length} con tiempo`}
+              </div>
+            </div>
+          </div>
+        )}
+        {tightMatches.length > 0 && (
+          <div className="flex flex-col bg-surface border border-brand/27 rounded-lg text-center overflow-hidden">
+            <div className="bg-brand text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-brand/15">Partidos parejos</div>
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+              <Scale size={30} className="text-brand" />
+              <div className="font-condensed font-bold text-[26px] text-brand leading-tight">{tightPct}%</div>
+              <div className="text-[13px] text-secondary font-mono">
+                {tightMatches.length} de {played.length} por 1 game
+              </div>
+            </div>
+          </div>
+        )}
         {shortestMatch && shortestMatch != longestMatch && (() => {
           const win1        = +shortestMatch.score1 > +shortestMatch.score2;
           const winnerNames = (win1 ? shortestMatch.team1 : shortestMatch.team2).map(getPlayerName).join(" & ");
@@ -559,6 +600,24 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const totalMatches = tournaments.reduce((acc, t) => acc + t.matches.length + bracketPlayedCount(t), 0);
   const showPairTable = allPairMode && pairRows.length > 0;
 
+  // Tiempo total de juego de la categoría, sobre los partidos que lo tienen.
+  const allHistMatches = tournaments.flatMap(getAllMatches);
+  const histTimed      = allHistMatches.filter((m) => (m.duration_seconds ?? 0) > 0);
+  const histSeconds    = histTimed.reduce((acc, m) => acc + m.duration_seconds, 0);
+
+  // Clubes donde jugó la categoría. Los torneos sin club quedan afuera.
+  const clubRows = (() => {
+    const by = new Map();
+    tournaments.forEach((t) => {
+      if (!t.club_id) return;
+      const row = by.get(t.club_id) ?? { id: t.club_id, name: t.club_name ?? 'Club', jornadas: 0, partidos: 0 };
+      row.jornadas++;
+      row.partidos += t.matches.length + bracketPlayedCount(t);
+      by.set(t.club_id, row);
+    });
+    return [...by.values()].sort((a, b) => b.jornadas - a.jornadas || b.partidos - a.partidos);
+  })();
+
   // ── Datos para gráficos avanzados ──────────────────────────────────────
   const champChartData = champRows.slice(0, 5).map((c) => ({ key: c.key, name: c.name.split(' ')[0], torneos: c.count }));
 
@@ -625,6 +684,20 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
             <div className="font-condensed font-bold text-[26px] text-white">{totalMatches}</div>
           </div>
         </div>
+        {histTimed.length > 0 && (
+          <div className="bg-surface border border-green/27 rounded-lg text-center overflow-hidden">
+            <div className="bg-green text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-green/15">Tiempo de juego</div>
+            <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
+              <Hourglass size={30} className="text-green" />
+              <div className="font-condensed font-bold text-[26px] text-white">{fmtDuracion(histSeconds)}</div>
+              <div className="text-[13px] text-secondary font-mono">
+                {histTimed.length === totalMatches
+                  ? `${fmtDuracion(histSeconds / histTimed.length)} por partido`
+                  : `${histTimed.length} de ${totalMatches} con tiempo`}
+              </div>
+            </div>
+          </div>
+        )}
         {champLabel && (
           <div className="bg-surface border border-amber-500/27 rounded-lg text-center overflow-hidden">
             <div className="bg-amber-500 text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-amber-500/15">
@@ -808,6 +881,24 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
             >
               <Gem size={13} /> CONOCER PREMIUM
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Clubes de la categoría. Sólo los torneos con club asignado. */}
+      {clubRows.length > 0 && (
+        <div className="mt-6">
+          <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">CANCHAS</div>
+          <div className="flex flex-col gap-2">
+            {clubRows.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
+                <MapPin size={15} className="shrink-0 text-cyan" />
+                <div className="flex-1 min-w-0 truncate text-content text-[14px]">{c.name}</div>
+                <div className="shrink-0 font-mono text-soft text-[13px]">
+                  {c.jornadas} {c.jornadas === 1 ? 'jornada' : 'jornadas'} · {c.partidos}P
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
