@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, normalize } from "../../utils/helpers";
+import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, tournamentDate, normalize, fmt } from "../../utils/helpers";
 import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, Scale, Swords, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 import {
-  ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, ComposedChart, BarChart, Bar, LineChart, Line, Legend,
+  XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import PremiumModal from "../shared/PremiumModal";
 import ClubLogo from "../shared/ClubLogo";
@@ -477,9 +478,196 @@ function buildIndividualRows(tournaments, sortBy = 'winrate') {
   });
 }
 
+const RANK_COLORS = ['#e8f04a', '#4ab8f0', '#4af07a', '#a84af0', '#f07a4a'];
+
+// Mínimo de enfrentamientos para destacar un cruce como rival duro o víctima.
+const H2H_MIN = 3;
+
+function HeadToHead({ h2h, rows, selected, onSelect }) {
+  const withRivals = rows.filter((r) => h2h.byKey.has(r.id));
+  if (withRivals.length < 2) return null;
+
+  const activeKey = selected && h2h.byKey.has(selected) ? selected : withRivals[0].id;
+  const rivals = [...(h2h.byKey.get(activeKey) ?? new Map()).entries()]
+    .map(([key, v]) => ({
+      key,
+      name: h2h.names.get(key) ?? '?',
+      ...v,
+      total: v.g + v.p,
+      pct: v.g + v.p > 0 ? Math.round((v.g / (v.g + v.p)) * 100) : 0,
+    }))
+    .sort((a, b) => b.total - a.total || b.pct - a.pct);
+
+  const rated  = rivals.filter((r) => r.total >= H2H_MIN);
+  const nemesis = rated.length > 0 ? rated.reduce((w, r) => (r.pct < w.pct ? r : w), rated[0]) : null;
+  const victim  = rated.length > 0 ? rated.reduce((b, r) => (r.pct > b.pct ? r : b), rated[0]) : null;
+  const sameRival = nemesis && victim && nemesis.key === victim.key;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">CRUCES</div>
+        <select
+          value={activeKey}
+          onChange={(e) => onSelect(e.target.value)}
+          className="bg-surface border border-border-mid text-white text-[12px] font-mono rounded-md px-2 py-1 outline-none cursor-pointer max-w-[60%]"
+        >
+          {withRivals.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {nemesis && !sameRival && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          <div className="bg-surface border border-danger/27 rounded-lg overflow-hidden text-center">
+            <div className="bg-danger text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5">Rival más duro</div>
+            <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
+              <div className="font-condensed font-bold text-xl text-danger leading-tight">{nemesis.name}</div>
+              <div className="text-[13px] text-secondary font-mono">{nemesis.g}G {nemesis.p}P ({nemesis.pct}%)</div>
+            </div>
+          </div>
+          <div className="bg-surface border border-green/27 rounded-lg overflow-hidden text-center">
+            <div className="bg-green text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5">Víctima favorita</div>
+            <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
+              <div className="font-condensed font-bold text-xl text-green leading-tight">{victim.name}</div>
+              <div className="text-[13px] text-secondary font-mono">{victim.g}G {victim.p}P ({victim.pct}%)</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {rivals.slice(0, 8).map((r) => (
+          <div key={r.key} className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
+            <div className="flex-1 min-w-0 truncate text-content text-[14px]">{r.name}</div>
+            <div className="flex-2 max-w-[120px]">
+              <div className="h-1.5 bg-danger/40 rounded-full overflow-hidden">
+                <div className="h-full bg-green rounded-full" style={{ width: `${r.pct}%` }} />
+              </div>
+            </div>
+            <div className="min-w-22.5 text-right font-mono text-soft text-[13px]">
+              {r.g}G {r.p}P <span className={r.pct >= 50 ? 'text-green' : 'text-danger'}>({r.pct}%)</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {rivals.length > 0 && rated.length === 0 && (
+        <div className="mt-2 text-[10px] font-mono text-dim">
+          Hacen falta {H2H_MIN} cruces con un mismo rival para marcar rival más duro y víctima favorita.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Asistencia: en cuántas jornadas jugó cada uno y hace cuántas no aparece.
+function buildAttendance(sortedByDate) {
+  const total = sortedByDate.length;
+  const byKey = new Map();
+  sortedByDate.forEach((t, idx) => {
+    const played = new Set();
+    getAllMatches(t).forEach((m) => {
+      if (m.score1 === "" || m.score2 === "") return;
+      [...m.team1, ...m.team2].forEach((id) => played.add(id));
+    });
+    t.players.forEach((p) => {
+      if (!played.has(p.id)) return;
+      const key = playerKey(p);
+      const row = byKey.get(key) ?? { id: key, name: p.name, jornadas: 0, ultima: -1 };
+      row.name = p.name;
+      row.jornadas++;
+      row.ultima = idx;
+      byKey.set(key, row);
+    });
+  });
+  return [...byKey.values()]
+    .map((r) => ({
+      ...r,
+      total,
+      pct: total > 0 ? Math.round((r.jornadas / total) * 100) : 0,
+      ausenteHace: total - 1 - r.ultima,
+    }))
+    .sort((a, b) => b.jornadas - a.jornadas || a.name.localeCompare(b.name));
+}
+
+// Puesto de cada jugador jornada a jornada. Se acumula en una sola pasada:
+// recalcular el ranking completo por jornada era cuadrático sobre el histórico.
+function buildRankHistory(sortedByDate, sortBy, topKeys) {
+  const acc = new Map();
+  const wanted = new Set(topKeys);
+  const data = [];
+
+  sortedByDate.forEach((t) => {
+    const matches = getAllMatches(t);
+    const keyById = Object.fromEntries(t.players.map((p) => [p.id, playerKey(p)]));
+    calcStandings(t.players, matches).forEach((s) => {
+      const key = playerKey(s);
+      const row = acc.get(key) ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
+      row.pj += s.pj;
+      row.pg += s.pg;
+      acc.set(key, row);
+    });
+    matches.forEach((m) => {
+      const s1 = +m.score1 || 0, s2 = +m.score2 || 0;
+      if (s1 === s2) return;
+      [[m.team1, s1, s2], [m.team2, s2, s1]].forEach(([team, sf, sc]) => {
+        team.forEach((id) => {
+          const row = acc.get(keyById[id]);
+          if (row) { row.sf += sf; row.sc += sc; }
+        });
+      });
+    });
+
+    const rows = [...acc.entries()].filter(([, r]) => r.pj > 0);
+    const totalPj = rows.reduce((a, [, r]) => a + r.pj, 0);
+    const totalPg = rows.reduce((a, [, r]) => a + r.pg, 0);
+    const mean = totalPj > 0 ? totalPg / totalPj : 0;
+    rows.sort(([, a], [, b]) => {
+      if (sortBy === 'wins') return b.pg - a.pg || (b.pg / b.pj) - (a.pg / a.pj);
+      return rankedWinRate(b, mean) - rankedWinRate(a, mean) || b.pg - a.pg;
+    });
+
+    const point = { name: tournamentDate(t).slice(5).split('-').reverse().join('/') };
+    rows.forEach(([key], i) => { if (wanted.has(key)) point[key] = i + 1; });
+    data.push(point);
+  });
+
+  return data;
+}
+
+// Cruces entre jugadores: victorias y derrotas de cada uno contra cada rival.
+function buildHeadToHead(tournaments) {
+  const byKey = new Map();
+  const names = new Map();
+
+  tournaments.forEach((t) => {
+    const keyById = Object.fromEntries(t.players.map((p) => [p.id, playerKey(p)]));
+    t.players.forEach((p) => names.set(playerKey(p), p.name));
+    getAllMatches(t).forEach((m) => {
+      const s1 = +m.score1, s2 = +m.score2;
+      if (m.score1 === "" || m.score2 === "" || s1 === s2) return;
+      const winners = (s1 > s2 ? m.team1 : m.team2).map((id) => keyById[id]).filter(Boolean);
+      const losers  = (s1 > s2 ? m.team2 : m.team1).map((id) => keyById[id]).filter(Boolean);
+      const bump = (a, b, won) => {
+        const rivals = byKey.get(a) ?? new Map();
+        const row = rivals.get(b) ?? { g: 0, p: 0 };
+        if (won) row.g++; else row.p++;
+        rivals.set(b, row);
+        byKey.set(a, rivals);
+      };
+      winners.forEach((w) => losers.forEach((l) => { bump(w, l, true); bump(l, w, false); }));
+    });
+  });
+
+  return { byKey, names };
+}
+
 export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false, groupName }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [rankMode, setRankMode] = useState('winrate'); // 'winrate' | 'wins'
+  const [h2hKey,   setH2hKey]   = useState(null);
+  const [showAllAttendance, setShowAllAttendance] = useState(false);
   const [showStory, setShowStory] = useState(false);
   const navigate = useNavigate();
 
@@ -489,7 +677,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   // los tres useState de arriba (modal premium, orden del ranking, historia)
   // rehacían todo el cálculo con cada clic.
   const sortedByDate = useMemo(
-    () => [...tournaments].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+    () => [...tournaments].sort((a, b) => tournamentDate(a).localeCompare(tournamentDate(b))),
     [tournaments]
   );
   // Base por rendimiento (%): se usa para las tarjetas y gráficos (mejor jugador, etc.).
@@ -498,6 +686,15 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const rankedRows = useMemo(
     () => (rankMode === 'wins' ? buildIndividualRows(sortedByDate, 'wins') : individualRows),
     [rankMode, sortedByDate, individualRows]
+  );
+
+  const attendance = useMemo(() => buildAttendance(sortedByDate), [sortedByDate]);
+  const h2h        = useMemo(() => buildHeadToHead(sortedByDate), [sortedByDate]);
+  // El gráfico de puestos se limita a los cinco primeros: con más líneas no se lee.
+  const rankTop    = useMemo(() => rankedRows.slice(0, 5).map((r) => r.id), [rankedRows]);
+  const rankHistory = useMemo(
+    () => (sortedByDate.length >= 3 ? buildRankHistory(sortedByDate, rankMode, rankTop) : []),
+    [sortedByDate, rankMode, rankTop]
   );
 
   const movementMap = useMemo(() => {
@@ -618,21 +815,15 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   // ── Datos para gráficos avanzados ──────────────────────────────────────
   const champChartData = champRows.slice(0, 5).map((c) => ({ key: c.key, name: c.name.split(' ')[0], torneos: c.count }));
 
-  const pointDiffChartData = [...individualRows]
-    .filter((r) => r.pj >= 2)
-    .sort((a, b) => (b.sf - b.sc) - (a.sf - a.sc))
-    .slice(0, 7)
-    .map((r) => ({ name: r.name.split(' ')[0], diff: r.sf - r.sc }));
-
   const activityChartData = [...tournaments]
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .sort((a, b) => tournamentDate(a).localeCompare(tournamentDate(b)))
     .map((t) => {
       // Las dos series salen del mismo universo de partidos: la barra contaba
       // los del cuadro final y la línea de games no, así que medían distinto.
       const all = getAllMatches(t);
       const totalMatches = all.length;
       const totalGames = all.reduce((acc, m) => acc + (+m.score1 || 0) + (+m.score2 || 0), 0);
-      const label = new Date(t.createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+      const label = tournamentDate(t).slice(5).split('-').reverse().join('/');
       return { name: label, partidos: totalMatches, games: totalGames };
     });
 
@@ -795,35 +986,71 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
                 </ResponsiveContainer>
               </div>
             )}
-            {pointDiffChartData.length > 0 && (
+            {attendance.length > 0 && (
               <div className="bg-surface border border-border-mid rounded-lg p-4">
-                <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">DIFERENCIAL DE GAMES (mín. 2PJ)</div>
-                <ResponsiveContainer width="100%" height={150}>
-                  <BarChart data={pointDiffChartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#888', fontSize: 10 }} axisLine={false} tickLine={false} width={60} />
-                    <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }} cursor={{ fill: '#ffffff06' }} formatter={(v) => [`${v > 0 ? '+' : ''}${v}`, 'Diferencial']} />
-                    <Bar
-                      dataKey="diff"
-                      name="Diferencial"
-                      barSize={12}
-                      shape={({ x, y, width, height, value }) => (
-                        <rect
-                          x={width < 0 ? x + width : x}
-                          y={y}
-                          width={Math.abs(width)}
-                          height={height}
-                          fill={value >= 0 ? '#4af07a' : '#f04a4a'}
-                          rx={3}
-                        />
-                      )}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">
+                  ASISTENCIA ({attendance[0].total} {attendance[0].total === 1 ? 'JORNADA' : 'JORNADAS'})
+                </div>
+                <div className="flex flex-col gap-2">
+                  {(showAllAttendance ? attendance : attendance.slice(0, 6)).map((r) => (
+                    <div key={r.id} className="flex items-center gap-2">
+                      <div className="w-16 shrink-0 truncate text-[11px] font-mono text-soft">{r.name.split(' ')[0]}</div>
+                      <div className="flex-1 h-2.5 bg-border rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-cyan" style={{ width: `${r.pct}%` }} />
+                      </div>
+                      <div className="w-9 shrink-0 text-right text-[11px] font-mono text-secondary">{r.pct}%</div>
+                      <div className="w-20 shrink-0 text-right text-[10px] font-mono">
+                        {r.ausenteHace > 0
+                          ? <span className="text-danger">falta {r.ausenteHace}</span>
+                          : <span className="text-dim">{r.jornadas}/{r.total}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {attendance.length > 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllAttendance((v) => !v)}
+                    className="mt-3 w-full text-center text-[10px] font-mono text-dim hover:text-white transition-colors cursor-pointer bg-transparent border-none py-1"
+                  >
+                    {showAllAttendance ? '▲ Ver menos' : `▼ Ver todos (${attendance.length})`}
+                  </button>
+                )}
               </div>
             )}
           </div>
+
+          {rankHistory.length >= 3 && rankTop.length > 1 && (
+            <div className="bg-surface border border-border-mid rounded-lg p-4 mb-6">
+              <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">
+                PUESTO POR JORNADA (TOP {rankTop.length})
+              </div>
+              <ResponsiveContainer width="100%" height={170}>
+                <LineChart data={rankHistory} margin={{ top: 4, right: 10, left: -30, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fill: '#555', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                  <YAxis reversed domain={[1, 'dataMax']} allowDecimals={false} tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 4, fontSize: 11 }} cursor={{ stroke: '#ffffff15' }} />
+                  <Legend wrapperStyle={{ fontSize: 9, fontFamily: 'monospace', color: '#555', paddingTop: 4 }} />
+                  {rankTop.map((key, i) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      name={rankedRows.find((r) => r.id === key)?.name?.split(' ')[0] ?? key}
+                      stroke={RANK_COLORS[i % RANK_COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 2.5, strokeWidth: 0 }}
+                      activeDot={{ r: 5, strokeWidth: 0 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          <HeadToHead h2h={h2h} rows={rankedRows} selected={h2hKey} onSelect={setH2hKey} />
 
           {activityChartData.length > 1 && (
             <div className="bg-surface border border-border-mid rounded-lg p-4 mb-6">
@@ -905,7 +1132,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
         <div className="mt-6">
           <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">TORNEOS</div>
           <div className="flex flex-col gap-2">
-            {[...tournaments].reverse().map((t) => {
+            {[...tournaments].sort((a, b) => tournamentDate(b).localeCompare(tournamentDate(a))).map((t) => {
               const winnerLabel = getTournamentWinnerLabel(t);
               return (
                 <div key={t.id} className="flex items-center gap-2 bg-base border border-border-mid rounded-md px-3 py-2 flex-col">
@@ -914,7 +1141,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
                     {winnerLabel && <span className="text-brand text-[13px] flex items-center gap-2 justify-center"><Trophy size={13} /> {winnerLabel}</span>}
                   </div>
                   <span className="text-muted text-[11px] font-mono">
-                    {new Date(t.createdAt).toLocaleDateString("es-AR")} · {t.format === 'americano' ? `${t.pairs?.length ?? 0} parejas` : `${t.players.length} jugadores`} · {t.matches.length + bracketPlayedCount(t)} partidos
+                    {fmt(tournamentDate(t))} · {t.format === 'americano' ? `${t.pairs?.length ?? 0} parejas` : `${t.players.length} jugadores`} · {t.matches.length + bracketPlayedCount(t)} partidos
                   </span>
                 </div>
               );

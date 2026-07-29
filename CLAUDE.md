@@ -139,6 +139,8 @@ Rules that keep the three from drifting:
 - **Titles count every format.** `stats.titulos` = `titulos_liga` (derived from each finished tournament's standings) + `campeon_americano` (from the bracket final).
 - **The winrate ranking is smoothed** (`rankedWinRate`, prior of 2 matches toward the category mean) so a 1-0 record doesn't outrank an 18-4 one. The table still displays the real percentage.
 - Neon returns `DATE` columns as JS `Date` objects: use `dayKey()` before comparing or sorting them as strings.
+- **A tournament's date is `tournamentDate(t)`**, not `created_at` — the jornada is usually loaded a few days after it was played (13 of 28 tournaments differ, by up to 13 days). Order is `event_date` → first `played_at` → `created_at`.
+- Anything that walks the whole history per jornada (rank-per-jornada, head to head) must accumulate in **one** pass; recomputing the ranking for each jornada is quadratic. `buildRankHistory` and `buildHeadToHead` measure 1 ms at 100 jornadas.
 
 **Check the data before building a stat**, and when the data isn't there yet, ship the stat hidden rather than wrong. Three of these currently compute to zero on purpose and light up on their own:
 

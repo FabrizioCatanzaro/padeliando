@@ -132,6 +132,19 @@ export function adaptPair(p) {
  * Devuelve `[{ ids, name }]` — los ids permiten contar títulos por jugador sin
  * volver a parsear nombres.
  */
+/**
+ * Fecha en que se jugó un torneo, como YYYY-MM-DD. `created_at` es cuándo se
+ * cargó la jornada, que en casi la mitad de los casos no es cuándo se jugó.
+ * Prioridad: la fecha declarada del evento, el primer partido, y recién ahí la
+ * de creación.
+ */
+export function tournamentDate(t) {
+  if (t.event_date) return String(t.event_date).slice(0, 10);
+  const dates = (t.matches ?? []).map((m) => m.date || m.played_at).filter(Boolean).map((d) => String(d).slice(0, 10));
+  if (dates.length > 0) return dates.reduce((min, d) => (d < min ? d : min));
+  return String(t.createdAt ?? t.created_at ?? '').slice(0, 10);
+}
+
 export function getTournamentWinners(t) {
   const nameOf = (id) => t.players.find((p) => p.id === id)?.name ?? '?';
 
