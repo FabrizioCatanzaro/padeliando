@@ -140,10 +140,12 @@ Rules that keep the three from drifting:
 - **The winrate ranking is smoothed** (`rankedWinRate`, prior of 2 matches toward the category mean) so a 1-0 record doesn't outrank an 18-4 one. The table still displays the real percentage.
 - Neon returns `DATE` columns as JS `Date` objects: use `dayKey()` before comparing or sorting them as strings.
 
-**Check the data before building a stat.** A July 2026 pass found two ideas that looked good and had nothing behind them:
+**Check the data before building a stat**, and when the data isn't there yet, ship the stat hidden rather than wrong. Three of these currently compute to zero on purpose and light up on their own:
 
-- `matches.sets` is filled on 18% of matches and **no match has ever used the 3-set format**, so "sets won" is just "matches won" and comebacks cannot exist. Nothing derived from `sets` is worth showing until 3-set matches exist.
-- A fixed games threshold for a "thrashing" is meaningless: matches here are played to 3, 4 or 6 games, so 41% end with a 1-game margin and only 2% reach a 4-game one. Use the 1-game margin (`ajustados`) which means the same at any length, and leave "biggest win" to the per-tournament card that needs no threshold.
+- **Sets** (`countSetStats`) only counts best-of-three matches and returns `disponible: false` while none exist — with one set, "sets won" equals "matches won" and a comeback is impossible. `sets` is filled on 18% of matches and none has used the 3-set format yet.
+- **Blowout** = 6-0, or every set 6-0 in a best-of-three (`countBlowouts`). No 6-0 exists yet: matches are played to 3, 4 or 6 games, so the shutouts on record are 1-0, 3-0 and 5-0. Do **not** replace this with a games-difference threshold — that was tried and a `>= 4` matched 2% of matches while "loser scored zero" would flag a 1-0.
+- **Follow ranking** (`buildFollowRanking`) compares the user against the people they follow; it needs 2+ people with matches to render, and today there are 2 follows in the whole database. It adds each user's knockout matches so the numbers match their profile.
+- `ajustados` (1-game margin) is the one "close match" measure that means the same at any match length — 41% of matches qualify.
 - `duration_seconds` covers 69% of matches, so anything derived from it must say how many matches it measured.
 - Leagues run on a fixed weekday: the profile's weekday chart only renders with 3+ active days, otherwise it is five empty bars.
 

@@ -61,7 +61,6 @@ export default function Stats({ tournament, ownerIsPremium = false }) {
   );
 }
 
-// Duración legible: "1 h 05 m" o "42 m" si no llega a la hora.
 function fmtDuracion(segundos) {
   const min = Math.round(segundos / 60);
   if (min < 60) return `${min} m`;
@@ -139,9 +138,6 @@ function CurrentStats({ tournament }) {
     }
   });
 
-  // Tiempo de juego y partidos parejos del torneo. La duración sale del
-  // cronómetro, así que puede faltar en algunos partidos: se informa sobre
-  // cuántos se midió.
   const timedMatches   = played.filter((m) => (m.duration_seconds ?? 0) > 0);
   const totalSeconds   = timedMatches.reduce((acc, m) => acc + m.duration_seconds, 0);
   const tightMatches   = played.filter((m) => Math.abs(+m.score1 - +m.score2) === 1);
@@ -600,12 +596,11 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const totalMatches = tournaments.reduce((acc, t) => acc + t.matches.length + bracketPlayedCount(t), 0);
   const showPairTable = allPairMode && pairRows.length > 0;
 
-  // Tiempo total de juego de la categoría, sobre los partidos que lo tienen.
   const allHistMatches = tournaments.flatMap(getAllMatches);
   const histTimed      = allHistMatches.filter((m) => (m.duration_seconds ?? 0) > 0);
   const histSeconds    = histTimed.reduce((acc, m) => acc + m.duration_seconds, 0);
 
-  // Clubes donde jugó la categoría. Los torneos sin club quedan afuera.
+  // Los torneos sin club quedan afuera.
   const clubRows = (() => {
     const by = new Map();
     tournaments.forEach((t) => {
@@ -885,7 +880,6 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
         </div>
       )}
 
-      {/* Clubes de la categoría. Sólo los torneos con club asignado. */}
       {clubRows.length > 0 && (
         <div className="mt-6">
           <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">CANCHAS</div>

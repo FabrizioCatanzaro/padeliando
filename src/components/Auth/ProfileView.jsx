@@ -301,7 +301,7 @@ export default function ProfileView() {
   if (loading) return <Loader minHeight="100vh" />;
   if (error)   return <div className="text-danger p-10">{error}</div>;
 
-  const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats, club_stats } = data;
+  const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats, club_stats, follow_ranking } = data;
   const isOwnProfile  = user?.username === owner.username;
   const displayAvatar = avatarUrl ?? (isOwnProfile ? user?.avatar_url : null) ?? null;
 
@@ -867,10 +867,7 @@ export default function ProfileView() {
                 </div>
               )}
 
-              {/* Títulos y americanos.
-                  La tarjeta de títulos cuenta los torneos ganados de cualquier
-                  formato: antes sólo existía el contador de campeón americano,
-                  así que quien ganaba ligas no veía ningún título. */}
+              {/* Títulos de cualquier formato, no sólo el americano. */}
               {(stats.titulos > 0 || stats.torneos_americanos > 0) && (
                 <div className={`grid gap-3 ${stats.torneos_americanos > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   {stats.torneos_americanos > 0 && (
@@ -939,8 +936,6 @@ export default function ProfileView() {
                       </div>
                       <div className="text-[10px] text-dim font-mono mt-0.5 truncate">
                         {m.tournament_name}
-                        {/* Los partidos del cuadro final no viven en la tabla de
-                            partidos: se marcan para que no parezcan de la previa. */}
                         {m.bracket_round && <span className="text-brand"> · {ROUND_LABEL[m.bracket_round] ?? m.bracket_round}</span>}
                       </div>
                     </div>
@@ -1000,9 +995,41 @@ export default function ProfileView() {
           </div>
         )}
 
-        {/* Clubes donde juega.
-            Sólo aparecen los torneos que tienen club asignado, así que el total
-            de partidos de acá puede ser menor al de las estadísticas. */}
+        {/* Ranking entre la gente que sigue. Sólo lo ve el dueño del perfil. */}
+        {isOwnProfile && follow_ranking?.length > 1 && (
+          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">ENTRE TUS SEGUIDOS</div>
+            <div className="rounded-lg overflow-hidden border border-border-strong">
+              {follow_ranking.map((r, i) => (
+                <div key={r.id}
+                  onClick={() => !r.is_me && r.username && navigate(`/u/${r.username}`)}
+                  className={`flex items-center gap-3 px-4 py-3 border-b border-border-strong last:border-b-0 transition-colors ${!r.is_me && r.username ? 'cursor-pointer hover:bg-surface' : ''}`}
+                  style={{ background: r.is_me ? '#e8f04a0d' : '#0d0d0d' }}>
+                  <div className="shrink-0 font-condensed font-black text-[13px] w-4 text-center"
+                    style={{ color: i === 0 ? '#f0d04a' : '#333' }}>
+                    {i + 1}
+                  </div>
+                  <PlayerAvatar name={r.name} src={r.avatar_url} size={32} premium={r.is_premium} />
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[13px] font-mono truncate ${r.is_me ? 'text-brand' : 'text-white'}`}>
+                      {r.name}{r.is_me && ' (vos)'}
+                    </div>
+                    <div className="text-[10px] font-mono text-dim">{r.partidos} PJ · {r.victorias}V</div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-condensed font-black text-[18px] leading-none"
+                      style={{ color: r.win_rate >= 60 ? '#4af07a' : r.win_rate >= 40 ? '#e8f04a' : '#f07a4a' }}>
+                      {r.win_rate}%
+                    </div>
+                    <div className="text-[10px] font-mono text-dim">victorias</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sólo los torneos con club asignado, así que el total puede ser menor. */}
         {club_stats?.length > 0 && (
           <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
             <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">DONDE JUEGA</div>
@@ -1052,11 +1079,7 @@ export default function ProfileView() {
         {/* Estadísticas avanzadas — al fondo para no interrumpir el flujo */}
         {isOwnProfile && stats?.partidos > 0 && (
           owner.is_premium ? (
-            // El alto del respaldo iguala al del bloque ya cargado para que la
-            // llegada del chunk no desplace nada. Subió de 760 con las tarjetas
-            // de tiempo en cancha / partidos parejos y el bloque por día de la
-            // semana; el bloque por día se recorta si jugás siempre el mismo
-            // día, así que el valor apunta al caso con gráfico.
+            // Iguala al alto del bloque cargado para que el chunk no desplace nada.
             <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 1140 }} />}>
               <AdvancedStats
                 stats={stats}

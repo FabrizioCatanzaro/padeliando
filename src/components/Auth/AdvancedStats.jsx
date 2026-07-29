@@ -136,7 +136,6 @@ function ActivityHeatmap({ dailyActivity }) {
   );
 }
 
-// ── Rendimiento por día de la semana ─────────────────────────────────────────
 // La semana arranca el lunes; el backend usa el DOW de Postgres (0 = domingo).
 const WEEK = [
   { dow: 1, label: 'Lun' }, { dow: 2, label: 'Mar' }, { dow: 3, label: 'Mié' },
@@ -155,12 +154,10 @@ function WeekdayStats({ weekdayStats }) {
   const total = rows.reduce((acc, r) => acc + r.partidos, 0);
   if (total === 0) return null;
 
-  // "Tu día" es el que más jugás; a igualdad de partidos, el de mejor registro.
   const favorito = rows.reduce((best, r) =>
     r.partidos > best.partidos || (r.partidos === best.partidos && r.winRate > best.winRate) ? r : best, rows[0]);
 
-  // Una liga semanal se juega siempre el mismo día: con uno o dos días activos
-  // el gráfico serían cinco barras en cero, así que sólo queda la tarjeta.
+  // Con uno o dos días activos el gráfico serían cinco barras en cero.
   const activeDays = rows.filter((r) => r.partidos > 0).length;
 
   return (
@@ -198,7 +195,6 @@ function WeekdayStats({ weekdayStats }) {
   );
 }
 
-// Duración en horas y minutos: "16 h 39 m", o sólo minutos si no llega a una hora.
 function fmtDuracion(segundos) {
   const min = Math.round(segundos / 60);
   if (min < 60) return `${min} m`;
@@ -233,8 +229,8 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity, week
   })();
 
   const timedMatches = stats.partidos_con_duracion ?? 0;
-  // Rendimiento en los partidos que se definieron por un solo game: dice si
-  // rinde o se cae en los partidos parejos.
+  const setsTotal = (stats.sets?.sets_favor ?? 0) + (stats.sets?.sets_contra ?? 0);
+  const setsPct   = setsTotal > 0 ? Math.round((stats.sets.sets_favor / setsTotal) * 100) : 0;
   const tightRate  = stats.ajustados > 0 ? Math.round((stats.ajustados_ganados / stats.ajustados) * 100) : 0;
   const tightColor = tightRate >= 60 ? '#4af07a' : tightRate >= 40 ? '#e8f04a' : '#f07a4a';
 
@@ -310,10 +306,6 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity, week
         </div>
       </div>
 
-      {/* Tiempo en cancha + partidos ajustados.
-          La duración se carga con el cronómetro, así que no está en todos los
-          partidos: se aclara sobre cuántos se midió para que el número no
-          parezca el total de todo lo jugado. */}
       {(timedMatches > 0 || (stats.ajustados ?? 0) > 0) && (
         <div className="grid grid-cols-2 gap-3 mb-4">
           {timedMatches > 0 && (
@@ -394,6 +386,48 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity, week
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Sets: sólo con partidos al mejor de tres */}
+      {stats.sets?.disponible && (
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-white leading-none">{setsPct}%</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>SETS GANADOS</div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+              {stats.sets.sets_favor}-{stats.sets.sets_contra} en {stats.sets.partidos} partidos
+            </div>
+            <div className="h-0.5 rounded-full mt-2 bg-green opacity-40" />
+          </div>
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-white leading-none">{stats.sets.remontadas}</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>REMONTADAS</div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>perdiendo el 1er set</div>
+            <div className="h-0.5 rounded-full mt-2 bg-brand opacity-40" />
+          </div>
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-white leading-none">{stats.sets.partidos}</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>A 3 SETS</div>
+            <div className="h-0.5 rounded-full mt-2 bg-cyan opacity-40" />
+          </div>
+        </div>
+      )}
+
+      {/* Palizas: 6-0, o todos los sets 6-0 */}
+      {(stats.palizas_ganadas > 0 || stats.palizas_sufridas > 0) && (
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-green leading-none">{stats.palizas_ganadas}</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>PALIZAS DADAS</div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>6-0 sin ceder un game</div>
+            <div className="h-0.5 rounded-full mt-2 bg-green opacity-40" />
+          </div>
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-danger leading-none">{stats.palizas_sufridas}</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>PALIZAS SUFRIDAS</div>
+            <div className="h-0.5 rounded-full mt-2 bg-danger opacity-40" />
+          </div>
+        </div>
+      )}
 
       {/* Rendimiento por día de la semana */}
       <WeekdayStats weekdayStats={weekdayStats} />
