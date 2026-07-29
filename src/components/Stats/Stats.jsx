@@ -430,7 +430,21 @@ function rankedWinRate(row, mean) {
   return (row.pg + WINRATE_PRIOR * mean) / (row.pj + WINRATE_PRIOR);
 }
 
-function buildIndividualRows(tournaments, sortBy = 'winrate') {
+// Mismo criterio para jugadores y parejas. 'wins' es el default del producto.
+function sortRows(rows, sortBy = 'wins') {
+  const played = rows.filter((r) => r.pj > 0);
+  const totalPj = played.reduce((acc, r) => acc + r.pj, 0);
+  const totalPg = played.reduce((acc, r) => acc + r.pg, 0);
+  const mean = totalPj > 0 ? totalPg / totalPj : 0;
+  return [...rows].sort((a, b) => {
+    const pctA = a.pj > 0 ? a.pg / a.pj : 0;
+    const pctB = b.pj > 0 ? b.pg / b.pj : 0;
+    if (sortBy === 'wins') return b.pg - a.pg || pctB - pctA || (b.sf - b.sc) - (a.sf - a.sc);
+    return rankedWinRate(b, mean) - rankedWinRate(a, mean) || b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc);
+  });
+}
+
+function buildIndividualRows(tournaments, sortBy = 'wins') {
   const playerMap = {};
   tournaments.forEach((t) => {
     const matches  = getAllMatches(t);
@@ -460,25 +474,29 @@ function buildIndividualRows(tournaments, sortBy = 'winrate') {
       });
     });
   });
-  const rows = Object.values(playerMap).filter((r) => r.pj > 0);
-  const totalPj = rows.reduce((acc, r) => acc + r.pj, 0);
-  const totalPg = rows.reduce((acc, r) => acc + r.pg, 0);
-  const mean    = totalPj > 0 ? totalPg / totalPj : 0;
-  return rows.sort((a, b) => {
-    // 'wins': prioriza partidos ganados sin importar el porcentaje.
-    if (sortBy === 'wins') {
-      const pctA = a.pj > 0 ? a.pg / a.pj : 0;
-      const pctB = b.pj > 0 ? b.pg / b.pj : 0;
-      return b.pg - a.pg || pctB - pctA || (b.sf - b.sc) - (a.sf - a.sc);
-    }
-    // 'winrate' (default): rendimiento ajustado por cantidad de partidos.
-    return rankedWinRate(b, mean) - rankedWinRate(a, mean)
-      || b.pg - a.pg
-      || (b.sf - b.sc) - (a.sf - a.sc);
-  });
+  return sortRows(Object.values(playerMap).filter((r) => r.pj > 0), sortBy);
 }
 
 const RANK_COLORS = ['#e8f04a', '#4ab8f0', '#4af07a', '#a84af0', '#f07a4a'];
+
+function Toggle({ value, onChange, options }) {
+  return (
+    <div className="flex bg-surface border border-border-mid rounded-md p-0.5">
+      {options.map((opt) => (
+        <button
+          key={opt.id}
+          type="button"
+          onClick={() => onChange(opt.id)}
+          className={`px-2.5 py-1 text-[11px] font-condensed font-bold tracking-wide rounded-sm transition-colors cursor-pointer ${
+            value === opt.id ? 'bg-brand text-base' : 'bg-transparent text-muted hover:text-white'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // Mínimo de enfrentamientos para destacar un cruce como rival duro o víctima.
 const H2H_MIN = 3;
@@ -603,7 +621,7 @@ function buildRankHistory(sortedByDate, sortBy, topKeys) {
     const keyById = Object.fromEntries(t.players.map((p) => [p.id, playerKey(p)]));
     calcStandings(t.players, matches).forEach((s) => {
       const key = playerKey(s);
-      const row = acc.get(key) ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
+      const row = acc.get(key) ?? { key, pj: 0, pg: 0, sf: 0, sc: 0 };
       row.pj += s.pj;
       row.pg += s.pg;
       acc.set(key, row);
@@ -619,14 +637,8 @@ function buildRankHistory(sortedByDate, sortBy, topKeys) {
       });
     });
 
-    const rows = [...acc.entries()].filter(([, r]) => r.pj > 0);
-    const totalPj = rows.reduce((a, [, r]) => a + r.pj, 0);
-    const totalPg = rows.reduce((a, [, r]) => a + r.pg, 0);
-    const mean = totalPj > 0 ? totalPg / totalPj : 0;
-    rows.sort(([, a], [, b]) => {
-      if (sortBy === 'wins') return b.pg - a.pg || (b.pg / b.pj) - (a.pg / a.pj);
-      return rankedWinRate(b, mean) - rankedWinRate(a, mean) || b.pg - a.pg;
-    });
+    const rows = sortRows([...acc.values()].filter((r) => r.pj > 0), sortBy)
+      .map((r) => [r.key, r]);
 
     const point = { name: tournamentDate(t).slice(5).split('-').reverse().join('/') };
     rows.forEach(([key], i) => { if (wanted.has(key)) point[key] = i + 1; });
@@ -665,7 +677,8 @@ function buildHeadToHead(tournaments) {
 
 export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false, groupName }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [rankMode, setRankMode] = useState('winrate'); // 'winrate' | 'wins'
+  const [rankMode, setRankMode] = useState('wins'); // 'wins' | 'winrate'
+  const [rankScope, setRankScope] = useState(null); // null = segun las jornadas; 'players' | 'pairs'
   const [h2hKey,   setH2hKey]   = useState(null);
   const [showAllAttendance, setShowAllAttendance] = useState(false);
   const [showStory, setShowStory] = useState(false);
@@ -681,11 +694,9 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
     [tournaments]
   );
   // Base por rendimiento (%): se usa para las tarjetas y gráficos (mejor jugador, etc.).
-  const individualRows = useMemo(() => buildIndividualRows(sortedByDate), [sortedByDate]);
-  // Orden del ranking según el switch (rendimiento % o partidos ganados).
   const rankedRows = useMemo(
-    () => (rankMode === 'wins' ? buildIndividualRows(sortedByDate, 'wins') : individualRows),
-    [rankMode, sortedByDate, individualRows]
+    () => buildIndividualRows(sortedByDate, rankMode),
+    [sortedByDate, rankMode]
   );
 
   const attendance = useMemo(() => buildAttendance(sortedByDate), [sortedByDate]);
@@ -746,12 +757,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       });
     });
   }
-  const pairRows = Object.values(pairMap)
-    .sort((a, b) => {
-      const pctA = a.pj > 0 ? a.pg / a.pj : 0;
-      const pctB = b.pj > 0 ? b.pg / b.pj : 0;
-      return pctB - pctA || b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc);
-    });
+  const pairRows = sortRows(Object.values(pairMap), rankMode);
 
   // ── Mejor pareja histórica ──────────────────────────────────────────────
   const topPct    = pairRows[0]?.pj > 0 ? pairRows[0].pg / pairRows[0].pj : 0;
@@ -792,7 +798,8 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       .filter(m => m.winner_id != null).length;
   }
   const totalMatches = tournaments.reduce((acc, t) => acc + t.matches.length + bracketPlayedCount(t), 0);
-  const showPairTable = allPairMode && pairRows.length > 0;
+  const canShowPairs  = hasPairMode && pairRows.length > 0;
+  const showPairTable = canShowPairs && (rankScope ?? (allPairMode ? 'pairs' : 'players')) === 'pairs';
 
   const allHistMatches = tournaments.flatMap(getAllMatches);
   const histTimed      = allHistMatches.filter((m) => (m.duration_seconds ?? 0) > 0);
@@ -833,14 +840,9 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const storyChampion = champLabel
     ? { label: champLabel, count: topChampCount, tied: topChamps.length > 1 }
     : null;
-  // El ranking del snapshot siempre va por partidos ganados, sin importar el
-  // switch rendimiento/ganados de la vista.
+  // El ranking del snapshot siempre va por partidos ganados.
   const storyRankedRows = showPairTable
-    ? [...pairRows].sort((a, b) => {
-        const pctA = a.pj > 0 ? a.pg / a.pj : 0;
-        const pctB = b.pj > 0 ? b.pg / b.pj : 0;
-        return b.pg - a.pg || pctB - pctA || (b.sf - b.sc) - (a.sf - a.sc);
-      })
+    ? sortRows(pairRows, 'wins')
     : buildIndividualRows(sortedByDate, 'wins');
   const storyRanking = storyRankedRows.slice(0, 10).map((r) => ({
     key: r.id ?? r.name,
@@ -905,8 +907,8 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
         <>
           <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS AVANZADAS</div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
-            {individualRows[0] && (() => {
-              const best = individualRows[0];
+            {rankedRows[0] && (() => {
+              const best = rankedRows[0];
               return (
                 <div className="bg-surface border border-brand/27 rounded-lg text-center overflow-hidden">
                   <div className="bg-brand text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-brand/15">Mejor jugador histórico</div>
@@ -941,33 +943,37 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
 
           <div className="mb-6">
             <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-              <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">
-                {showPairTable ? "RANKING HISTÓRICO POR PAREJAS" : "RANKING HISTÓRICO"}
-              </div>
-              {!showPairTable && (
-                <div className="flex bg-surface border border-border-mid rounded-md p-0.5">
-                  {[
-                    { id: 'winrate', label: 'Por rendimiento' },
+              <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">RANKING HISTÓRICO</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {canShowPairs && (
+                  <Toggle
+                    value={showPairTable ? 'pairs' : 'players'}
+                    onChange={setRankScope}
+                    options={[
+                      { id: 'players', label: 'Jugadores' },
+                      { id: 'pairs',   label: 'Parejas' },
+                    ]}
+                  />
+                )}
+                <Toggle
+                  value={rankMode}
+                  onChange={setRankMode}
+                  options={[
                     { id: 'wins',    label: 'Por ganados' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setRankMode(opt.id)}
-                      className={`px-2.5 py-1 text-[11px] font-condensed font-bold tracking-wide rounded-sm transition-colors cursor-pointer ${
-                        rankMode === opt.id ? 'bg-brand text-base' : 'bg-transparent text-muted hover:text-white'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+                    { id: 'winrate', label: 'Por rendimiento' },
+                  ]}
+                />
+              </div>
             </div>
             {showPairTable
-              ? <PerPlayerTable standings={pairRows} useLabelKey />
+              ? <PerPlayerTable standings={pairRows} useLabelKey sortBy={rankMode} />
               : <PerPlayerTable standings={rankedRows} movementMap={movementMap} sortBy={rankMode} />
             }
+            {showPairTable && !allPairMode && (
+              <div className="mt-2 text-[10px] font-mono text-dim">
+                Sólo cuenta las jornadas de parejas fijas ({tournaments.filter((t) => t.mode === 'pairs').length} de {tournaments.length}).
+              </div>
+            )}
           </div>
 
           {/* Gráficos avanzados */}
@@ -1163,7 +1169,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
               totalMatches={totalMatches}
               isPremium={ownerIsPremium}
               champion={storyChampion}
-              bestPlayer={individualRows[0] ? { name: individualRows[0].name, wins: individualRows[0].pg } : null}
+              bestPlayer={rankedRows[0] ? { name: rankedRows[0].name, wins: rankedRows[0].pg } : null}
               bestPair={hasPairMode && bestPairLabel ? { label: bestPairLabel, record: bestPairRecord, tied: bestPairIsTied } : null}
               ranking={storyRanking}
               rankingTitle={showPairTable ? "RANKING DE PAREJAS · GANADOS" : "RANKING HISTÓRICO · GANADOS"}
@@ -1176,7 +1182,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   );
 }
 
-function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {}, sortBy = 'winrate' }) {
+function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {}, sortBy = 'wins' }) {
   const navigate = useNavigate();
   const winsActive = sortBy === 'wins';
   return (
@@ -1192,7 +1198,7 @@ function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {}
         <div className="shrink-0 w-14 text-[10px] font-mono tracking-[2px] text-dim text-center">WIN RATE</div>
         <div className={`shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-center ${winsActive ? 'text-brand' : 'text-dim'}`}>G</div>
         <div className="shrink-0 w-7 text-[10px] font-mono tracking-[2px] text-dim text-center">P</div>
-        <div className="shrink-0 w-9 text-[10px] font-mono tracking-[2px] text-dim text-right">%</div>
+        <div className={`shrink-0 w-9 text-[10px] font-mono tracking-[2px] text-right ${winsActive ? 'text-dim' : 'text-brand'}`}>%</div>
       </div>
 
       <div className="flex flex-col gap-2">
