@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, normalize } from "../../utils/helpers";
-import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, MapPin, Scale, Swords, Trophy } from "lucide-react";
+import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, Scale, Swords, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import PremiumModal from "../shared/PremiumModal";
+import ClubLogo from "../shared/ClubLogo";
 import ShareStoryButton from "../Snapshot/ShareStoryButton";
 import SnapshotModal from "../Snapshot/SnapshotModal";
 import StatsStory from "../Snapshot/StatsStory";
@@ -605,7 +606,8 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
     const by = new Map();
     tournaments.forEach((t) => {
       if (!t.club_id) return;
-      const row = by.get(t.club_id) ?? { id: t.club_id, name: t.club_name ?? 'Club', jornadas: 0, partidos: 0 };
+      const row = by.get(t.club_id)
+        ?? { id: t.club_id, name: t.club_name ?? 'Club', photo_url: t.club_photo_url ?? null, jornadas: 0, partidos: 0 };
       row.jornadas++;
       row.partidos += t.matches.length + bracketPlayedCount(t);
       by.set(t.club_id, row);
@@ -885,8 +887,10 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
           <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">CANCHAS</div>
           <div className="flex flex-col gap-2">
             {clubRows.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
-                <MapPin size={15} className="shrink-0 text-cyan" />
+              <div key={c.id}
+                onClick={() => navigate(`/club/${c.id}`)}
+                className="flex items-center gap-3 bg-surface border border-border-mid rounded-md px-3.5 py-2.5 cursor-pointer hover:border-border-strong transition-colors">
+                <ClubLogo name={c.name} src={c.photo_url} size={28} />
                 <div className="flex-1 min-w-0 truncate text-content text-[14px]">{c.name}</div>
                 <div className="shrink-0 font-mono text-soft text-[13px]">
                   {c.jornadas} {c.jornadas === 1 ? 'jornada' : 'jornadas'} · {c.partidos}P

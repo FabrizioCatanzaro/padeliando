@@ -138,18 +138,19 @@ function ActivityHeatmap({ dailyActivity }) {
 
 // La semana arranca el lunes; el backend usa el DOW de Postgres (0 = domingo).
 const WEEK = [
-  { dow: 1, label: 'Lun' }, { dow: 2, label: 'Mar' }, { dow: 3, label: 'Mié' },
-  { dow: 4, label: 'Jue' }, { dow: 5, label: 'Vie' }, { dow: 6, label: 'Sáb' },
-  { dow: 0, label: 'Dom' },
+  { dow: 1, label: 'Lun', full: 'Lunes' },     { dow: 2, label: 'Mar', full: 'Martes' },
+  { dow: 3, label: 'Mié', full: 'Miércoles' }, { dow: 4, label: 'Jue', full: 'Jueves' },
+  { dow: 5, label: 'Vie', full: 'Viernes' },   { dow: 6, label: 'Sáb', full: 'Sábado' },
+  { dow: 0, label: 'Dom', full: 'Domingo' },
 ];
 
 function WeekdayStats({ weekdayStats }) {
   const byDow = Object.fromEntries((weekdayStats ?? []).map((w) => [w.dow, w]));
-  const rows = WEEK.map(({ dow, label }) => {
+  const rows = WEEK.map(({ dow, label, full }) => {
     const row = byDow[dow];
     const partidos = row?.partidos ?? 0;
     const victorias = row?.victorias ?? 0;
-    return { label, partidos, victorias, winRate: partidos > 0 ? Math.round((victorias / partidos) * 100) : 0 };
+    return { label, full, partidos, victorias, winRate: partidos > 0 ? Math.round((victorias / partidos) * 100) : 0 };
   });
   const total = rows.reduce((acc, r) => acc + r.partidos, 0);
   if (total === 0) return null;
@@ -165,7 +166,7 @@ function WeekdayStats({ weekdayStats }) {
       <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">POR DÍA DE LA SEMANA</div>
       {favorito.partidos > 0 && (
         <div className="bg-base rounded-lg px-4 py-3 border border-border-strong mb-3">
-          <div className="font-condensed font-black text-[22px] text-white leading-none">{favorito.label}</div>
+          <div className="font-condensed font-black text-[22px] text-white leading-none">{favorito.full}</div>
           <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>TU DÍA</div>
           <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
             {favorito.partidos} {favorito.partidos === 1 ? 'partido' : 'partidos'} · {favorito.winRate}% de victorias
@@ -188,7 +189,7 @@ function WeekdayStats({ weekdayStats }) {
       )}
       {activeDays === 2 && (
         <div className="text-[10px] font-mono text-dim">
-          {rows.filter((r) => r.partidos > 0).map((r) => `${r.label}: ${r.partidos} (${r.winRate}%)`).join(' · ')}
+          {rows.filter((r) => r.partidos > 0).map((r) => `${r.full}: ${r.partidos} (${r.winRate}%)`).join(' · ')}
         </div>
       )}
     </div>

@@ -4,7 +4,7 @@ import { fmt, calcNivel } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck, Share2, MapPin } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck, Share2 } from 'lucide-react';
 // Recharts sólo lo necesita este bloque, que además casi nunca se muestra.
 const AdvancedStats = lazy(() => import('./AdvancedStats'));
 import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
@@ -16,6 +16,7 @@ import Modal from '../shared/Modal';
 import statsPreview from '../../assets/advanced-stats-preview.svg';
 import Loader from '../Loader/Loader';
 import PlayerAvatar from '../shared/PlayerAvatar';
+import ClubLogo from '../shared/ClubLogo';
 import AvatarCropper from '../shared/AvatarCropper';
 import ShareStoryButton from '../Snapshot/ShareStoryButton';
 import SnapshotModal from '../Snapshot/SnapshotModal';
@@ -830,6 +831,9 @@ export default function ProfileView() {
                 <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
                   <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos}</div>
                   <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>TORNEOS</div>
+                  <div className="text-[10px] font-mono mt-0.5" style={{ color: stats.torneos_este_mes > 0 ? '#4ab8f0' : '#555' }}>
+                    {stats.torneos_este_mes > 0 ? `${stats.torneos_este_mes} este mes` : 'ninguno este mes'}
+                  </div>
                   <div className="h-0.5 rounded-full mt-2" style={{ background: '#4ab8f0', opacity: 0.35 }} />
                 </div>
                 <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
@@ -868,34 +872,46 @@ export default function ProfileView() {
               )}
 
               {/* Títulos de cualquier formato, no sólo el americano. */}
-              {(stats.titulos > 0 || stats.torneos_americanos > 0) && (
-                <div className={`grid gap-3 ${stats.torneos_americanos > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  {stats.torneos_americanos > 0 && (
-                    <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
-                      <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos_americanos}</div>
-                      <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>AMERICANOS</div>
-                      <div className="h-0.5 rounded-full mt-2" style={{ background: '#a84af0', opacity: 0.35 }} />
-                    </div>
-                  )}
+              {(stats.titulos_liga > 0 || stats.torneos_americanos > 0) && (
+                <div className={`grid gap-3 ${stats.torneos_americanos > 0 ? 'grid-cols-3' : 'grid-cols-1'}`}>
                   <div className="bg-base rounded-lg px-4 py-3 border"
-                    style={{ borderColor: stats.titulos > 0 ? '#f0d04a44' : undefined }}>
+                    style={{ borderColor: stats.titulos_liga > 0 ? '#f0d04a44' : undefined }}>
                     <div className="flex items-start justify-between">
                       <div className="font-condensed font-black text-[32px] leading-none"
-                        style={{ color: stats.titulos > 0 ? '#f0d04a' : '#333' }}>
-                        {stats.titulos ?? 0}
+                        style={{ color: stats.titulos_liga > 0 ? '#f0d04a' : '#333' }}>
+                        {stats.titulos_liga ?? 0}
                       </div>
-                      {stats.titulos > 0 && <Trophy size={16} style={{ color: '#f0d04a', marginTop: 2 }} />}
+                      {stats.titulos_liga > 0 && <Trophy size={16} style={{ color: '#f0d04a', marginTop: 2 }} />}
                     </div>
                     <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>
-                      {stats.titulos === 1 ? 'TÍTULO' : 'TÍTULOS'}
+                      {stats.titulos_liga === 1 ? 'LIGA GANADA' : 'LIGAS GANADAS'}
                     </div>
-                    {stats.titulos > 0 && stats.campeon_americano > 0 && stats.titulos_liga > 0 && (
-                      <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
-                        {stats.titulos_liga} liga · {stats.campeon_americano} americano
-                      </div>
-                    )}
-                    <div className="h-0.5 rounded-full mt-2" style={{ background: '#f0d04a', opacity: stats.titulos > 0 ? 0.35 : 0.08 }} />
+                    <div className="h-0.5 rounded-full mt-2" style={{ background: '#f0d04a', opacity: stats.titulos_liga > 0 ? 0.35 : 0.08 }} />
                   </div>
+                  {stats.torneos_americanos > 0 && (
+                    <>
+                      <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+                        <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos_americanos}</div>
+                        <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>AMERICANOS</div>
+                        <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>jugados</div>
+                        <div className="h-0.5 rounded-full mt-2" style={{ background: '#a84af0', opacity: 0.35 }} />
+                      </div>
+                      <div className="bg-base rounded-lg px-4 py-3 border"
+                        style={{ borderColor: stats.campeon_americano > 0 ? '#a84af044' : undefined }}>
+                        <div className="flex items-start justify-between">
+                          <div className="font-condensed font-black text-[32px] leading-none"
+                            style={{ color: stats.campeon_americano > 0 ? '#a84af0' : '#333' }}>
+                            {stats.campeon_americano}
+                          </div>
+                          {stats.campeon_americano > 0 && <Trophy size={16} style={{ color: '#a84af0', marginTop: 2 }} />}
+                        </div>
+                        <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>
+                          {stats.campeon_americano === 1 ? 'AMERICANO GANADO' : 'AMERICANOS GANADOS'}
+                        </div>
+                        <div className="h-0.5 rounded-full mt-2" style={{ background: '#a84af0', opacity: stats.campeon_americano > 0 ? 0.35 : 0.08 }} />
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1038,23 +1054,27 @@ export default function ProfileView() {
                 const pct = c.partidos > 0 ? Math.round((c.victorias / c.partidos) * 100) : 0;
                 return (
                   <div key={c.id}
-                    className="flex items-center gap-3 px-4 py-3 border-b border-border-strong last:border-b-0"
+                    onClick={() => navigate(`/club/${c.id}`)}
+                    className="flex items-center gap-3 px-4 py-3 border-b border-border-strong last:border-b-0 cursor-pointer hover:bg-surface transition-colors"
                     style={{ background: '#0d0d0d' }}>
                     <div className="shrink-0 font-condensed font-black text-[13px] w-4 text-center" style={{ color: '#333' }}>
                       {i + 1}
                     </div>
-                    <MapPin size={15} className="shrink-0 text-cyan" />
+                    <ClubLogo name={c.name} src={c.photo_url} size={32} />
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-mono truncate text-white">{c.name}</div>
                       {c.location_name && (
                         <div className="text-[10px] font-mono text-dim truncate">{c.location_name}</div>
                       )}
                     </div>
-                    <div className="shrink-0 text-right">
-                      <div className="font-condensed font-black text-[18px] text-white leading-none">{c.partidos}</div>
-                      <div className="text-[10px] font-mono text-dim">
-                        {c.partidos === 1 ? 'partido' : 'partidos'} · {pct}%
+                    <div className="shrink-0 flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="font-condensed font-black text-[18px] text-white leading-none">{c.partidos}</div>
+                        <div className="text-[10px] font-mono text-dim">
+                          {c.partidos === 1 ? 'partido' : 'partidos'} · {pct}%
+                        </div>
                       </div>
+                      <ChevronUp size={13} className="text-dim rotate-90 shrink-0" />
                     </div>
                   </div>
                 );
