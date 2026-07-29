@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { calcStandings, adaptTournament, getTournamentWinnerLabel } from "../../utils/helpers";
+import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, normalize } from "../../utils/helpers";
 import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Swords, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 import {
@@ -372,38 +372,71 @@ function CurrentStats({ tournament }) {
   );
 }
 
+// Un mismo jugador tiene un `players.id` distinto en cada jornada, así que el
+// histórico se agrupa por identidad: el @username si el slot está vinculado a
+// una cuenta, y el nombre normalizado si no. Agrupar por el nombre tal cual
+// fusionaba a dos homónimos con cuenta propia y separaba a quien aparecía como
+// "Juan" en una jornada y "juan" en otra.
+const playerKey = (p) => (p.linked_username ? `u:${p.linked_username}` : `n:${normalize(p.name ?? '')}`);
+
+// Peso (en partidos) del suavizado del win rate. Ver rankedWinRate.
+const WINRATE_PRIOR = 2;
+
+/**
+ * Win rate suavizado hacia la media de la categoría: (pg + k·media) / (pj + k).
+ * Sirve sólo para ordenar — la tabla muestra siempre el % real. Sin esto, quien
+ * jugó un solo partido y lo ganó (100%) quedaba arriba de quien lleva 18-4.
+ */
+function rankedWinRate(row, mean) {
+  return (row.pg + WINRATE_PRIOR * mean) / (row.pj + WINRATE_PRIOR);
+}
+
 function buildIndividualRows(tournaments, sortBy = 'winrate') {
   const playerMap = {};
   tournaments.forEach((t) => {
-    const nameById = Object.fromEntries(t.players.map((p) => [p.id, p.name]));
-    calcStandings(t.players, getAllMatches(t)).forEach((s) => {
-      if (!playerMap[s.name]) playerMap[s.name] = { name: s.name, linked_username: s.linked_username ?? null, pj: 0, pg: 0, pp: 0, torneos: 0, sf: 0, sc: 0 };
-      if (s.linked_username && !playerMap[s.name].linked_username) playerMap[s.name].linked_username = s.linked_username;
-      playerMap[s.name].pj += s.pj;
-      playerMap[s.name].pg += s.pg;
-      playerMap[s.name].pp += s.pp;
-      if (s.pj > 0) playerMap[s.name].torneos++;
+    const matches  = getAllMatches(t);
+    const keyById  = Object.fromEntries(t.players.map((p) => [p.id, playerKey(p)]));
+    calcStandings(t.players, matches).forEach((s) => {
+      const key = playerKey(s);
+      const row = (playerMap[key] ??= {
+        id: key, name: s.name, linked_username: s.linked_username ?? null,
+        pj: 0, pg: 0, pp: 0, torneos: 0, sf: 0, sc: 0,
+      });
+      if (s.linked_username && !row.linked_username) row.linked_username = s.linked_username;
+      row.pj += s.pj;
+      row.pg += s.pg;
+      row.pp += s.pp;
+      if (s.pj > 0) row.torneos++;
     });
-    getAllMatches(t).forEach((m) => {
+    matches.forEach((m) => {
       const s1 = +m.score1 || 0, s2 = +m.score2 || 0;
+      // Mismo criterio que calcStandings, que ya descartó este partido: sin el
+      // filtro sumaría games de un partido que no cuenta como jugado.
+      if (s1 === s2) return;
       [[m.team1, s1, s2], [m.team2, s2, s1]].forEach(([team, sf, sc]) => {
         team.forEach((id) => {
-          const name = nameById[id];
-          if (name && playerMap[name]) { playerMap[name].sf += sf; playerMap[name].sc += sc; }
+          const row = playerMap[keyById[id]];
+          if (row) { row.sf += sf; row.sc += sc; }
         });
       });
     });
   });
-  return Object.values(playerMap)
-    .filter((r) => r.pj > 0)
-    .sort((a, b) => {
+  const rows = Object.values(playerMap).filter((r) => r.pj > 0);
+  const totalPj = rows.reduce((acc, r) => acc + r.pj, 0);
+  const totalPg = rows.reduce((acc, r) => acc + r.pg, 0);
+  const mean    = totalPj > 0 ? totalPg / totalPj : 0;
+  return rows.sort((a, b) => {
+    // 'wins': prioriza partidos ganados sin importar el porcentaje.
+    if (sortBy === 'wins') {
       const pctA = a.pj > 0 ? a.pg / a.pj : 0;
       const pctB = b.pj > 0 ? b.pg / b.pj : 0;
-      // 'wins': prioriza partidos ganados sin importar el porcentaje.
-      if (sortBy === 'wins') return b.pg - a.pg || pctB - pctA || (b.sf - b.sc) - (a.sf - a.sc);
-      // 'winrate' (default): prioriza el porcentaje de victorias.
-      return pctB - pctA || b.pg - a.pg;
-    });
+      return b.pg - a.pg || pctB - pctA || (b.sf - b.sc) - (a.sf - a.sc);
+    }
+    // 'winrate' (default): rendimiento ajustado por cantidad de partidos.
+    return rankedWinRate(b, mean) - rankedWinRate(a, mean)
+      || b.pg - a.pg
+      || (b.sf - b.sc) - (a.sf - a.sc);
+  });
 }
 
 export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false, groupName }) {
@@ -432,15 +465,15 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const movementMap = useMemo(() => {
     if (sortedByDate.length < 2) return {};
     const prevRows = buildIndividualRows(sortedByDate.slice(0, -1), rankMode);
-    const prevRank = Object.fromEntries(prevRows.map((r, i) => [r.name, i + 1]));
+    const prevRank = Object.fromEntries(prevRows.map((r, i) => [r.id, i + 1]));
     return Object.fromEntries(
       rankedRows.map((r, i) => {
-        const prev = prevRank[r.name];
+        const prev = prevRank[r.id];
         const curr = i + 1;
-        if (!prev) return [r.name, 'new'];
-        if (curr < prev) return [r.name, 'up'];
-        if (curr > prev) return [r.name, 'down'];
-        return [r.name, null];
+        if (!prev) return [r.id, 'new'];
+        if (curr < prev) return [r.id, 'up'];
+        if (curr > prev) return [r.id, 'down'];
+        return [r.id, null];
       })
     );
   }, [sortedByDate, rankMode, rankedRows]);
@@ -452,22 +485,28 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const allPairMode = tournaments.every((t) => t.mode === "pairs");
 
   // ── Standings por pareja ────────────────────────────────────────────────
+  // La clave es la identidad de los dos jugadores, no sus players.id: al ser
+  // distintos en cada jornada, una pareja que jugó tres jornadas aparecía como
+  // tres parejas diferentes.
   const pairMap = {};
   if (hasPairMode) {
-    const nameById = {};
-    tournaments.forEach((t) => t.players.forEach((p) => { nameById[p.id] = p.name; }));
+    const infoById = {};
+    tournaments.forEach((t) => t.players.forEach((p) => { infoById[p.id] = { key: playerKey(p), name: p.name }; }));
     tournaments.filter((t) => t.mode === "pairs").forEach((t) => {
       getAllMatches(t).forEach((m) => {
         const s1 = +m.score1, s2 = +m.score2;
-        const win1 = s1 > s2;
-        [[m.team1, s1, s2, win1], [m.team2, s2, s1, !win1]].forEach(([team, sf, sc, won]) => {
-          const key   = [...team].sort().join("-");
-          const label = team.map((id) => nameById[id] ?? "?").join(" & ");
+        // Igual que calcStandings: un marcador igualado no es un partido válido.
+        if (s1 === s2) return;
+        [[m.team1, s1, s2], [m.team2, s2, s1]].forEach(([team, sf, sc]) => {
+          const keys  = team.map((id) => infoById[id]?.key ?? `?${id}`);
+          const key   = [...keys].sort().join("|");
+          const label = team.map((id) => infoById[id]?.name ?? "?").join(" & ");
           if (!pairMap[key]) pairMap[key] = { id: key, label, pj: 0, pg: 0, pp: 0, sf: 0, sc: 0 };
           pairMap[key].pj++;
           pairMap[key].sf += sf;
           pairMap[key].sc += sc;
-          if (won) pairMap[key].pg++; else pairMap[key].pp++;
+          if (sf > sc) pairMap[key].pg++;
+          else         pairMap[key].pp++;
         });
       });
     });
@@ -487,18 +526,26 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const bestPairRecord = !bestPairIsTied && tiedPairs[0] ? `${tiedPairs[0].pg}/${tiedPairs[0].pj}` : null;
 
   // ── Más veces campeón ──────────────────────────────────────────────────
+  // Se cuenta por identidad de jugador. Antes se reconstruía a partir del label
+  // (split por " / " y " & "), así que cualquier nombre con un "&" adentro
+  // generaba campeones fantasma.
   const champCount = {};
   tournaments.forEach((t) => {
-    const label = getTournamentWinnerLabel(t);
-    if (!label) return;
-    label.split(" / ").forEach((winner) => {
-      winner.split(" & ").forEach((name) => {
-        const n = name.trim();
-        if (n) champCount[n] = (champCount[n] ?? 0) + 1;
+    const playerById = Object.fromEntries(t.players.map((p) => [p.id, p]));
+    getTournamentWinners(t).forEach((w) => {
+      w.ids.forEach((id) => {
+        const player = playerById[id];
+        if (!player) return;
+        const key = playerKey(player);
+        const row = (champCount[key] ??= { name: player.name, count: 0 });
+        row.name = player.name;
+        row.count++;
       });
     });
   });
-  const champRows     = Object.entries(champCount).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  const champRows     = Object.entries(champCount)
+    .map(([key, v]) => ({ key, name: v.name, count: v.count }))
+    .sort((a, b) => b.count - a.count);
   const topChampCount = champRows[0]?.count ?? 0;
   const topChamps     = champRows.filter((c) => c.count === topChampCount);
   const champLabel    = topChamps.map((c) => c.name).join(" / ");
@@ -513,7 +560,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const showPairTable = allPairMode && pairRows.length > 0;
 
   // ── Datos para gráficos avanzados ──────────────────────────────────────
-  const champChartData = champRows.slice(0, 5).map((c) => ({ name: c.name.split(' ')[0], torneos: c.count }));
+  const champChartData = champRows.slice(0, 5).map((c) => ({ key: c.key, name: c.name.split(' ')[0], torneos: c.count }));
 
   const pointDiffChartData = [...individualRows]
     .filter((r) => r.pj >= 2)
@@ -524,8 +571,11 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const activityChartData = [...tournaments]
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
     .map((t) => {
-      const totalMatches = t.matches.length + bracketPlayedCount(t);
-      const totalGames = t.matches.reduce((acc, m) => acc + (+m.score1 || 0) + (+m.score2 || 0), 0);
+      // Las dos series salen del mismo universo de partidos: la barra contaba
+      // los del cuadro final y la línea de games no, así que medían distinto.
+      const all = getAllMatches(t);
+      const totalMatches = all.length;
+      const totalGames = all.reduce((acc, m) => acc + (+m.score1 || 0) + (+m.score2 || 0), 0);
       const label = new Date(t.createdAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
       return { name: label, partidos: totalMatches, games: totalGames };
     });
@@ -834,7 +884,7 @@ function PerPlayerTable({ standings, showTourneys, useLabelKey, movementMap = {}
           const pct = p.pj > 0 ? Math.round((p.pg / p.pj) * 100) : 0;
           const username = p.linked_username ?? null;
           const displayName = useLabelKey ? p.label : p.name;
-          const movement = movementMap[p.name] ?? null;
+          const movement = movementMap[p.id ?? p.name] ?? null;
           return (
             <div key={p.id ?? p.name} className="flex items-center gap-2 bg-surface border border-border-mid rounded-md px-3.5 py-2.5">
               <div className="shrink-0 w-8 flex items-center gap-0.5">

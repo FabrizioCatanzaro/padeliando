@@ -1,14 +1,7 @@
 import StoryFrame, { StatTile } from './StoryFrame';
 import { C, fonts } from './story-theme';
 import PlayerAvatar from '../shared/PlayerAvatar';
-
-function calcNivel(partidos, pct) {
-  if (partidos < 5) return null;
-  if (pct >= 65) return { label: 'MAESTRO', color: '#f0d04a' };
-  if (pct >= 50) return { label: 'AVANZADO', color: C.green };
-  if (pct >= 35) return { label: 'INTERMEDIO', color: '#4ab8f0' };
-  return { label: 'AMATEUR', color: C.secondary };
-}
+import { calcNivel } from '../../utils/helpers';
 
 // Historia del perfil de un usuario.
 export default function ProfileStory({ owner, stats = {}, avatar }) {
@@ -35,7 +28,7 @@ export default function ProfileStory({ owner, stats = {}, avatar }) {
             border: `1px solid ${nivel.color}66`, background: `${nivel.color}18`,
             color: nivel.color, fontSize: 24, letterSpacing: 4, fontWeight: 700,
           }}>
-            {nivel.label}
+            {nivel.label.toUpperCase()}
           </div>
         )}
       </div>

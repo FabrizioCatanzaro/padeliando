@@ -123,6 +123,22 @@ Browser
 - Always calculated **client-side** with `calcStandings(players, matches)` from `helpers.js`.
 - Sorted by: wins → point differential → points for.
 - In americano format, the champion is determined by `bracket.final.winner_id`, not the standings table.
+- **A match never ends in a draw.** There is no such thing in padel: `MatchForm` won't let you save one, `POST/PUT /matches` reject `score1 === score2`, and `calcStandings` discards any equal score it finds (legacy rows only) instead of awarding it to anyone.
+
+### Stats
+Three surfaces, all fed from the same primitives — keep them consistent with each other:
+
+- **Tournament** (`Stats.jsx` › "Este torneo") and **category** (› "Históricas", premium gates the advanced block) are computed client-side from `players` + `matches`.
+- **Profile** (`GET /groups/user/:username`) is computed in SQL, plus in-memory merges in `lib/profileStats.js`.
+
+Rules that keep the three from drifting:
+
+- **Americano knockout matches are not in the `matches` table** — they live inside `tournaments.bracket` (JSONB). Any stat that counts matches must expand them: `getAllMatches` on the client, `expandBracketMatches` on the profile. Forgetting this is why the profile used to show a championship whose matches didn't exist.
+- **Group historical stats must key on player identity, not on `players.id` or on the name.** The same person gets a new `players` row per jornada, and names repeat: use `linked_username` when the slot is linked, the normalized name otherwise (`playerKey` in `Stats.jsx`).
+- **Never re-derive a winner by parsing a label** — `getTournamentWinners(t)` returns the winning player ids; `getTournamentWinnerLabel` is just its join. Names contain `&`.
+- **Titles count every format.** `stats.titulos` = `titulos_liga` (derived from each finished tournament's standings) + `campeon_americano` (from the bracket final).
+- **The winrate ranking is smoothed** (`rankedWinRate`, prior of 2 matches toward the category mean) so a 1-0 record doesn't outrank an 18-4 one. The table still displays the real percentage.
+- Neon returns `DATE` columns as JS `Date` objects: use `dayKey()` before comparing or sorting them as strings.
 
 ### Theming
 - Theme variables live in `src/index.css` as CSS custom properties under `@theme`.
@@ -188,6 +204,9 @@ Do not claim an improvement without measuring it — reading the code is not eno
 - **Don't store auth tokens in localStorage** — tokens use httpOnly cookies; only the `user` object (no secrets) is stored in localStorage.
 - **Don't use a `tailwind.config.js`** — Tailwind 4 doesn't use one; extend the theme via `@theme {}` in `index.css`.
 - **Don't calculate standings server-side** — standings are always derived client-side.
+- **Don't allow or model draws** — padel has no draws; a match with `score1 === score2` is invalid data, not a result to display.
+- **Don't count matches without expanding the americano bracket** — knockout matches are not rows in `matches`. See [Stats](#stats).
+- **Don't group historical player stats by name** — group by identity (`linked_username` ?? normalized name); a player's `players.id` changes every jornada.
 - **Don't show a "CAMPEONES" banner in americano tournaments** — champion is determined by the bracket final, not standings.
 - **Don't hardcode player names** — always go through `adaptTournament` / `linked_name` pattern so invited users see their real name.
 - **Don't let co-organizers edit or delete a category** — those (plus transfer and managing co-organizers) are owner-only (`is_owner`). Co-organizers manage jornadas only (`can_manage`).

@@ -49,17 +49,23 @@ export function calcStandings(players, matches) {
   });
   matches.forEach(({ team1, team2, score1, score2 }) => {
     if (score1 === "" || score2 === "") return;
-    const s1 = parseInt(score1), s2 = parseInt(score2), win1 = s1 > s2;
-    [...team1, ...team2].forEach((pid) => { if (s[pid]) s[pid].pj++; });
-    team1.forEach((pid) => {
-      if (!s[pid]) return;
-      if (win1) { s[pid].pg++; s[pid].sf += s1; s[pid].sc += s2; }
-      else       { s[pid].pp++; s[pid].sf += s1; s[pid].sc += s2; }
-    });
-    team2.forEach((pid) => {
-      if (!s[pid]) return;
-      if (!win1) { s[pid].pg++; s[pid].sf += s2; s[pid].sc += s1; }
-      else        { s[pid].pp++; s[pid].sf += s2; s[pid].sc += s1; }
+    const s1 = parseInt(score1), s2 = parseInt(score2);
+    if (Number.isNaN(s1) || Number.isNaN(s2)) return;
+    // En padel no hay empate: un partido igualado es un dato inválido (sólo
+    // puede venir de un registro viejo) y se descarta. Antes se colaba con la
+    // condición `win1 = s1 > s2`, que en un 6-6 daba la victoria al equipo 2 y
+    // la derrota al equipo 1.
+    if (s1 === s2) return;
+    [[team1, s1, s2], [team2, s2, s1]].forEach(([team, gf, gc]) => {
+      team.forEach((pid) => {
+        const row = s[pid];
+        if (!row) return;
+        row.pj++;
+        row.sf += gf;
+        row.sc += gc;
+        if (gf > gc) row.pg++;
+        else         row.pp++;
+      });
     });
   });
   return Object.values(s).sort((a, b) => {
@@ -118,37 +124,71 @@ export function adaptPair(p) {
  * Convierte matches y pairs al formato interno.
  */
 /**
- * Calcula el label del ganador de un torneo (igual lógica que se muestra en torneos).
- * Para americano: ganador de la final del bracket.
- * Para parejas: pareja con más victorias.
- * Para libre: jugador con más victorias.
+ * Ganadores de un torneo, con los ids de los jugadores que los componen.
+ * - Americano: la pareja que ganó la final del cuadro (sin importar el status).
+ * - Parejas / libre: la pareja o jugador con más victorias (desempate por
+ *   diferencia de games), sólo si el torneo está finalizado. Si hay igualdad
+ *   exacta en la cima, son campeones todos los empatados.
+ * Devuelve `[{ ids, name }]` — los ids permiten contar títulos por jugador sin
+ * volver a parsear nombres.
  */
-export function getTournamentWinnerLabel(t) {
+export function getTournamentWinners(t) {
+  const nameOf = (id) => t.players.find((p) => p.id === id)?.name ?? '?';
+
+  if (t.format === 'americano') {
+    const winnerId = t.bracket?.final?.winner_id;
+    if (!winnerId) return [];
+    const pair = t.pairs?.find((p) => p.id === winnerId);
+    // Sin la pareja en memoria queda el nombre guardado en el bracket, sin ids.
+    if (!pair) return t.bracket?.final?.winner_name
+      ? [{ ids: [], name: t.bracket.final.winner_name }]
+      : [];
+    return [{ ids: [pair.p1, pair.p2], name: `${nameOf(pair.p1)} & ${nameOf(pair.p2)}` }];
+  }
+
+  if (t.status !== 'finished') return [];
+
   const standings = calcStandings(t.players, t.matches);
   const isPairs   = t.mode === 'pairs' && t.pairs?.length > 0;
 
-  if (t.format === 'americano') {
-    return t.bracket?.final?.winner_name ?? null;
-  } else if (isPairs) {
-    if (t.status !== 'finished') return null;
-    const pairRows = t.pairs.map((pair) => {
-      const stats  = standings.find((r) => r.id === pair.p1) ?? standings.find((r) => r.id === pair.p2) ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
-      const p1Name = t.players.find((p) => p.id === pair.p1)?.name ?? '?';
-      const p2Name = t.players.find((p) => p.id === pair.p2)?.name ?? '?';
-      return { ...stats, id: pair.id, name: `${p1Name} & ${p2Name}` };
-    }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
-    const topPg   = pairRows[0]?.pg ?? 0;
-    const topDiff = pairRows[0] ? pairRows[0].sf - pairRows[0].sc : 0;
-    const top     = pairRows.filter((p) => p.pj > 0 && p.pg === topPg && (p.sf - p.sc) === topDiff);
-    return top.length > 0 ? top.map((p) => p.name).join(' / ') : null;
-  } else {
-    if (t.status !== 'finished') return null;
-    const byWins  = [...standings].sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
-    const topPg   = byWins[0]?.pg ?? 0;
-    const topDiff = byWins[0] ? byWins[0].sf - byWins[0].sc : 0;
-    const top     = byWins.filter((s) => s.pj > 0 && s.pg === topPg && (s.sf - s.sc) === topDiff);
-    return top.length > 0 ? top.map((s) => s.name).join(' / ') : null;
-  }
+  const rows = isPairs
+    ? t.pairs.map((pair) => {
+        const stats = standings.find((r) => r.id === pair.p1)
+                   ?? standings.find((r) => r.id === pair.p2)
+                   ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
+        return { ...stats, ids: [pair.p1, pair.p2], name: `${nameOf(pair.p1)} & ${nameOf(pair.p2)}` };
+      })
+    : standings.map((s) => ({ ...s, ids: [s.id], name: s.name }));
+
+  const byWins  = [...rows].sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+  const topPg   = byWins[0]?.pg ?? 0;
+  const topDiff = byWins[0] ? byWins[0].sf - byWins[0].sc : 0;
+  return byWins
+    .filter((r) => r.pj > 0 && r.pg === topPg && (r.sf - r.sc) === topDiff)
+    .map((r) => ({ ids: r.ids, name: r.name }));
+}
+
+/**
+ * Label del ganador de un torneo. Derivado de getTournamentWinners para que el
+ * conteo de campeones no tenga que volver a parsear este string: los nombres
+ * con " & " o " / " rompían ese parseo.
+ */
+export function getTournamentWinnerLabel(t) {
+  const winners = getTournamentWinners(t);
+  return winners.length > 0 ? winners.map((w) => w.name).join(' / ') : null;
+}
+
+/**
+ * Nivel de padelero derivado del volumen y el % de victorias. Vivía duplicado
+ * en ProfileView y ProfileStory, con etiquetas en distinta capitalización.
+ * Devuelve el label capitalizado; la historia lo pasa a mayúsculas.
+ */
+export function calcNivel(partidos, pct) {
+  if (partidos < 5) return null;
+  if (pct >= 65) return { label: 'Maestro',    color: '#f0d04a' };
+  if (pct >= 50) return { label: 'Avanzado',   color: '#4af07a' };
+  if (pct >= 35) return { label: 'Intermedio', color: '#4ab8f0' };
+  return { label: 'Amateur', color: '#888888' };
 }
 
 function patchBracketNames(bracket, pairs, players) {

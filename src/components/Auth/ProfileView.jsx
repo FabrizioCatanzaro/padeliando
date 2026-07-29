@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { api } from '../../utils/api';
-import { fmt } from '../../utils/helpers';
+import { fmt, calcNivel } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -173,13 +173,12 @@ function SocialLinksDisplay({ links }) {
   );
 }
 
-function calcNivel(partidos, pct) {
-  if (partidos < 5) return null;
-  if (pct >= 65) return { label: 'Maestro', color: '#f0d04a' };
-  if (pct >= 50) return { label: 'Avanzado', color: '#4af07a' };
-  if (pct >= 35) return { label: 'Intermedio', color: '#4ab8f0' };
-  return { label: 'Amateur', color: '#888' };
-}
+const ROUND_LABEL = {
+  octavos: 'Octavos',
+  cuartos: 'Cuartos',
+  semis:   'Semifinal',
+  final:   'Final',
+};
 
 function PasswordInput({ value, onChange, placeholder = '* * * * * * *', autoComplete = 'off' }) {
   const [show, setShow] = useState(false);
@@ -868,27 +867,37 @@ export default function ProfileView() {
                 </div>
               )}
 
-              {/* Americano stats */}
-              {stats.torneos_americanos > 0 && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
-                    <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos_americanos}</div>
-                    <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>AMERICANOS</div>
-                    <div className="h-0.5 rounded-full mt-2" style={{ background: '#a84af0', opacity: 0.35 }} />
-                  </div>
+              {/* Títulos y americanos.
+                  La tarjeta de títulos cuenta los torneos ganados de cualquier
+                  formato: antes sólo existía el contador de campeón americano,
+                  así que quien ganaba ligas no veía ningún título. */}
+              {(stats.titulos > 0 || stats.torneos_americanos > 0) && (
+                <div className={`grid gap-3 ${stats.torneos_americanos > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {stats.torneos_americanos > 0 && (
+                    <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+                      <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos_americanos}</div>
+                      <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>AMERICANOS</div>
+                      <div className="h-0.5 rounded-full mt-2" style={{ background: '#a84af0', opacity: 0.35 }} />
+                    </div>
+                  )}
                   <div className="bg-base rounded-lg px-4 py-3 border"
-                    style={{ borderColor: stats.campeon_americano > 0 ? '#f0d04a44' : undefined }}>
+                    style={{ borderColor: stats.titulos > 0 ? '#f0d04a44' : undefined }}>
                     <div className="flex items-start justify-between">
                       <div className="font-condensed font-black text-[32px] leading-none"
-                        style={{ color: stats.campeon_americano > 0 ? '#f0d04a' : '#333' }}>
-                        {stats.campeon_americano}
+                        style={{ color: stats.titulos > 0 ? '#f0d04a' : '#333' }}>
+                        {stats.titulos ?? 0}
                       </div>
-                      {stats.campeon_americano > 0 && <Trophy size={16} style={{ color: '#f0d04a', marginTop: 2 }} />}
+                      {stats.titulos > 0 && <Trophy size={16} style={{ color: '#f0d04a', marginTop: 2 }} />}
                     </div>
                     <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>
-                      {stats.campeon_americano === 1 ? 'VEZ CAMPEÓN' : 'VECES CAMPEÓN'}
+                      {stats.titulos === 1 ? 'TÍTULO' : 'TÍTULOS'}
                     </div>
-                    <div className="h-0.5 rounded-full mt-2" style={{ background: '#f0d04a', opacity: stats.campeon_americano > 0 ? 0.35 : 0.08 }} />
+                    {stats.titulos > 0 && stats.campeon_americano > 0 && stats.titulos_liga > 0 && (
+                      <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+                        {stats.titulos_liga} liga · {stats.campeon_americano} americano
+                      </div>
+                    )}
+                    <div className="h-0.5 rounded-full mt-2" style={{ background: '#f0d04a', opacity: stats.titulos > 0 ? 0.35 : 0.08 }} />
                   </div>
                 </div>
               )}
@@ -928,7 +937,12 @@ export default function ProfileView() {
                         <span className="text-[#444]">vs </span>
                         {firstName(m.opp1_name)} & {firstName(m.opp2_name)}
                       </div>
-                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate">{m.tournament_name}</div>
+                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate">
+                        {m.tournament_name}
+                        {/* Los partidos del cuadro final no viven en la tabla de
+                            partidos: se marcan para que no parezcan de la previa. */}
+                        {m.bracket_round && <span className="text-brand"> · {ROUND_LABEL[m.bracket_round] ?? m.bracket_round}</span>}
+                      </div>
                     </div>
                     <div className="shrink-0 text-[10px] text-dim font-mono">
                       {m.played_at ? `${m.played_at.slice(8, 10)}/${m.played_at.slice(5, 7)}` : ''}
