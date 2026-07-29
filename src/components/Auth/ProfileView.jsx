@@ -1079,8 +1079,8 @@ export default function ProfileView() {
         {/* Estadísticas avanzadas — al fondo para no interrumpir el flujo */}
         {isOwnProfile && stats?.partidos > 0 && (
           owner.is_premium ? (
-            // Iguala al alto del bloque cargado para que el chunk no desplace nada.
-            <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 1140 }} />}>
+            // Iguala al alto del bloque completo (con sets y palizas) para que el chunk no desplace nada.
+            <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 1370 }} />}>
               <AdvancedStats
                 stats={stats}
                 monthlyStats={monthly_stats ?? []}
