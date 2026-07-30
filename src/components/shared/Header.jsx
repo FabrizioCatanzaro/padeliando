@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { User, CircleHelp, Bell } from 'lucide-react'
+import { User, CircleHelp, Bell, Download } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
+import { usePwaInstall } from '../../hooks/usePwaInstall'
+import { openInstallPrompt } from '../../utils/pwa'
 import { api } from '../../utils/api'
 import { renderRichText } from '../../utils/richText'
 import logoUrl from '../../assets/padeleando-logo.webp'
@@ -95,6 +97,7 @@ export default function Header() {
   const [notifLoading,  setNotifLoading]  = useState(false)
 
   const { user, isLoggedIn, logout } = useAuth()
+  const { available: canInstallApp } = usePwaInstall()
   const navigate  = useNavigate()
   const location  = useLocation()
   const menuRef   = useRef(null)
@@ -200,6 +203,16 @@ export default function Header() {
     setMenuOpen(false);
     navigate(path);
   }
+
+  // Salida permanente para quien cerró el cartel automático sin querer.
+  const installItem = canInstallApp && (
+    <button
+      onClick={() => { setMenuOpen(false); openInstallPrompt(); }}
+      className="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans"
+    >
+      <Download size={15} /> Instalar app
+    </button>
+  );
 
   return (
     <div className="px-5 py-3 flex justify-between items-center border-b border-border bg-base">
@@ -325,6 +338,7 @@ export default function Header() {
                     >
                       Ayuda
                     </Link>
+                    {installItem}
                     {user?.role === 'admin' && (
                       <button onClick={() => go('/admin')}
                         className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid transition-colors cursor-pointer bg-transparent border-0 font-sans">
@@ -355,6 +369,7 @@ export default function Header() {
                   >
                     Ayuda
                   </Link>
+                  {installItem}
                 </div>
               )}
             </div>

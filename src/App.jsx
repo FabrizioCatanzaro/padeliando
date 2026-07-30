@@ -5,6 +5,7 @@ import { Titled } from './hooks/useDocumentTitle'
 import Header       from './components/shared/Header'
 import Footer       from './components/shared/Footer'
 import AdBanner     from './components/shared/AdBanner'
+import InstallPrompt from './components/shared/InstallPrompt'
 import Loader       from './components/Loader/Loader'
 
 // La portada y el login se cargan con el bundle inicial: son el punto de
@@ -81,6 +82,9 @@ function Layout() {
       </div>
 
       <Footer />
+
+      {/* Flota sobre el contenido, así que no desplaza nada ni suma CLS. */}
+      <InstallPrompt />
 
       {/* Banner inferior fijo — solo mobile/tablet */}
       {/* <div className="xl:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100/10 flex items-center justify-center h-14">
