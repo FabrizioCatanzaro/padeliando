@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, tournamentDate, normalize, fmt } from "../../utils/helpers";
-import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, Scale, Swords, Trophy } from "lucide-react";
+import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, Scale, Swords, Target, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, LineChart, Line, Legend,
@@ -444,7 +444,23 @@ function sortRows(rows, sortBy = 'wins') {
   });
 }
 
-function buildIndividualRows(tournaments, sortBy = 'wins') {
+// Líder de un conjunto según un criterio, con los empates exactos agrupados.
+function topBy(rows, sortBy, labelOf = (r) => r.name) {
+  const sorted = sortRows(rows.filter((r) => r.pj > 0), sortBy);
+  const first = sorted[0];
+  if (!first) return null;
+  const tied = sorted.filter((r) => r.pg === first.pg && r.pj === first.pj);
+  return {
+    label: tied.map(labelOf).join(' / '),
+    tied: tied.length > 1,
+    pg: first.pg,
+    pj: first.pj,
+    pct: first.pj > 0 ? Math.round((first.pg / first.pj) * 100) : 0,
+    linked_username: tied.length === 1 ? first.linked_username ?? null : null,
+  };
+}
+
+function accumulatePlayers(tournaments) {
   const playerMap = {};
   tournaments.forEach((t) => {
     const matches  = getAllMatches(t);
@@ -474,10 +490,47 @@ function buildIndividualRows(tournaments, sortBy = 'wins') {
       });
     });
   });
-  return sortRows(Object.values(playerMap).filter((r) => r.pj > 0), sortBy);
+  return Object.values(playerMap).filter((r) => r.pj > 0);
+}
+
+function buildIndividualRows(tournaments, sortBy = 'wins') {
+  return sortRows(accumulatePlayers(tournaments), sortBy);
 }
 
 const RANK_COLORS = ['#e8f04a', '#4ab8f0', '#4af07a', '#a84af0', '#f07a4a'];
+
+const TONES = {
+  brand:     { border: 'border-brand/27',       head: 'bg-brand',       text: 'text-brand' },
+  cyan:      { border: 'border-cyan/27',        head: 'bg-cyan',        text: 'text-cyan' },
+  green:     { border: 'border-green/27',       head: 'bg-green',       text: 'text-green' },
+  secondary: { border: 'border-secondary/27',   head: 'bg-secondary',   text: 'text-secondary' },
+};
+
+const LEADER_ICONS = { crown: Crown, target: Target, handshake: Handshake };
+
+function LeaderCard({ title, leader, icon, tone, detail, onOpen }) {
+  if (!leader) return null;
+  const Icon = LEADER_ICONS[icon] ?? Crown;
+  const t = TONES[tone] ?? TONES.brand;
+  const clickable = !leader.tied && !!onOpen;
+  return (
+    <div className={`flex flex-col bg-surface border ${t.border} rounded-lg text-center overflow-hidden`}>
+      <div className={`${t.head} text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5`}>
+        {leader.tied ? `Empate · ${title}` : title}
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+        <Icon size={30} className={t.text} />
+        <div
+          className={`font-condensed font-bold ${leader.tied ? 'text-lg' : 'text-xl'} ${t.text} leading-tight ${clickable ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
+          onClick={() => clickable && onOpen(leader)}
+        >
+          {leader.label}
+        </div>
+        <div className="text-[14px] text-secondary font-mono">{detail(leader)}</div>
+      </div>
+    </div>
+  );
+}
 
 function Toggle({ value, onChange, options }) {
   return (
@@ -694,10 +747,11 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
     [tournaments]
   );
   // Base por rendimiento (%): se usa para las tarjetas y gráficos (mejor jugador, etc.).
-  const rankedRows = useMemo(
-    () => buildIndividualRows(sortedByDate, rankMode),
-    [sortedByDate, rankMode]
-  );
+  const playerBase = useMemo(() => accumulatePlayers(sortedByDate), [sortedByDate]);
+  const rankedRows = useMemo(() => sortRows(playerBase, rankMode), [playerBase, rankMode]);
+  // Las tarjetas no dependen del switch: cada una fija su propio criterio.
+  const topPlayerWins = useMemo(() => topBy(playerBase, 'wins'), [playerBase]);
+  const topPlayerRate = useMemo(() => topBy(playerBase, 'winrate'), [playerBase]);
 
   const attendance = useMemo(() => buildAttendance(sortedByDate), [sortedByDate]);
   const h2h        = useMemo(() => buildHeadToHead(sortedByDate), [sortedByDate]);
@@ -757,14 +811,12 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       });
     });
   }
-  const pairRows = sortRows(Object.values(pairMap), rankMode);
+  const pairBase = Object.values(pairMap);
+  const pairRows = sortRows(pairBase, rankMode);
 
-  // ── Mejor pareja histórica ──────────────────────────────────────────────
-  const topPct    = pairRows[0]?.pj > 0 ? pairRows[0].pg / pairRows[0].pj : 0;
-  const tiedPairs = pairRows.filter((p) => p.pj > 0 && (p.pg / p.pj) === topPct && p.pg === pairRows[0]?.pg);
-  const bestPairLabel  = tiedPairs.length > 1 ? tiedPairs.map((p) => p.label).join(" / ") : tiedPairs[0]?.label ?? null;
-  const bestPairIsTied = tiedPairs.length > 1;
-  const bestPairRecord = !bestPairIsTied && tiedPairs[0] ? `${tiedPairs[0].pg}/${tiedPairs[0].pj}` : null;
+  const pairLabel   = (p) => p.label;
+  const topPairWins = topBy(pairBase, 'wins', pairLabel);
+  const topPairRate = topBy(pairBase, 'winrate', pairLabel);
 
   // ── Más veces campeón ──────────────────────────────────────────────────
   // Se cuenta por identidad de jugador. Antes se reconstruía a partir del label
@@ -907,37 +959,39 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
         <>
           <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS AVANZADAS</div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
-            {rankedRows[0] && (() => {
-              const best = rankedRows[0];
-              return (
-                <div className="bg-surface border border-brand/27 rounded-lg text-center overflow-hidden">
-                  <div className="bg-brand text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-brand/15">Mejor jugador histórico</div>
-                  <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
-                    <Crown size={30} className="text-brand" />
-                    <div
-                      className={`font-condensed font-bold text-xl text-brand leading-tight ${best.linked_username ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
-                      onClick={() => best.linked_username && navigate(`/u/${best.linked_username}`)}
-                    >
-                      {best.name}
-                    </div>
-                    <div className="text-[14px] text-secondary font-mono">{best.pg}V</div>
-                  </div>
-                </div>
-              );
-            })()}
-            {hasPairMode && bestPairLabel && (
-              <div className="bg-surface border border-green/27 rounded-lg text-center overflow-hidden">
-                <div className="bg-green text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-green/15">
-                  {bestPairIsTied ? "Empate · Mejor pareja histórica" : "Mejor pareja histórica"}
-                </div>
-                <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-4">
-                  <Handshake size={30} className="text-green" />
-                  <div className="font-condensed font-bold text-xl text-green leading-tight">{bestPairLabel}</div>
-                  {!bestPairIsTied && bestPairRecord && (
-                    <div className="text-[14px] text-secondary font-mono">{bestPairRecord}</div>
-                  )}
-                </div>
-              </div>
+            <LeaderCard
+              title="Jugador más ganador"
+              leader={topPlayerWins}
+              icon="crown"
+              tone="brand"
+              detail={(l) => `${l.pg} ${l.pg === 1 ? 'ganado' : 'ganados'} de ${l.pj}`}
+              onOpen={(l) => l.linked_username && navigate(`/u/${l.linked_username}`)}
+            />
+            <LeaderCard
+              title="Jugador más efectivo"
+              leader={topPlayerRate}
+              icon="target"
+              tone="cyan"
+              detail={(l) => `${l.pct}% (${l.pg}/${l.pj})`}
+              onOpen={(l) => l.linked_username && navigate(`/u/${l.linked_username}`)}
+            />
+            {canShowPairs && (
+              <>
+                <LeaderCard
+                  title="Pareja más ganadora"
+                  leader={topPairWins}
+                  icon="handshake"
+                  tone="green"
+                  detail={(l) => `${l.pg} ${l.pg === 1 ? 'ganado' : 'ganados'} de ${l.pj}`}
+                />
+                <LeaderCard
+                  title="Pareja más efectiva"
+                  leader={topPairRate}
+                  icon="target"
+                  tone="secondary"
+                  detail={(l) => `${l.pct}% (${l.pg}/${l.pj})`}
+                />
+              </>
             )}
           </div>
 
@@ -1169,8 +1223,8 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
               totalMatches={totalMatches}
               isPremium={ownerIsPremium}
               champion={storyChampion}
-              bestPlayer={rankedRows[0] ? { name: rankedRows[0].name, wins: rankedRows[0].pg } : null}
-              bestPair={hasPairMode && bestPairLabel ? { label: bestPairLabel, record: bestPairRecord, tied: bestPairIsTied } : null}
+              bestPlayer={topPlayerWins ? { name: topPlayerWins.label, wins: topPlayerWins.pg } : null}
+              bestPair={canShowPairs && topPairWins ? { label: topPairWins.label, record: `${topPairWins.pg}/${topPairWins.pj}`, tied: topPairWins.tied } : null}
               ranking={storyRanking}
               rankingTitle={showPairTable ? "RANKING DE PAREJAS · GANADOS" : "RANKING HISTÓRICO · GANADOS"}
               champions={champRows.slice(0, 5)}
