@@ -1138,20 +1138,29 @@ export default function ProfileView() {
                     </div>
                     {advancedError && <div className="text-[11px] font-mono text-danger mt-1">{advancedError}</div>}
                   </div>
+                  {/* Interruptor: el riel deja ver que hay dos posiciones, que un
+                      botón con el estado escrito no comunicaba. */}
                   <button
                     type="button"
                     onClick={handleToggleAdvancedPublic}
                     disabled={advancedBusy}
-                    aria-pressed={advancedPublic}
+                    role="switch"
+                    aria-checked={advancedPublic}
+                    aria-label="Estadísticas avanzadas públicas"
                     title={advancedPublic ? 'Hacerlas privadas' : 'Hacerlas públicas'}
-                    className={`shrink-0 flex items-center gap-1.5 border px-3 py-1.5 rounded font-condensed font-bold text-[11px] tracking-wide transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default ${
-                      advancedPublic
-                        ? 'bg-brand text-base border-brand'
-                        : 'bg-transparent text-muted border-border-strong hover:text-white hover:border-border-mid'
-                    }`}
+                    className="shrink-0 flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer disabled:opacity-50 disabled:cursor-default"
                   >
-                    {advancedPublic ? <Globe size={13} /> : <Lock size={13} />}
-                    {advancedPublic ? 'PÚBLICAS' : 'PRIVADAS'}
+                    <span className={`flex items-center gap-1.5 font-condensed font-bold text-[11px] tracking-wide transition-colors ${advancedPublic ? 'text-brand' : 'text-muted'}`}>
+                      {advancedPublic ? <Globe size={12} /> : <Lock size={12} />}
+                      {advancedPublic ? 'PÚBLICAS' : 'PRIVADAS'}
+                    </span>
+                    <span className={`relative w-12 h-7 rounded-full border transition-colors ${
+                      advancedPublic ? 'bg-brand border-brand' : 'bg-base border-border-strong'
+                    }`}>
+                      <span className={`absolute top-[3px] left-[3px] w-[19px] h-[19px] rounded-full transition-transform duration-200 ${
+                        advancedPublic ? 'translate-x-[20px] bg-surface' : 'translate-x-0 bg-dim'
+                      }`} />
+                    </span>
                   </button>
                 </div>
               )}
