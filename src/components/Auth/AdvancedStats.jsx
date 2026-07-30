@@ -3,7 +3,7 @@
 // siendo premium y con partidos jugados. Importado de forma estática arrastraba
 // esa librería a toda visita de perfil, incluida la de un anónimo que nunca la
 // ve. ProfileView lo carga con React.lazy.
-import { Lock } from 'lucide-react';
+import { Gem } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -255,7 +255,7 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity, week
     <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-5">
-        <Lock size={13} className="text-brand" />
+        <Gem size={13} className="text-brand" />
         <span className="font-condensed font-bold text-sm tracking-[3px] text-brand">ESTADÍSTICAS AVANZADAS</span>
       </div>
 

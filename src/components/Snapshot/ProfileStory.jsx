@@ -1,3 +1,4 @@
+import { Gem } from 'lucide-react';
 import StoryFrame, { StatTile } from './StoryFrame';
 import { C, fonts } from './story-theme';
 import PlayerAvatar from '../shared/PlayerAvatar';
@@ -151,7 +152,22 @@ export default function ProfileStory({ owner, stats = {}, avatar, advanced = fal
     <StoryFrame eyebrow="PERFIL DE JUGADOR" title="">
       {/* Cabecera del jugador */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: -20 }}>
-        <PlayerAvatar name={owner.name} src={avatar ?? owner.avatar_url} size={avatarSize} premium={!!owner.is_premium} />
+        {/* El diamante inclinado marca la cuenta premium, igual que en la app. */}
+        <div style={{ position: 'relative', display: 'inline-flex' }}>
+          <PlayerAvatar name={owner.name} src={avatar ?? owner.avatar_url} size={avatarSize} premium={!!owner.is_premium} />
+          {owner.is_premium && (
+            <div style={{
+              position: 'absolute',
+              right: -Math.round(avatarSize * 0.11),
+              top: Math.round(avatarSize * 0.08),
+              transform: 'rotate(18deg)',
+              filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.55))',
+              lineHeight: 0,
+            }}>
+              <Gem size={Math.round(avatarSize * 0.3)} color={C.amber} strokeWidth={1.6} />
+            </div>
+          )}
+        </div>
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: 60, color: C.white, marginTop: 34, lineHeight: 1.05 }}>
           {owner.name}
         </div>

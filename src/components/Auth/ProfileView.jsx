@@ -4,7 +4,7 @@ import { fmt, calcNivel } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Globe, Gem, Badge, BadgeCheck, Share2 } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Globe, Gem, Badge, BadgeCheck, Share2, BarChart3, Swords, Handshake, MapPin, Users, LayoutGrid } from 'lucide-react';
 // Recharts sólo lo necesita este bloque, que además casi nunca se muestra.
 const AdvancedStats = lazy(() => import('./AdvancedStats'));
 import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
@@ -848,7 +848,9 @@ export default function ProfileView() {
           const pctColor = pct >= 60 ? '#4af07a' : pct >= 40 ? '#e8f04a' : '#f07a4a';
           return (
             <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-              <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-4">ESTADÍSTICAS PERSONALES</div>
+              <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-4">
+                <BarChart3 size={13} className="shrink-0" />ESTADÍSTICAS PERSONALES
+              </div>
 
               {/* Torneos · Partidos · Racha actual — misma fila */}
               <div className="grid grid-cols-3 gap-3 mb-4">
@@ -946,7 +948,9 @@ export default function ProfileView() {
         {recent_matches?.length > 0 && (
           <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">ÚLTIMOS PARTIDOS</div>
+              <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555]">
+                <Swords size={13} className="shrink-0" />ÚLTIMOS PARTIDOS
+              </div>
               <span className="font-mono text-[10px] text-dim">{recent_matches.length} registrados</span>
             </div>
             <div className="flex flex-col gap-2">
@@ -1001,7 +1005,9 @@ export default function ProfileView() {
         {/* Compañeros frecuentes */}
         {frequent_partners?.length > 0 && (
           <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">COMPAÑEROS FRECUENTES</div>
+            <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">
+              <Handshake size={13} className="shrink-0" />COMPAÑEROS FRECUENTES
+            </div>
             <div className="rounded-lg overflow-hidden border border-border-strong">
               {frequent_partners.map((p, i) => (
                 <div key={i}
@@ -1038,7 +1044,9 @@ export default function ProfileView() {
         {/* Ranking entre la gente que sigue. Sólo lo ve el dueño del perfil. */}
         {isOwnProfile && follow_ranking?.length > 1 && (
           <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">ENTRE TUS SEGUIDOS</div>
+            <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">
+              <Users size={13} className="shrink-0" />ENTRE TUS SEGUIDOS
+            </div>
             <div className="rounded-lg overflow-hidden border border-border-strong">
               {follow_ranking.map((r, i) => (
                 <div key={r.id}
@@ -1072,7 +1080,9 @@ export default function ProfileView() {
         {/* Sólo los torneos con club asignado, así que el total puede ser menor. */}
         {club_stats?.length > 0 && (
           <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">DONDE JUEGA</div>
+            <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">
+              <MapPin size={13} className="shrink-0" />DONDE JUEGA
+            </div>
             <div className="rounded-lg overflow-hidden border border-border-strong">
               {club_stats.map((c, i) => {
                 const pct = c.partidos > 0 ? Math.round((c.victorias / c.partidos) * 100) : 0;
@@ -1108,7 +1118,9 @@ export default function ProfileView() {
         )}
 
         {/* Categorías */}
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">CATEGORÍAS PROPIAS</div>
+        <div className="flex items-center gap-2 font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">
+          <LayoutGrid size={14} className="shrink-0" />CATEGORÍAS PROPIAS
+        </div>
         {groups.length === 0 && (
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
             {isOwnProfile ? 'Todavía no creaste ninguna categoría.' : 'Este usuario no tiene categorías públicas.'}
