@@ -1,5 +1,16 @@
 {
   "rewrites": [
+    {
+      "source": "/view/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(whatsapp|facebookexternalhit|facebookcatalog|facebot|twitterbot|slackbot|slack-imgproxy|telegrambot|discordbot|linkedinbot|skypeuripreview|redditbot|pinterest|vkshare|embedly|iframely).*"
+        }
+      ],
+      "destination": "/api/preview?id=:id"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
