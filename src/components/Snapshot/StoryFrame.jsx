@@ -175,7 +175,7 @@ export function ClubBadge({ tournament }) {
 // Tarjeta de highlight (etiqueta + valor principal + subtítulo).
 // `mainSize` pisa el tamaño del valor: se usa cuando el texto es largo por un
 // empate (varios nombres unidos con " / ") y al tamaño normal no entraría.
-export function HighlightCard({ label, main, sub, accent = C.brand, emoji, big, mainSize }) {
+export function HighlightCard({ label, main, sub, accent = C.brand, emoji, big, mainSize, subSize }) {
   return (
     <div style={{
       background: C.surface, border: `1px solid ${accent}44`, borderRadius: 20,
@@ -195,7 +195,9 @@ export function HighlightCard({ label, main, sub, accent = C.brand, emoji, big, 
       }}>
         {main}
       </div>
-      {sub && <div style={{ fontSize: 24, color: C.secondary, marginTop: 10 }}>{sub}</div>}
+      {/* `subSize` lo baja el call site cuando el sub son nombres de los 4
+          jugadores, que al tamaño normal parten en tres líneas. */}
+      {sub && <div style={{ fontSize: subSize ?? 24, color: C.secondary, marginTop: 10 }}>{sub}</div>}
     </div>
   );
 }

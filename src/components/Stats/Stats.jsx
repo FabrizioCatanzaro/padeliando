@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, tournamentDate, normalize, fmt } from "../../utils/helpers";
-import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, Scale, Swords, Target, Trophy } from "lucide-react";
+import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, Scale, Swords, Target, Timer, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, LineChart, Line, Legend,
@@ -67,6 +67,11 @@ function fmtDuracion(segundos) {
   const min = Math.round(segundos / 60);
   if (min < 60) return `${min} m`;
   return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} m`;
+}
+
+function fmtMMSS(segundos) {
+  const total = Math.round(segundos);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function getAllMatches(tournament) {
@@ -142,6 +147,7 @@ function CurrentStats({ tournament }) {
 
   const timedMatches   = played.filter((m) => (m.duration_seconds ?? 0) > 0);
   const totalSeconds   = timedMatches.reduce((acc, m) => acc + m.duration_seconds, 0);
+  const avgSeconds     = timedMatches.length > 0 ? totalSeconds / timedMatches.length : 0;
   const tightMatches   = played.filter((m) => Math.abs(+m.score1 - +m.score2) === 1);
   const tightPct       = played.length > 0 ? Math.round((tightMatches.length / played.length) * 100) : 0;
 
@@ -206,34 +212,57 @@ function CurrentStats({ tournament }) {
     return <div className="text-center text-dim py-10 px-5 font-sans leading-loose">Jugá partidos para ver estadísticas 📊</div>;
 
   // ── Highlights para la historia exportable ──────────────────────────────────
+  // La historia lleva todas las tarjetas disponibles en la grilla: el hero es la
+  // primera que aplica y las demás bajan a `storyItems` en el mismo orden.
+  const heroKind = isAmericano && tournament.bracket?.final?.winner_id ? "campeones"
+    : isPairs && topPairLabel ? "pareja"
+    : leaders.length > 0 ? "mvp"
+    : null;
+
   const storyHero = (() => {
-    if (isAmericano && tournament.bracket?.final?.winner_id)
+    if (heroKind === "campeones")
       return { emoji: "🏆", label: "CAMPEONES", main: tournament.bracket.final.winner_name, accent: C.amber };
-    if (isPairs && topPairLabel)
+    if (heroKind === "pareja")
       // En empate el valor son varias parejas: se achica para que entren.
       return { emoji: "🔥", label: topPairIsTied ? "MEJOR PAREJA · EMPATE" : "MEJOR PAREJA", main: topPairLabel, mainSize: topPairIsTied ? 34 : undefined, sub: `${topPairWinRate}% (${topPairRecord})`, accent: C.brand };
-    if (leaders.length > 0)
-      return { emoji: "🏆", label: leaders.length > 1 ? "MVP · EMPATE" : "MVP", main: mvpLabel, sub: `${topPg} ${topPg === 1 ? "victoria" : "victorias"}`, accent: C.brand };
+    if (heroKind === "mvp")
+      return { emoji: "🏆", label: leaders.length > 1 ? "MVP · EMPATE" : "MVP", main: mvpLabel, mainSize: leaders.length > 1 ? 34 : undefined, sub: `${topPg} ${topPg === 1 ? "victoria" : "victorias"}`, accent: C.brand };
     return null;
   })();
 
-  const storyItems = [{ label: "PARTIDOS JUGADOS", main: played.length, accent: C.cyan }];
-  if (!isPairs && topPlayed >= 1 && topPartner)
-    storyItems.push({ emoji: "🤝", label: "MEJOR PAREJA", main: topPartner.label, sub: `${topWinRate}% (${topWins}/${topPlayed})`, accent: C.cyan });
+  // Mismo detalle que en la grilla: ganadores en blanco vs perdedores en gris.
+  const sidesOf = (m) => {
+    const win1 = +m.score1 > +m.score2;
+    const winners = (win1 ? m.team1 : m.team2).map(getPlayerName).join(" & ");
+    const losers  = (win1 ? m.team2 : m.team1).map(getPlayerName).join(" & ");
+    return <><span style={{ color: C.white }}>{winners}</span> vs {losers}</>;
+  };
+
+  const storyItems = [{ emoji: "🎾", label: "PARTIDOS JUGADOS", main: played.length, accent: C.cyan }];
+  // En americano el hero es el campeón, así que el MVP / la mejor pareja fija
+  // (que en la grilla van en su propia tarjeta) pasan a ser un item más.
+  if (heroKind === "campeones" && isPairs && topPairLabel)
+    storyItems.push({ emoji: "🔥", label: topPairIsTied ? "MEJOR PAREJA · EMPATE" : "MEJOR PAREJA", main: topPairLabel, mainSize: topPairIsTied ? 26 : undefined, sub: `${topPairWinRate}% (${topPairRecord})`, accent: C.brand });
+  else if (heroKind === "campeones" && !isPairs && leaders.length > 0)
+    storyItems.push({ emoji: "🏆", label: leaders.length > 1 ? "MVP · EMPATE" : "MVP", main: mvpLabel, mainSize: leaders.length > 1 ? 26 : undefined, sub: `${topPg} ${topPg === 1 ? "victoria" : "victorias"}`, accent: C.brand });
+  if (!isPairs && topPlayed >= 1 && topPairLabel)
+    storyItems.push({ emoji: "🤝", label: topPairIsTied ? "MEJOR PAREJA · EMPATE" : "MEJOR PAREJA", main: topPairLabel, mainSize: topPairIsTied ? 26 : undefined, sub: `${topWinRate}% (${topWins}/${topPlayed})`, accent: C.cyan });
   if (biggestWin) {
     const win1 = +biggestWin.score1 > +biggestWin.score2;
-    const winnerNames = (win1 ? biggestWin.team1 : biggestWin.team2).map(getPlayerName).join(" & ");
     const ws = win1 ? biggestWin.score1 : biggestWin.score2;
     const ls = win1 ? biggestWin.score2 : biggestWin.score1;
-    storyItems.push({ emoji: "💣", label: "PARTIDO MÁS AMPLIO", main: `${ws} — ${ls}`, sub: winnerNames, accent: C.danger });
+    storyItems.push({ emoji: "💣", label: "PARTIDO MÁS AMPLIO", main: `${ws} — ${ls}`, sub: sidesOf(biggestWin), subSize: 20, accent: C.danger });
   }
-  if (longestMatch) {
-    const win1 = +longestMatch.score1 > +longestMatch.score2;
-    const winnerNames = (win1 ? longestMatch.team1 : longestMatch.team2).map(getPlayerName).join(" & ");
-    const mm = String(Math.floor(longestMatch.duration_seconds / 60)).padStart(2, "0");
-    const ss = String(longestMatch.duration_seconds % 60).padStart(2, "0");
-    storyItems.push({ emoji: "⏱️", label: "PARTIDO MÁS LARGO", main: `${mm}:${ss}`, sub: winnerNames, accent: C.green });
-  }
+  if (longestMatch)
+    storyItems.push({ emoji: "⏱️", label: "PARTIDO MÁS LARGO", main: fmtMMSS(longestMatch.duration_seconds), sub: sidesOf(longestMatch), subSize: 20, accent: C.green });
+  if (timedMatches.length > 0)
+    storyItems.push({ emoji: "⌛", label: "TIEMPO DE JUEGO", main: fmtDuracion(totalSeconds), sub: `${timedMatches.length} de ${played.length} con tiempo`, accent: C.cyan });
+  if (timedMatches.length >= 2)
+    storyItems.push({ emoji: "🕒", label: "PROMEDIO POR PARTIDO", main: fmtMMSS(avgSeconds), sub: `${timedMatches.length} de ${played.length} con tiempo`, accent: C.cyan });
+  if (tightMatches.length > 0)
+    storyItems.push({ emoji: "⚖️", label: "PARTIDOS PAREJOS", main: `${tightPct}%`, sub: `${tightMatches.length} de ${played.length} por 1 game`, accent: C.brand });
+  if (shortestMatch && shortestMatch !== longestMatch)
+    storyItems.push({ emoji: "⚡", label: "PARTIDO MÁS RÁPIDO", main: fmtMMSS(shortestMatch.duration_seconds), sub: sidesOf(shortestMatch), subSize: 20, accent: C.secondary });
 
   return (
     <>
@@ -337,10 +366,7 @@ function CurrentStats({ tournament }) {
               <div className="bg-green text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-green/15">Partido más largo</div>
               <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
                 <Clock size={30} className="text-green" />
-                <div className="font-condensed font-bold text-[26px] text-green leading-tight">
-                  {String(Math.floor(longestMatch.duration_seconds / 60)).padStart(2,"0")}:
-                  {String(longestMatch.duration_seconds % 60).padStart(2,"0")}
-                </div>
+                <div className="font-condensed font-bold text-[26px] text-green leading-tight">{fmtMMSS(longestMatch.duration_seconds)}</div>
                 <div className="text-[13px] text-secondary font-mono">
                   <span className="text-white">{winnerNames}</span> vs {loserNames}
                 </div>
@@ -355,9 +381,19 @@ function CurrentStats({ tournament }) {
               <Hourglass size={30} className="text-cyan" />
               <div className="font-condensed font-bold text-[26px] text-cyan leading-tight">{fmtDuracion(totalSeconds)}</div>
               <div className="text-[13px] text-secondary font-mono">
-                {timedMatches.length === played.length
-                  ? `${fmtDuracion(totalSeconds / timedMatches.length)} por partido`
-                  : `${timedMatches.length} de ${played.length} con tiempo`}
+                {timedMatches.length} de {played.length} con tiempo
+              </div>
+            </div>
+          </div>
+        )}
+        {timedMatches.length >= 2 && (
+          <div className="flex flex-col bg-surface border border-cyan/27 rounded-lg text-center overflow-hidden">
+            <div className="bg-cyan text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-cyan/15">Promedio de tiempo de juego</div>
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
+              <Timer size={30} className="text-cyan" />
+              <div className="font-condensed font-bold text-[26px] text-cyan leading-tight">{fmtMMSS(avgSeconds)}</div>
+              <div className="text-[13px] text-secondary font-mono">
+                {timedMatches.length} de {played.length} con tiempo
               </div>
             </div>
           </div>
@@ -383,10 +419,7 @@ function CurrentStats({ tournament }) {
               <div className="bg-secondary text-surface text-[11px] font-condensed font-bold tracking-[1.5px] uppercase pt-2.5 pb-1.5 border-b border-secondary/15">Partido más rápido</div>
               <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 pt-3 pb-4">
                 <Clock size={30} className="text-secondary" />
-                <div className="font-condensed font-bold text-[26px] text-secondary leading-tight">
-                  {String(Math.floor(shortestMatch.duration_seconds / 60)).padStart(2,"0")}:
-                  {String(shortestMatch.duration_seconds % 60).padStart(2,"0")}
-                </div>
+                <div className="font-condensed font-bold text-[26px] text-secondary leading-tight">{fmtMMSS(shortestMatch.duration_seconds)}</div>
                 <div className="text-[13px] text-secondary font-mono">
                   <span className="text-white">{winnerNames}</span> vs {loserNames}
                 </div>
