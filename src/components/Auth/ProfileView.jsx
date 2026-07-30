@@ -923,9 +923,11 @@ export default function ProfileView() {
                 const draw = m.result === 'draw';
                 const color = win ? '#4af07a' : draw ? '#e8f04a' : '#f07a4a';
                 const firstName = (n) => n?.split(' ')[0] ?? '?';
+                // De una categoría privada llega el resultado, no la jornada.
+                const priv = m.private_group;
                 return (
-                  <div key={m.id} onClick={() => navigate(`/cat/${m.group_id}/torneo/${m.tournament_id}`)}
-                    className="bg-base rounded-lg px-3 py-2.5 border border-border-strong flex items-center gap-3 cursor-pointer hover:border-border-mid transition-colors">
+                  <div key={m.id} onClick={priv ? undefined : () => navigate(`/cat/${m.group_id}/torneo/${m.tournament_id}`)}
+                    className={`bg-base rounded-lg px-3 py-2.5 border border-border-strong flex items-center gap-3 transition-colors ${priv ? '' : 'cursor-pointer hover:border-border-mid'}`}>
                     <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center font-condensed font-black text-[13px]"
                       style={{ background: `${color}18`, color, border: `1px solid ${color}44` }}>
                       {win ? 'V' : draw ? 'E' : 'D'}
@@ -942,8 +944,10 @@ export default function ProfileView() {
                         <span className="text-[#444]">vs </span>
                         {firstName(m.opp1_name)} & {firstName(m.opp2_name)}
                       </div>
-                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate">
-                        {m.tournament_name}
+                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate flex items-center gap-1">
+                        {priv
+                          ? <><Lock size={9} className="shrink-0" />Categoría privada</>
+                          : m.tournament_name}
                         {m.bracket_round && <span className="text-brand"> · {ROUND_LABEL[m.bracket_round] ?? m.bracket_round}</span>}
                       </div>
                     </div>
