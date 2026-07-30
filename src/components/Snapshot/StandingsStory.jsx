@@ -1,4 +1,4 @@
-import StoryFrame, { CategoryChip, ClubBadge } from './StoryFrame';
+import StoryFrame, { TournamentMeta, ClubBadge } from './StoryFrame';
 import { C, fonts } from './story-theme';
 import PlayerAvatar, { PairAvatar } from '../shared/PlayerAvatar';
 
@@ -34,7 +34,7 @@ export default function StandingsStory({ tournament, rows = [], champions = [] }
       eyebrow="TABLA DE POSICIONES"
       title={tournament.name}
       subtitle={`${count} ${unit} · ${matchCount} ${matchCount === 1 ? 'partido' : 'partidos'}`}
-      meta={<CategoryChip tournament={tournament} />}
+      meta={<TournamentMeta tournament={tournament} />}
       headerRight={<ClubBadge tournament={tournament} />}
     >
       {champions.length > 0 && (

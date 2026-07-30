@@ -13,7 +13,7 @@ import ShareStoryButton from "../Snapshot/ShareStoryButton";
 import SnapshotModal from "../Snapshot/SnapshotModal";
 import StatsStory from "../Snapshot/StatsStory";
 import CategoryStory from "../Snapshot/CategoryStory";
-import { CategoryChip, ClubBadge } from "../Snapshot/StoryFrame";
+import { TournamentMeta, ClubBadge } from "../Snapshot/StoryFrame";
 import { C } from "../Snapshot/story-theme";
 import groupStatsPreview from "../../assets/group-advanced-stats-preview.svg";
 
@@ -437,7 +437,7 @@ function CurrentStats({ tournament }) {
         <SnapshotModal
           filename={`stats-${tournament.name ?? "torneo"}.png`}
           onClose={() => setShowStory(false)}
-          story={<StatsStory eyebrow="ESTADÍSTICAS DEL TORNEO" title={tournament.name} meta={<CategoryChip tournament={tournament} />} headerRight={<ClubBadge tournament={tournament} />} accent={C.brand} hero={storyHero} items={storyItems} />}
+          story={<StatsStory eyebrow="ESTADÍSTICAS DEL TORNEO" title={tournament.name} meta={<TournamentMeta tournament={tournament} />} headerRight={<ClubBadge tournament={tournament} />} accent={C.brand} hero={storyHero} items={storyItems} />}
         />
       )}
     </>
