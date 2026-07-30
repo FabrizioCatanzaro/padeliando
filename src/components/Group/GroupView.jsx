@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
 import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount, entityClub } from '../../utils/helpers';
@@ -18,6 +18,8 @@ import WhenVisible from '../shared/WhenVisible';
 // entero bajo el pliegue, pero arrastraba los 111 KB de Recharts a la carga
 // inicial. Se difiere hasta que está por entrar en pantalla.
 const HistoricalStats = lazy(() => import('../Stats/Stats').then(m => ({ default: m.HistoricalStats })));
+import TournamentFilters from './TournamentFilters';
+import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../utils/tournamentFilters';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
 import PlayerAvatar from '../shared/PlayerAvatar';
@@ -35,6 +37,8 @@ export default function GroupView() {
   const [allTournaments, setAllTournaments] = useState([]);
   const [copied,           setCopied]           = useState(false);
   const [visibleCount,     setVisibleCount]     = useState(5);
+  const [filters,          setFilters]          = useState(EMPTY_FILTERS);
+  const [filtersOpen,      setFiltersOpen]      = useState(false);
 
   // edit fields
   const [editName,     setEditName]     = useState('');
@@ -102,6 +106,8 @@ export default function GroupView() {
     api.groups.get(groupId).then(setGroup);
     handleAllTournaments();
     setVisibleCount(5);
+    setFilters(EMPTY_FILTERS);
+    setFiltersOpen(false);
   }, [groupId]);
 
   function toggleEmoji(e) {
@@ -289,6 +295,15 @@ export default function GroupView() {
   }
 
   useDocumentTitle(group?.name);
+
+  const allT = group?.tournaments;
+  const filtered = useMemo(() => filterTournaments(allT ?? [], filters), [allT, filters]);
+  const activeFilters = countActiveFilters(filters);
+
+  function changeFilters(next) {
+    setFilters(next);
+    setVisibleCount(5);
+  }
 
   // min-h-screen no es decorativo: el esqueleto reservaba 406 px para una lista
   // que rinde 1547, así que el pie quedaba visible en y=760 y el contenido real
@@ -580,8 +595,27 @@ export default function GroupView() {
         {(!group.tournaments || group.tournaments.length === 0) && !canManage && (
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
         )}
+
+        {/* Con pocas jornadas la lista entera entra en pantalla y el buscador sólo estorba. */}
+        {group.tournaments?.length > 3 && (
+          <TournamentFilters
+            filters={filters}
+            onChange={changeFilters}
+            open={filtersOpen}
+            onToggle={() => setFiltersOpen(o => !o)}
+            total={group.tournaments.length}
+            shown={filtered.length}
+          />
+        )}
+
+        {activeFilters > 0 && filtered.length === 0 && (
+          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
+            Ningún torneo coincide con los filtros.
+          </div>
+        )}
+
         <div className="flex flex-col gap-2.5">
-          {group.tournaments?.slice(0, visibleCount).map((t, i) => {
+          {filtered.slice(0, visibleCount).map((t, i) => {
             const isAmericano = t.format === 'americano';
             const fmtColor = isAmericano ? '#e8f04a' : '#63b3ed';
             const fmtBg    = isAmericano ? 'rgba(232,240,74,0.07)' : 'rgba(99,179,237,0.07)';
@@ -661,10 +695,10 @@ export default function GroupView() {
             );
           })}
         </div>
-        {group.tournaments && visibleCount < group.tournaments.length && (
+        {visibleCount < filtered.length && (
           <div className="flex justify-center mt-4">
             <Btn size="sm" onClick={() => setVisibleCount(c => c + 10)}>
-              CARGAR MÁS ({group.tournaments.length - visibleCount} restantes)
+              CARGAR MÁS ({filtered.length - visibleCount} restantes)
             </Btn>
           </div>
         )}
