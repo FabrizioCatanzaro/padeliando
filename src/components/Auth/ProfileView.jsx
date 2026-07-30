@@ -18,7 +18,7 @@ import Loader from '../Loader/Loader';
 import PlayerAvatar from '../shared/PlayerAvatar';
 import ClubLogo from '../shared/ClubLogo';
 import AvatarCropper from '../shared/AvatarCropper';
-import ShareStoryButton from '../Snapshot/ShareStoryButton';
+import ShareProfileModal from '../shared/ShareProfileModal';
 import SnapshotModal from '../Snapshot/SnapshotModal';
 import ProfileStory from '../Snapshot/ProfileStory';
 
@@ -245,7 +245,6 @@ export default function ProfileView() {
   const [followingCount,   setFollowingCount]    = useState(0);
   const [followModal,      setFollowModal]       = useState(null); // 'followers' | 'following' | null
   const [showInviteModal,  setShowInviteModal]   = useState(false);
-  const [shareCopied,      setShareCopied]       = useState(false);
   const [followList,       setFollowList]        = useState([]);
   const [followListLoading, setFollowListLoading] = useState(false);
 
@@ -275,6 +274,7 @@ export default function ProfileView() {
   const [advancedBusy,   setAdvancedBusy]   = useState(false);
   const [advancedError,  setAdvancedError]  = useState(null);
 
+  const [showShare,       setShowShare]       = useState(false);
   const [showStory,       setShowStory]       = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword,  setDeletePassword]  = useState('');
@@ -478,17 +478,6 @@ export default function ProfileView() {
     }
   }
 
-  function handleShare() {
-    navigator.clipboard.writeText(window.location.href);
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 1800);
-  }
-
-  function handleShareWhatsApp() {
-    const text = encodeURIComponent(`Mirá el perfil de ${owner.name} en Padeleando: ${window.location.href}`);
-    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
-  }
-
   async function handleFollowToggle() {
     if (followBusy) return;
     setFollowBusy(true);
@@ -632,36 +621,26 @@ export default function ProfileView() {
               </div>
               {avatarError && <div className="text-[11px] text-danger font-mono mt-1">{avatarError}</div>}
               <SocialLinksDisplay links={savedLinks} />
-              {(stats?.partidos > 0 || stats?.torneos > 0) && (
-                <div className="mt-3">
-                  <ShareStoryButton variant="full" onClick={() => setShowStory(true)} className="inline-flex" />
-                </div>
-              )}
             </div>
 
-            {/* Botones — desktop (sm+): top-right */}
-            {!isOwnProfile && (
-              <div className="hidden sm:flex items-center gap-2 shrink-0">
-                <button
-                  onClick={handleShare}
-                  title="Copiar link del perfil"
-                  className={`w-9 h-9 flex items-center justify-center rounded border bg-transparent transition-colors cursor-pointer ${shareCopied ? 'border-green text-green' : 'border-border-strong text-muted hover:border-border-mid hover:text-white'}`}
-                >
-                  {shareCopied ? <Check size={14} /> : <Share2 size={14} />}
-                </button>
-                <button
-                  onClick={handleShareWhatsApp}
-                  title="Compartir por WhatsApp"
-                  className="w-9 h-9 flex items-center justify-center rounded border border-border-strong text-muted hover:border-[#25d366] hover:text-[#25d366] bg-transparent transition-colors cursor-pointer"
-                >
-                  <SiIcon icon={siWhatsapp} size={14} />
-                </button>
+            {/* Compartir: un solo botón, en todos los perfiles y en todos los
+                anchos. El de seguir lo acompaña sólo en desktop. */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowShare(true)}
+                title="Compartir perfil"
+                aria-label="Compartir perfil"
+                className="w-9 h-9 flex items-center justify-center rounded border border-border-strong text-muted hover:border-brand hover:text-brand bg-transparent transition-colors cursor-pointer"
+              >
+                <Share2 size={14} />
+              </button>
+              {!isOwnProfile && (
                 <button
                   onClick={user ? handleFollowToggle : () => setShowInviteModal(true)}
                   onMouseEnter={() => setFollowHover(true)}
                   onMouseLeave={() => setFollowHover(false)}
                   disabled={followBusy}
-                  className={`flex items-center gap-2 px-4 py-2 rounded font-condensed font-bold text-[13px] tracking-widest border transition-colors cursor-pointer disabled:opacity-40 ${
+                  className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded font-condensed font-bold text-[13px] tracking-widest border transition-colors cursor-pointer disabled:opacity-40 ${
                     isFollowing
                       ? followHover
                         ? 'border-danger text-danger bg-transparent'
@@ -676,28 +655,13 @@ export default function ProfileView() {
                     : <><UserPlus size={14} /> SEGUIR</>
                   }
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Botones — mobile: fila completa debajo */}
+          {/* Seguir — mobile: fila completa debajo */}
           {!isOwnProfile && (
             <div className="flex sm:hidden gap-2 mt-4">
-              <button
-                onClick={handleShare}
-                title="Copiar link del perfil"
-                className={`w-10 h-10 flex items-center justify-center rounded border bg-transparent transition-colors cursor-pointer shrink-0 ${shareCopied ? 'border-green text-green' : 'border-border-strong text-muted'}`}
-              >
-                {shareCopied ? <Check size={15} /> : <Share2 size={15} />}
-              </button>
-              <button
-                onClick={handleShareWhatsApp}
-                title="Compartir por WhatsApp"
-                className="w-10 h-10 flex items-center justify-center rounded border border-border-strong text-muted bg-transparent cursor-pointer shrink-0"
-                style={{ color: '#25d366', borderColor: '#25d36633' }}
-              >
-                <SiIcon icon={siWhatsapp} size={15} />
-              </button>
               <button
                 onClick={user ? handleFollowToggle : () => setShowInviteModal(true)}
                 disabled={followBusy}
@@ -1268,6 +1232,20 @@ export default function ProfileView() {
             </button>
           </div>
         </div>
+      )}
+
+      {showShare && (
+        <ShareProfileModal
+          name={owner.name}
+          username={owner.username}
+          url={window.location.href}
+          isOwnProfile={isOwnProfile}
+          // Sin partidos ni torneos la historia queda vacía: mejor no ofrecerla.
+          onCreateImage={(stats?.partidos > 0 || stats?.torneos > 0)
+            ? () => { setShowShare(false); setShowStory(true); }
+            : undefined}
+          onClose={() => setShowShare(false)}
+        />
       )}
 
       {showStory && (
