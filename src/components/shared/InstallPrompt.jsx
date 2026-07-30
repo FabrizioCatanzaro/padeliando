@@ -51,16 +51,16 @@ export default function InstallPrompt() {
       className={`fixed left-3 right-3 z-50 sm:left-auto sm:right-5 sm:w-90
         ${hasBottomNav(pathname) ? 'bottom-[74px] sm:bottom-5' : 'bottom-3 sm:bottom-5'}`}
     >
-      <div className="bg-surface border border-border-strong rounded-2xl shadow-2xl p-4 flex gap-3 items-start">
+      <div className="bg-surface/85 backdrop-blur-xl border border-border-strong rounded-2xl shadow-2xl p-4 flex gap-3 items-start">
         <img src={logoUrl} width="40" height="40" alt="" className="w-10 h-10 rounded-xl shrink-0" />
 
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-sans font-semibold text-white">Instalá Padeleando</div>
+          <div className="text-sm font-sans font-semibold text-content">Instalá Padeleando</div>
 
           {needsManualSteps ? (
             <p className="text-[12px] text-secondary leading-snug mt-1">
               Tocá <Share size={13} className="inline align-[-2px] text-brand" /> Compartir y
-              después <span className="text-white font-semibold">Agregar a inicio</span>.
+              después <span className="text-content font-semibold">Agregar a inicio</span>.
             </p>
           ) : (
             <>
@@ -80,7 +80,7 @@ export default function InstallPrompt() {
         <button
           onClick={close}
           aria-label="Cerrar"
-          className="shrink-0 bg-transparent border-0 text-dim hover:text-white cursor-pointer transition-colors p-0.5"
+          className="shrink-0 bg-transparent border-0 text-dim hover:text-content cursor-pointer transition-colors p-0.5"
         >
           <X size={16} />
         </button>
