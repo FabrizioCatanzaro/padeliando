@@ -24,5 +24,6 @@ dist-ssr
 *.sw?
 
 #Claude
-.claude
+.claude/*
+!.claude/skills/
 *.local.json
