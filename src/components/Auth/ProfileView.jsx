@@ -1081,7 +1081,7 @@ export default function ProfileView() {
         {club_stats?.length > 0 && (
           <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
             <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">
-              <MapPin size={13} className="shrink-0" />DONDE JUEGA
+              <MapPin size={13} className="shrink-0" />CLUBES FRECUENTES
             </div>
             <div className="rounded-lg overflow-hidden border border-border-strong">
               {club_stats.map((c, i) => {

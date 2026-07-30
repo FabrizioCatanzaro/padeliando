@@ -262,12 +262,16 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity, week
         <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
           {bestMonth ? (
             <>
-              {/* Sólo el mes en grande: con el año, "Septiembre 2026" no entra
-                  en media columna en mobile. El año baja al detalle. */}
-              <div className="font-condensed font-black text-[22px] text-white leading-none truncate">{bestMonth.mes}</div>
+              {/* En media columna en mobile no entra el año de cuatro cifras:
+                  ahí va abreviado ("Junio '26") y a partir de sm, completo. */}
+              <div className="font-condensed font-black text-[18px] sm:text-[22px] text-white leading-none truncate">
+                {bestMonth.mes}{' '}
+                <span className="sm:hidden">&apos;{bestMonth.anio.slice(-2)}</span>
+                <span className="hidden sm:inline">{bestMonth.anio}</span>
+              </div>
               <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>MEJOR MES</div>
               <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: '#555' }}>
-                {bestMonth.anio} · {bestMonth.partidos}PJ · {bestMonth.victorias}V
+                {bestMonth.partidos}PJ · {bestMonth.victorias}V
               </div>
             </>
           ) : (
