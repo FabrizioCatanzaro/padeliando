@@ -1,8 +1,9 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fmt, calcStandings, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft } from "../../utils/helpers";
+import { fmt, calcStandings, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, managementWarnings } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import { useAuth } from "../../context/useAuth";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import Standings    from "../Standings/Standings";
 import Matches      from "../Matches/Matches";
 // Sólo se monta al abrir la pestaña: importarlo estático arrastraba los
@@ -33,6 +34,21 @@ const AMERICANO_TABS = [
   { id: "stats",      label: "ESTADÍSTICAS",   icon: ChartNoAxesCombined },
   { id: "management", label: "GESTIÓN",        icon: Settings            },
 ];
+
+// Marca de "hay algo para revisar" en la pestaña de gestión.
+function WarningMark({ className = "", count }) {
+  const label = count === 1 ? '1 aviso en gestión' : `${count} avisos en gestión`;
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={`inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-black font-condensed font-bold text-[10px] leading-none ${className}`}
+    >
+      !
+    </span>
+  );
+}
 
 export default function Main() {
   const { groupId, tournamentId } = useParams();
@@ -66,6 +82,8 @@ export default function Main() {
     }
   }, [loading, tournament, isOwner, tournamentId, navigate]);
 
+  useDocumentTitle(tournament?.name);
+
   if (loading) return (
     <div className="bg-base text-content font-sans pb-24 sm:pb-15">
       <TournamentHeaderSkeleton />
@@ -96,6 +114,8 @@ export default function Main() {
     : 0;
   const playedCount = tournament.matches.filter((m) => m.score1 !== "").length + bracketPlayed;
   const isDraft = isAmericanoDraft({ format: tournament.format, pairCount: tournament.pairs.length });
+  // Avisos que se resuelven desde gestión (mismo helper que usa PairManager).
+  const warningCount = managementWarnings(tournament).length;
   const statusMeta = TOURNAMENT_STATUS_META[tournamentDisplayStatus({
     status: tournament.status, hasLiveMatch: !!tournament.live_match, hasPlayed: playedCount > 0, isDraft,
   })];
@@ -243,8 +263,11 @@ export default function Main() {
       <div className="hidden sm:flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (
           <div key={t.id} onClick={() => setTab(t.id)}
-            className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${activeTab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
+            className={`border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 rounded-t-md whitespace-nowrap transition-all hover:text-brand ${activeTab === t.id ? 'text-brand border-b-brand bg-brand/10' : 'text-muted border-b-transparent bg-transparent hover:bg-brand/5'}`}>
              <t.icon size={14} className="inline mr-1.5" />{t.label}
+            {t.id === 'management' && warningCount > 0 && (
+              <WarningMark count={warningCount} className="ml-1.5 align-middle" />
+            )}
           </div>
         ))}
       </div>
@@ -255,9 +278,14 @@ export default function Main() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 bg-transparent border-0 cursor-pointer transition-colors ${activeTab === t.id ? 'text-brand' : 'text-muted'}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 border-0 cursor-pointer transition-colors ${activeTab === t.id ? 'text-brand bg-brand/10' : 'text-muted bg-transparent'}`}
           >
-            <t.icon size={20} />
+            <span className="relative inline-flex leading-none">
+              <t.icon size={20} />
+              {t.id === 'management' && warningCount > 0 && (
+                <WarningMark count={warningCount} className="absolute -top-1 -right-2" />
+              )}
+            </span>
             <span className="text-[9px] font-mono tracking-wide leading-none">
               {t.id === 'standings'  ? 'TABLA'    :
                t.id === 'matches'   ? 'PARTIDOS' :

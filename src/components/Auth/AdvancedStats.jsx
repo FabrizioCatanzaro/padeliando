@@ -3,7 +3,8 @@
 // siendo premium y con partidos jugados. Importado de forma estática arrastraba
 // esa librería a toda visita de perfil, incluida la de un anónimo que nunca la
 // ve. ProfileView lo carga con React.lazy.
-import { Lock } from 'lucide-react';
+import { Gem } from 'lucide-react';
+import { bestMonthOf } from '../../utils/helpers';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -136,8 +137,74 @@ function ActivityHeatmap({ dailyActivity }) {
   );
 }
 
+// La semana arranca el lunes; el backend usa el DOW de Postgres (0 = domingo).
+const WEEK = [
+  { dow: 1, label: 'Lun', full: 'Lunes' },     { dow: 2, label: 'Mar', full: 'Martes' },
+  { dow: 3, label: 'Mié', full: 'Miércoles' }, { dow: 4, label: 'Jue', full: 'Jueves' },
+  { dow: 5, label: 'Vie', full: 'Viernes' },   { dow: 6, label: 'Sáb', full: 'Sábado' },
+  { dow: 0, label: 'Dom', full: 'Domingo' },
+];
+
+function WeekdayStats({ weekdayStats }) {
+  const byDow = Object.fromEntries((weekdayStats ?? []).map((w) => [w.dow, w]));
+  const rows = WEEK.map(({ dow, label, full }) => {
+    const row = byDow[dow];
+    const partidos = row?.partidos ?? 0;
+    const victorias = row?.victorias ?? 0;
+    return { label, full, partidos, victorias, winRate: partidos > 0 ? Math.round((victorias / partidos) * 100) : 0 };
+  });
+  const total = rows.reduce((acc, r) => acc + r.partidos, 0);
+  if (total === 0) return null;
+
+  const favorito = rows.reduce((best, r) =>
+    r.partidos > best.partidos || (r.partidos === best.partidos && r.winRate > best.winRate) ? r : best, rows[0]);
+
+  // Con uno o dos días activos el gráfico serían cinco barras en cero.
+  const activeDays = rows.filter((r) => r.partidos > 0).length;
+
+  return (
+    <div className="mb-6">
+      <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">POR DÍA DE LA SEMANA</div>
+      {favorito.partidos > 0 && (
+        <div className="bg-base rounded-lg px-4 py-3 border border-border-strong mb-3">
+          <div className="font-condensed font-black text-[22px] text-white leading-none">{favorito.full}</div>
+          <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>TU DÍA</div>
+          <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+            {favorito.partidos} {favorito.partidos === 1 ? 'partido' : 'partidos'} · {favorito.winRate}% de victorias
+          </div>
+          <div className="h-0.5 rounded-full mt-2 bg-cyan opacity-40" />
+        </div>
+      )}
+      {activeDays >= 3 && (
+        <ResponsiveContainer width="100%" height={130}>
+          <BarChart data={rows} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={14}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: '#444', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: '#444', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: '#ffffff06' }} />
+            <Legend wrapperStyle={{ fontSize: 9, fontFamily: 'monospace', color: '#555', paddingTop: 4 }} />
+            <Bar dataKey="partidos" name="Partidos" fill="#4ab8f0" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="victorias" name="Victorias" fill="#4af07a" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+      {activeDays === 2 && (
+        <div className="text-[10px] font-mono text-dim">
+          {rows.filter((r) => r.partidos > 0).map((r) => `${r.full}: ${r.partidos} (${r.winRate}%)`).join(' · ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtDuracion(segundos) {
+  const min = Math.round(segundos / 60);
+  if (min < 60) return `${min} m`;
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} m`;
+}
+
 // ── Estadísticas avanzadas (premium) ─────────────────────────────────────────
-export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
+export default function AdvancedStats({ stats, monthlyStats, dailyActivity, weekdayStats }) {
   const gf   = stats.games_favor  ?? 0;
   const gc   = stats.games_contra ?? 0;
   const diff = gf - gc;
@@ -163,27 +230,22 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
     return result;
   })();
 
+  const timedMatches = stats.partidos_con_duracion ?? 0;
+  const setsTotal = (stats.sets?.sets_favor ?? 0) + (stats.sets?.sets_contra ?? 0);
+  const setsPct   = setsTotal > 0 ? Math.round((stats.sets.sets_favor / setsTotal) * 100) : 0;
+  const tightRate  = stats.ajustados > 0 ? Math.round((stats.ajustados_ganados / stats.ajustados) * 100) : 0;
+  const tightColor = tightRate >= 60 ? '#4af07a' : tightRate >= 40 ? '#e8f04a' : '#f07a4a';
+
   const activeMonths = filledMonths.filter(m => m.partidos > 0).length;
   const avgPerMonth  = activeMonths > 0 ? (stats.partidos / activeMonths).toFixed(1) : '—';
 
-  const bestMonth = (() => {
-    const active = (monthlyStats ?? []).filter(m => m.victorias > 0 || m.partidos > 0);
-    if (!active.length) return null;
-    const best = active.reduce((b, m) =>
-      m.victorias > b.victorias || (m.victorias === b.victorias && m.partidos > b.partidos) ? m : b,
-      active[0]
-    );
-    const [y, mo] = best.month.split('-');
-    const label = new Date(parseInt(y), parseInt(mo) - 1, 1)
-      .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-    return { ...best, label: label.charAt(0).toUpperCase() + label.slice(1) };
-  })();
+  const bestMonth = bestMonthOf(monthlyStats);
 
   return (
     <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-5">
-        <Lock size={13} className="text-brand" />
+        <Gem size={13} className="text-brand" />
         <span className="font-condensed font-bold text-sm tracking-[3px] text-brand">ESTADÍSTICAS AVANZADAS</span>
       </div>
 
@@ -200,9 +262,17 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
         <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
           {bestMonth ? (
             <>
-              <div className="font-condensed font-black text-[22px] text-white leading-none">{bestMonth.partidos}PJ · {bestMonth.victorias}V</div>
+              {/* En media columna en mobile no entra el año de cuatro cifras:
+                  ahí va abreviado ("Junio '26") y a partir de sm, completo. */}
+              <div className="font-condensed font-black text-[18px] sm:text-[22px] text-white leading-none truncate">
+                {bestMonth.mes}{' '}
+                <span className="sm:hidden">&apos;{bestMonth.anio.slice(-2)}</span>
+                <span className="hidden sm:inline">{bestMonth.anio}</span>
+              </div>
               <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>MEJOR MES</div>
-              <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: '#555' }}>{bestMonth.label}</div>
+              <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: '#555' }}>
+                {bestMonth.partidos}PJ · {bestMonth.victorias}V
+              </div>
             </>
           ) : (
             <>
@@ -234,6 +304,33 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
           <div className="h-0.5 rounded-full mt-2 opacity-40" style={{ background: diff >= 0 ? '#4af07a' : '#f07a4a' }} />
         </div>
       </div>
+
+      {(timedMatches > 0 || (stats.ajustados ?? 0) > 0) && (
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {timedMatches > 0 && (
+            <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+              <div className="font-condensed font-black text-[22px] text-white leading-none">{fmtDuracion(stats.segundos_jugados ?? 0)}</div>
+              <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>EN CANCHA</div>
+              <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+                {timedMatches} de {stats.partidos} con tiempo · {fmtDuracion(stats.segundos_jugados / timedMatches)} promedio
+              </div>
+              <div className="h-0.5 rounded-full mt-2 bg-cyan opacity-40" />
+            </div>
+          )}
+          {(stats.ajustados ?? 0) > 0 && (
+            <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+              <div className="font-condensed font-black text-[22px] leading-none" style={{ color: tightColor }}>
+                {tightRate}%
+              </div>
+              <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>EN PARTIDOS PAREJOS</div>
+              <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+                {stats.ajustados_ganados} de {stats.ajustados} definidos por 1 game
+              </div>
+              <div className="h-0.5 rounded-full mt-2 opacity-40" style={{ background: tightColor }} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Meses activos + Promedio */}
       <div className="grid grid-cols-2 gap-3 mb-6">
@@ -288,6 +385,51 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Sets: sólo con partidos al mejor de tres */}
+      {stats.sets?.disponible && (
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-white leading-none">{setsPct}%</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>SETS GANADOS</div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>
+              {stats.sets.sets_favor}-{stats.sets.sets_contra} en {stats.sets.partidos} partidos
+            </div>
+            <div className="h-0.5 rounded-full mt-2 bg-green opacity-40" />
+          </div>
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-white leading-none">{stats.sets.remontadas}</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>REMONTADAS</div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>perdiendo el 1er set</div>
+            <div className="h-0.5 rounded-full mt-2 bg-brand opacity-40" />
+          </div>
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-white leading-none">{stats.sets.partidos}</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>A 3 SETS</div>
+            <div className="h-0.5 rounded-full mt-2 bg-cyan opacity-40" />
+          </div>
+        </div>
+      )}
+
+      {/* Palizas: 6-0, o todos los sets 6-0 */}
+      {(stats.palizas_ganadas > 0 || stats.palizas_sufridas > 0) && (
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-green leading-none">{stats.palizas_ganadas}</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>PALIZAS DADAS</div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>6-0 sin ceder un game</div>
+            <div className="h-0.5 rounded-full mt-2 bg-green opacity-40" />
+          </div>
+          <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+            <div className="font-condensed font-black text-[28px] text-danger leading-none">{stats.palizas_sufridas}</div>
+            <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>PALIZAS SUFRIDAS</div>
+            <div className="h-0.5 rounded-full mt-2 bg-danger opacity-40" />
+          </div>
+        </div>
+      )}
+
+      {/* Rendimiento por día de la semana */}
+      <WeekdayStats weekdayStats={weekdayStats} />
 
       {/* Heatmap de actividad */}
       <ActivityHeatmap dailyActivity={dailyActivity} />

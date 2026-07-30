@@ -2,7 +2,7 @@ import { useState } from "react";
 import PlayerInput from "../Setup/PlayerInput";
 import Modal from "../shared/Modal";
 import PlayerAvatar from "../shared/PlayerAvatar";
-import { Pencil, Trash2, UserPlus, X, Clock, Check } from "lucide-react";
+import { Pencil, Trash2, UserPlus, X, Clock, Check, Unlink } from "lucide-react";
 import { api } from "../../utils/api";
 import { useAuth } from "../../context/useAuth";
 
@@ -12,6 +12,8 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
   const [editName, setEditName]         = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showAdd, setShowAdd]           = useState(false);
+  const [unlinkTarget, setUnlinkTarget] = useState(null);
+  const [unlinkBusy, setUnlinkBusy]     = useState(false);
 
   // Estado de invitaciones por jugador: { [playerId]: { open, identifier, sending, error } }
   const [inviteState, setInviteState] = useState({});
@@ -55,6 +57,22 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
       await onRefresh?.();
     } catch (e) {
       setInviteState(s => ({ ...s, [player.id]: { ...s[player.id], sending: false, error: e.message } }));
+    }
+  }
+
+  // Desvincula la cuenta del slot sin borrar al jugador: el nombre y los partidos
+  // se quedan en la categoría, sólo dejan de contar en el perfil de esa cuenta.
+  async function confirmUnlink() {
+    if (!unlinkTarget || unlinkBusy) return;
+    setUnlinkBusy(true);
+    try {
+      await api.players.unlink(unlinkTarget.id, tournament.group_id);
+      setUnlinkTarget(null);
+      await onRefresh?.();
+    } catch {
+      // intentionally ignored
+    } finally {
+      setUnlinkBusy(false);
     }
   }
 
@@ -145,6 +163,16 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
                         className="bg-transparent border-0 text-muted cursor-pointer px-1.5 py-0.5 hover:text-brand transition-colors"
                       >
                         <UserPlus size={14} />
+                      </div>
+                    )}
+                    {/* Desvincular la cuenta del slot (el jugador y su historial quedan) */}
+                    {p.user_id && (
+                      <div
+                        onClick={() => setUnlinkTarget(p)}
+                        title="Desvincular cuenta"
+                        className="bg-transparent border-0 text-muted cursor-pointer px-1.5 py-0.5 hover:text-danger transition-colors"
+                      >
+                        <Unlink size={14} />
                       </div>
                     )}
                     {/* Cancelar invitación pendiente */}
@@ -240,6 +268,18 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
           confirmDanger
           onConfirm={() => { onDelete(deleteTarget.id); setDeleteTarget(null); }}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {unlinkTarget && (
+        <Modal
+          title={`¿Desvincular a @${unlinkTarget.linked_username}?`}
+          message={`${unlinkTarget.name} y todos sus partidos quedan en la categoría, pero dejan de estar asociados a esa cuenta y de contar en las estadísticas de su perfil. Vas a poder invitar a alguien a ese slot de nuevo.`}
+          confirmText="Desvincular"
+          confirmDanger
+          confirmDisabled={unlinkBusy}
+          onConfirm={confirmUnlink}
+          onCancel={() => setUnlinkTarget(null)}
         />
       )}
     </div>

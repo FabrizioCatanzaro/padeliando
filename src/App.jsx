@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { useAuth } from './context/useAuth'
+import { Titled } from './hooks/useDocumentTitle'
 import Header       from './components/shared/Header'
 import Footer       from './components/shared/Footer'
 import AdBanner     from './components/shared/AdBanner'
@@ -107,37 +108,40 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/"                                          element={<HomeView />} />
-        <Route path="/login"                                     element={<AuthView mode="login" />} />
-        <Route path="/register"                                  element={<AuthView mode="register" />} />
-        <Route path="/reset-password/:token"                     element={<ResetPassword />} />
-        <Route path="/verify-email/:token"                       element={<VerifyEmail />} />
+        {/* Las rutas con título fijo lo declaran acá con <Titled>. Las que
+            dependen de datos (perfil, categoría, torneo, club) lo fijan desde
+            la vista con useDocumentTitle, cuando llega el nombre. */}
+        <Route path="/"                                          element={<Titled><HomeView /></Titled>} />
+        <Route path="/login"                                     element={<Titled title="Iniciar sesión"><AuthView mode="login" /></Titled>} />
+        <Route path="/register"                                  element={<Titled title="Crear cuenta"><AuthView mode="register" /></Titled>} />
+        <Route path="/reset-password/:token"                     element={<Titled title="Restablecer contraseña"><ResetPassword /></Titled>} />
+        <Route path="/verify-email/:token"                       element={<Titled title="Verificar email"><VerifyEmail /></Titled>} />
         <Route path="/u/:username"                               element={<ProfileView />} />
         <Route path="/club/:id"                                  element={<ClubProfileView />} />
         <Route path="/view/:id"                                  element={<ReadonlyView />} />
         <Route path="/readonly/:id"                              element={<RedirectToView />} />
         <Route path="/cat/:groupId"                           element={<GroupView />} />
-        <Route path="/cat/:groupId/torneo/new"            element={<PrivateRoute><Setup /></PrivateRoute>} />
+        <Route path="/cat/:groupId/torneo/new"            element={<PrivateRoute><Titled title="Nuevo torneo"><Setup /></Titled></PrivateRoute>} />
         <Route path="/cat/:groupId/torneo/:tournamentId"  element={<MainView />} />
-        <Route path="/invitacion/:token"                         element={<InviteAccept />} />
+        <Route path="/invitacion/:token"                         element={<Titled title="Invitación"><InviteAccept /></Titled>} />
         <Route path="/invitations"                               element={<Navigate to="/notifications" replace />} />
-        <Route path="/notifications"                             element={<PrivateRoute><NotificationsView /></PrivateRoute>} />
-        <Route path="/tutorial"                                  element={<TutorialView />} />
-        <Route path="/faq"                                       element={<FAQView />} />
-        <Route path="/sobre-nosotros"                            element={<AboutView />} />
-        <Route path="/contacto"                                  element={<ContactView />} />
-        <Route path="/terminos"                                  element={<TermsView />} />
-        <Route path="/privacidad"                                element={<PrivacyView />} />
-        <Route path="/admin"                                     element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-        <Route path="/admin/users"                               element={<AdminRoute><AdminUsers /></AdminRoute>} />
-        <Route path="/admin/tournaments"                         element={<AdminRoute><AdminTournaments /></AdminRoute>} />
-        <Route path="/admin/notifications"                       element={<AdminRoute><AdminNotifications /></AdminRoute>} />
-        <Route path="/admin/clubs"                               element={<AdminRoute><AdminClubs /></AdminRoute>} />
-        <Route path="/admin/clubs/requests"                      element={<AdminRoute><AdminClubRequests /></AdminRoute>} />
-        <Route path="/subscription/success"                      element={<PrivateRoute><SubscriptionSuccess /></PrivateRoute>} />
-        <Route path="/subscription/failure"                      element={<PrivateRoute><SubscriptionFailure /></PrivateRoute>} />
-        <Route path="/subscription/pending"                      element={<PrivateRoute><SubscriptionPending /></PrivateRoute>} />
-        <Route path="/subscription/manage"                       element={<PrivateRoute><SubscriptionManage /></PrivateRoute>} />
+        <Route path="/notifications"                             element={<PrivateRoute><Titled title="Notificaciones"><NotificationsView /></Titled></PrivateRoute>} />
+        <Route path="/tutorial"                                  element={<Titled title="Tutorial"><TutorialView /></Titled>} />
+        <Route path="/faq"                                       element={<Titled title="Preguntas frecuentes"><FAQView /></Titled>} />
+        <Route path="/sobre-nosotros"                            element={<Titled title="Sobre nosotros"><AboutView /></Titled>} />
+        <Route path="/contacto"                                  element={<Titled title="Contacto"><ContactView /></Titled>} />
+        <Route path="/terminos"                                  element={<Titled title="Términos y condiciones"><TermsView /></Titled>} />
+        <Route path="/privacidad"                                element={<Titled title="Política de privacidad"><PrivacyView /></Titled>} />
+        <Route path="/admin"                                     element={<AdminRoute><Titled title="Panel de administración"><AdminDashboard /></Titled></AdminRoute>} />
+        <Route path="/admin/users"                               element={<AdminRoute><Titled title="Usuarios · Admin"><AdminUsers /></Titled></AdminRoute>} />
+        <Route path="/admin/tournaments"                         element={<AdminRoute><Titled title="Torneos · Admin"><AdminTournaments /></Titled></AdminRoute>} />
+        <Route path="/admin/notifications"                       element={<AdminRoute><Titled title="Notificaciones · Admin"><AdminNotifications /></Titled></AdminRoute>} />
+        <Route path="/admin/clubs"                               element={<AdminRoute><Titled title="Clubes · Admin"><AdminClubs /></Titled></AdminRoute>} />
+        <Route path="/admin/clubs/requests"                      element={<AdminRoute><Titled title="Solicitudes de clubes · Admin"><AdminClubRequests /></Titled></AdminRoute>} />
+        <Route path="/subscription/success"                      element={<PrivateRoute><Titled title="Suscripción"><SubscriptionSuccess /></Titled></PrivateRoute>} />
+        <Route path="/subscription/failure"                      element={<PrivateRoute><Titled title="Suscripción"><SubscriptionFailure /></Titled></PrivateRoute>} />
+        <Route path="/subscription/pending"                      element={<PrivateRoute><Titled title="Suscripción"><SubscriptionPending /></Titled></PrivateRoute>} />
+        <Route path="/subscription/manage"                       element={<PrivateRoute><Titled title="Suscripción"><SubscriptionManage /></Titled></PrivateRoute>} />
         <Route path="*"                                          element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

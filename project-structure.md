@@ -414,6 +414,7 @@ padeliando-api/
 | email_verified_at | TIMESTAMPTZ | nullable; NULL means unverified (Google users auto-verified) |
 | role | TEXT | `user` (default) or `admin` |
 | social_links | JSONB | array of `{ platform, url }` objects (default `[]`) |
+| advanced_stats_public | BOOLEAN | default `FALSE`; premium-only opt-in that exposes the profile's advanced stats to visitors |
 | created_at | TIMESTAMPTZ | |
 
 ### `groups`

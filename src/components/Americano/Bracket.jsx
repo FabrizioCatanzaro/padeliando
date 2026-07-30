@@ -304,7 +304,9 @@ function BracketPlayedCard({ match, tournament, isOwner, onEdit, matchNum, phase
         {matchNum != null && (
           <span className="text-[10px] font-mono text-muted shrink-0 w-3 text-right">#{matchNum}</span>
         )}
-        <div className={`flex-1 font-condensed font-semibold text-xl ${win1 ? "text-brand" : "text-secondary"}`}>
+        {/* Mismo criterio que MatchCard: 16px en mobile para que el nombre de la
+            pareja no envuelva en 3-4 líneas y estire la card. */}
+        <div className={`flex-1 font-condensed font-semibold text-base sm:text-xl leading-tight ${win1 ? "text-brand" : "text-secondary"}`}>
           {match.pair1_name}
         </div>
         <div className="flex items-center gap-2 font-condensed font-black text-[28px] min-w-20 justify-center">
@@ -312,7 +314,7 @@ function BracketPlayedCard({ match, tournament, isOwner, onEdit, matchNum, phase
           <span className="text-border-strong text-[20px]">—</span>
           <span className={!win1 ? "text-cyan" : "text-secondary"}>{match.score2}</span>
         </div>
-        <div className={`flex-1 font-condensed font-semibold text-xl text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
+        <div className={`flex-1 font-condensed font-semibold text-base sm:text-xl leading-tight text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
           {match.pair2_name}
         </div>
       </div>

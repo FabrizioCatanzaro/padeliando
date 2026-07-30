@@ -42,6 +42,25 @@ export const fmt = (d) => {
 
 export const normalize = (s) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+/**
+ * Mejor mes de una serie `monthly_stats` ([{ month: 'YYYY-MM', partidos, victorias }]):
+ * más victorias, y a igualdad el de más partidos. Lo usan el perfil y su
+ * captura, que muestran el mismo dato y no deben poder separarse.
+ * Devuelve `mes` y `anio` sueltos además del `label` ("Julio 2026", sin el "de"
+ * que mete toLocaleDateString): con el mes como valor destacado, "Septiembre
+ * 2026" no entra en media columna y cada superficie arma lo que le cabe.
+ */
+export function bestMonthOf(monthlyStats) {
+  const active = (monthlyStats ?? []).filter((m) => m.partidos > 0);
+  if (!active.length) return null;
+  const best = active.reduce((b, m) =>
+    m.victorias > b.victorias || (m.victorias === b.victorias && m.partidos > b.partidos) ? m : b, active[0]);
+  const [anio, mo] = best.month.split('-');
+  const raw = new Date(parseInt(anio), parseInt(mo) - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
+  const mes = `${raw.charAt(0).toUpperCase()}${raw.slice(1)}`;
+  return { ...best, mes, anio, label: `${mes} ${anio}` };
+}
+
 export function calcStandings(players, matches) {
   const s = {};
   players.forEach((p) => {
@@ -49,17 +68,23 @@ export function calcStandings(players, matches) {
   });
   matches.forEach(({ team1, team2, score1, score2 }) => {
     if (score1 === "" || score2 === "") return;
-    const s1 = parseInt(score1), s2 = parseInt(score2), win1 = s1 > s2;
-    [...team1, ...team2].forEach((pid) => { if (s[pid]) s[pid].pj++; });
-    team1.forEach((pid) => {
-      if (!s[pid]) return;
-      if (win1) { s[pid].pg++; s[pid].sf += s1; s[pid].sc += s2; }
-      else       { s[pid].pp++; s[pid].sf += s1; s[pid].sc += s2; }
-    });
-    team2.forEach((pid) => {
-      if (!s[pid]) return;
-      if (!win1) { s[pid].pg++; s[pid].sf += s2; s[pid].sc += s1; }
-      else        { s[pid].pp++; s[pid].sf += s2; s[pid].sc += s1; }
+    const s1 = parseInt(score1), s2 = parseInt(score2);
+    if (Number.isNaN(s1) || Number.isNaN(s2)) return;
+    // En padel no hay empate: un partido igualado es un dato inválido (sólo
+    // puede venir de un registro viejo) y se descarta. Antes se colaba con la
+    // condición `win1 = s1 > s2`, que en un 6-6 daba la victoria al equipo 2 y
+    // la derrota al equipo 1.
+    if (s1 === s2) return;
+    [[team1, s1, s2], [team2, s2, s1]].forEach(([team, gf, gc]) => {
+      team.forEach((pid) => {
+        const row = s[pid];
+        if (!row) return;
+        row.pj++;
+        row.sf += gf;
+        row.sc += gc;
+        if (gf > gc) row.pg++;
+        else         row.pp++;
+      });
     });
   });
   return Object.values(s).sort((a, b) => {
@@ -118,37 +143,84 @@ export function adaptPair(p) {
  * Convierte matches y pairs al formato interno.
  */
 /**
- * Calcula el label del ganador de un torneo (igual lógica que se muestra en torneos).
- * Para americano: ganador de la final del bracket.
- * Para parejas: pareja con más victorias.
- * Para libre: jugador con más victorias.
+ * Ganadores de un torneo, con los ids de los jugadores que los componen.
+ * - Americano: la pareja que ganó la final del cuadro (sin importar el status).
+ * - Parejas / libre: la pareja o jugador con más victorias (desempate por
+ *   diferencia de games), sólo si el torneo está finalizado. Si hay igualdad
+ *   exacta en la cima, son campeones todos los empatados.
+ * Devuelve `[{ ids, name }]` — los ids permiten contar títulos por jugador sin
+ * volver a parsear nombres.
  */
-export function getTournamentWinnerLabel(t) {
+/**
+ * Fecha en que se jugó un torneo, como YYYY-MM-DD. `created_at` es cuándo se
+ * cargó la jornada, que en casi la mitad de los casos no es cuándo se jugó.
+ * Prioridad: la fecha declarada del evento, el primer partido, y recién ahí la
+ * de creación.
+ */
+export function tournamentDate(t) {
+  if (t.event_date) return String(t.event_date).slice(0, 10);
+  const dates = (t.matches ?? []).map((m) => m.date || m.played_at).filter(Boolean).map((d) => String(d).slice(0, 10));
+  if (dates.length > 0) return dates.reduce((min, d) => (d < min ? d : min));
+  return String(t.createdAt ?? t.created_at ?? '').slice(0, 10);
+}
+
+export function getTournamentWinners(t) {
+  const nameOf = (id) => t.players.find((p) => p.id === id)?.name ?? '?';
+
+  if (t.format === 'americano') {
+    const winnerId = t.bracket?.final?.winner_id;
+    if (!winnerId) return [];
+    const pair = t.pairs?.find((p) => p.id === winnerId);
+    // Sin la pareja en memoria queda el nombre guardado en el bracket, sin ids.
+    if (!pair) return t.bracket?.final?.winner_name
+      ? [{ ids: [], name: t.bracket.final.winner_name }]
+      : [];
+    return [{ ids: [pair.p1, pair.p2], name: `${nameOf(pair.p1)} & ${nameOf(pair.p2)}` }];
+  }
+
+  if (t.status !== 'finished') return [];
+
   const standings = calcStandings(t.players, t.matches);
   const isPairs   = t.mode === 'pairs' && t.pairs?.length > 0;
 
-  if (t.format === 'americano') {
-    return t.bracket?.final?.winner_name ?? null;
-  } else if (isPairs) {
-    if (t.status !== 'finished') return null;
-    const pairRows = t.pairs.map((pair) => {
-      const stats  = standings.find((r) => r.id === pair.p1) ?? standings.find((r) => r.id === pair.p2) ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
-      const p1Name = t.players.find((p) => p.id === pair.p1)?.name ?? '?';
-      const p2Name = t.players.find((p) => p.id === pair.p2)?.name ?? '?';
-      return { ...stats, id: pair.id, name: `${p1Name} & ${p2Name}` };
-    }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
-    const topPg   = pairRows[0]?.pg ?? 0;
-    const topDiff = pairRows[0] ? pairRows[0].sf - pairRows[0].sc : 0;
-    const top     = pairRows.filter((p) => p.pj > 0 && p.pg === topPg && (p.sf - p.sc) === topDiff);
-    return top.length > 0 ? top.map((p) => p.name).join(' / ') : null;
-  } else {
-    if (t.status !== 'finished') return null;
-    const byWins  = [...standings].sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
-    const topPg   = byWins[0]?.pg ?? 0;
-    const topDiff = byWins[0] ? byWins[0].sf - byWins[0].sc : 0;
-    const top     = byWins.filter((s) => s.pj > 0 && s.pg === topPg && (s.sf - s.sc) === topDiff);
-    return top.length > 0 ? top.map((s) => s.name).join(' / ') : null;
-  }
+  const rows = isPairs
+    ? t.pairs.map((pair) => {
+        const stats = standings.find((r) => r.id === pair.p1)
+                   ?? standings.find((r) => r.id === pair.p2)
+                   ?? { pj: 0, pg: 0, sf: 0, sc: 0 };
+        return { ...stats, ids: [pair.p1, pair.p2], name: `${nameOf(pair.p1)} & ${nameOf(pair.p2)}` };
+      })
+    : standings.map((s) => ({ ...s, ids: [s.id], name: s.name }));
+
+  const byWins  = [...rows].sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+  const topPg   = byWins[0]?.pg ?? 0;
+  const topDiff = byWins[0] ? byWins[0].sf - byWins[0].sc : 0;
+  return byWins
+    .filter((r) => r.pj > 0 && r.pg === topPg && (r.sf - r.sc) === topDiff)
+    .map((r) => ({ ids: r.ids, name: r.name }));
+}
+
+/**
+ * Label del ganador de un torneo. Derivado de getTournamentWinners para que el
+ * conteo de campeones no tenga que volver a parsear este string: los nombres
+ * con " & " o " / " rompían ese parseo.
+ */
+export function getTournamentWinnerLabel(t) {
+  const winners = getTournamentWinners(t);
+  return winners.length > 0 ? winners.map((w) => w.name).join(' / ') : null;
+}
+
+/**
+ * Nivel de padelero derivado del volumen y el % de victorias. Vivía duplicado
+ * en ProfileView y ProfileStory, con etiquetas en distinta capitalización.
+ * Devuelve el label capitalizado; la historia lo pasa a mayúsculas.
+ */
+export function calcNivel(partidos, pct) {
+  if (partidos < 5) return null;
+  if (pct >= 65) return { label: 'Maestro',    color: '#f0d04a' };
+  if (pct >= 50) return { label: 'Avanzado',   color: '#4af07a' };
+  if (pct >= 35) return { label: 'Intermedio', color: '#4ab8f0' };
+  return { label: 'Amateur', color: '#888888' };
 }
 
 function patchBracketNames(bracket, pairs, players) {
@@ -179,6 +251,19 @@ function patchBracketNames(bracket, pairs, players) {
     semis:   (bracket.semis   ?? []).map(patchMatch),
     final:   patchMatch(bracket.final),
   };
+}
+
+// Club asociado a una categoría o jornada, en la forma que espera ClubSelector.
+// Contempla la solicitud pendiente de alta de club. Sin club → null.
+export function entityClub(e) {
+  if (!e) return null;
+  if (e.club_id) {
+    return { id: e.club_id, name: e.club_name, location_name: e.club_location_name, courts: e.club_courts, photo_url: e.club_photo_url };
+  }
+  if (e.pending_club_request_id) {
+    return { pending: true, request_id: e.pending_club_request_id, name: e.pending_club_name };
+  }
+  return null;
 }
 
 // Cantidad de canchas que aporta un club para un torneo.
@@ -327,6 +412,31 @@ export const TOURNAMENT_STATUS_META = {
   active:   { label: 'EN CURSO',     color: 'green'   },
   finished: { label: 'FINALIZADO',   color: 'default' },
 };
+
+// Avisos que el organizador resuelve desde la pestaña de gestión. Es la fuente
+// única: la pestaña muestra el "!" cuando esto devuelve algo y los carteles de
+// gestión se renderizan a partir de las mismas entradas, así no se desincronizan.
+//   - americano-min-pairs: americano en borrador, faltan parejas para el mínimo.
+//   - players-without-pair: modo parejas con jugadores activos sin pareja armada.
+export function managementWarnings(tournament) {
+  if (!tournament) return [];
+  const { players = [], pairs = [], format, mode } = tournament;
+  const activePlayers = players.filter((p) => !p.removed);
+  const warnings = [];
+
+  if (format === 'americano') {
+    const missing = AMERICANO_MIN_PAIRS - pairs.length;
+    if (missing > 0) warnings.push({ id: 'americano-min-pairs', missing });
+  }
+
+  if (mode === 'pairs') {
+    const assigned = new Set(pairs.flatMap((p) => [p.p1, p.p2]));
+    const free = activePlayers.filter((p) => !assigned.has(p.id));
+    if (free.length > 0) warnings.push({ id: 'players-without-pair', players: free });
+  }
+
+  return warnings;
+}
 
 export const emptyForm = () => ({
   team1: ["", ""],

@@ -164,8 +164,8 @@ export default function TermsView() {
         <Section title="11. Contacto">
           <p>
             Para consultas sobre estos Términos y Condiciones podés escribirnos a{' '}
-            <a href="mailto:fabricando.dev@gmail.com" className="text-brand hover:underline">
-              fabricando.dev@gmail.com
+            <a href="mailto:soporte@hola.padeleando.ar" className="text-brand hover:underline">
+              soporte@hola.padeleando.ar
             </a>.
           </p>
         </Section>

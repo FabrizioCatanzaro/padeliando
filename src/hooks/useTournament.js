@@ -228,7 +228,12 @@ export function useTournament(groupId, tournamentId) {
   async function handleToggleStatus() {
     const newStatus = tournament.status === 'active' ? 'finished' : 'active';
     const body = { status: newStatus };
-    if (newStatus === 'finished') body.winner_label = getTournamentWinnerLabel(tournament) ?? '';
+    // El ganador de una liga sólo se resuelve si el torneo está finalizado, y
+    // acá el estado local todavía es el anterior: sin forzarlo, winner_label se
+    // guardaba siempre vacío salvo en americano.
+    if (newStatus === 'finished') {
+      body.winner_label = getTournamentWinnerLabel({ ...tournament, status: 'finished' }) ?? '';
+    }
     const updated = await api.tournaments.update(tournament.id, body);
     setTournament((prev) =>
       prev ? { ...prev, status: updated.status, winner_label: updated.winner_label } : prev
@@ -244,8 +249,8 @@ export function useTournament(groupId, tournamentId) {
 
   // Acá sí hace falta recargar: club_name y club_courts salen de un JOIN con
   // clubs que el PATCH no devuelve.
-  async function handleUpdateClubEvent({ club_id, event_date, number_of_courts }) {
-    await api.tournaments.update(tournament.id, { club_id, event_date, number_of_courts });
+  async function handleUpdateClubEvent({ club_id, pending_club_request_id, event_date, number_of_courts }) {
+    await api.tournaments.update(tournament.id, { club_id, pending_club_request_id, event_date, number_of_courts });
     await reload(true);
     showToast('Club y fecha actualizados');
   }

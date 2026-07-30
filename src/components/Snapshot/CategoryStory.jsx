@@ -86,7 +86,7 @@ function ChampionsChart({ rows }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {rows.map((r) => (
-        <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+        <div key={r.key ?? r.name} style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <div style={{
             width: 280, flexShrink: 0, fontSize: 24, color: C.soft,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

@@ -1,13 +1,14 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount } from '../../utils/helpers';
+import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount, entityClub } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, ArrowLeftRight, Link2, LogOut, Copy } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, ArrowLeftRight, Link2, LogOut, Copy, Unlink } from 'lucide-react';
 import Btn from '../shared/Btn';
 import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
@@ -17,7 +18,11 @@ import WhenVisible from '../shared/WhenVisible';
 // entero bajo el pliegue, pero arrastraba los 111 KB de Recharts a la carga
 // inicial. Se difiere hasta que está por entrar en pantalla.
 const HistoricalStats = lazy(() => import('../Stats/Stats').then(m => ({ default: m.HistoricalStats })));
+import TournamentFilters from './TournamentFilters';
+import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../utils/tournamentFilters';
+import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
+import PlayerAvatar from '../shared/PlayerAvatar';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
@@ -32,12 +37,15 @@ export default function GroupView() {
   const [allTournaments, setAllTournaments] = useState([]);
   const [copied,           setCopied]           = useState(false);
   const [visibleCount,     setVisibleCount]     = useState(5);
+  const [filters,          setFilters]          = useState(EMPTY_FILTERS);
+  const [filtersOpen,      setFiltersOpen]      = useState(false);
 
   // edit fields
   const [editName,     setEditName]     = useState('');
   const [editDesc,     setEditDesc]     = useState('');
   const [editIsPublic, setEditIsPublic] = useState(true);
   const [editEmojis,   setEditEmojis]   = useState([]);
+  const [editClub,     setEditClub]     = useState(null);
 
   // modals
   const [showEmojiModal, setShowEmojiModal] = useState(false);
@@ -54,6 +62,11 @@ export default function GroupView() {
   const [transferBusy,      setTransferBusy]      = useState(false);
   const [removeCollabTarget, setRemoveCollabTarget] = useState(null); // { user_id, name, username } | null
   const [leaveConfirm,      setLeaveConfirm]      = useState(false);
+
+  // invitación de jugador pendiente para quien mira (viene en GET /groups/:id)
+  const [invitationBusy,    setInvitationBusy]    = useState(false);
+  const [unlinkConfirm,     setUnlinkConfirm]     = useState(false);
+  const [unlinkBusy,        setUnlinkBusy]        = useState(false);
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -72,10 +85,29 @@ export default function GroupView() {
     return api.groups.get(groupId).then(setGroup);
   }
 
+  async function respondInvitation(action) {
+    const inv = group?.my_invitation;
+    if (invitationBusy || !inv) return;
+    setInvitationBusy(true);
+    try {
+      await api.invitations.respond(inv.id, action);
+      showToast(action === 'accept'
+        ? `Te uniste a la categoría como ${inv.player_name}.`
+        : 'Invitación rechazada.');
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setInvitationBusy(false);
+    }
+  }
+
   useEffect(() => {
     api.groups.get(groupId).then(setGroup);
     handleAllTournaments();
     setVisibleCount(5);
+    setFilters(EMPTY_FILTERS);
+    setFiltersOpen(false);
   }, [groupId]);
 
   function toggleEmoji(e) {
@@ -89,6 +121,7 @@ export default function GroupView() {
     setEditDesc(group.description ?? '');
     setEditIsPublic(group.is_public);
     setEditEmojis(group.emojis ?? []);
+    setEditClub(entityClub(group));
     setEditingGroup(true);
   }
 
@@ -118,8 +151,19 @@ export default function GroupView() {
         description:   editDesc.trim(),
         is_public:     editIsPublic,
         emojis:        editEmojis,
+        club_id:       editClub?.pending ? null : (editClub?.id ?? null),
+        pending_club_request_id: editClub?.pending ? editClub.request_id : null,
       });
-      setGroup(prev => ({ ...prev, ...updated }));
+      // El PUT devuelve sólo las columnas de groups: los datos del club los
+      // aporta el que ya está elegido, así se evita releer la categoría.
+      setGroup(prev => ({
+        ...prev, ...updated,
+        club_name:          editClub?.pending ? null : (editClub?.name ?? null),
+        club_location_name: editClub?.pending ? null : (editClub?.location_name ?? null),
+        club_courts:        editClub?.pending ? null : (editClub?.courts ?? null),
+        club_photo_url:     editClub?.pending ? null : (editClub?.photo_url ?? null),
+        pending_club_name:  editClub?.pending ? editClub.name : null,
+      }));
       setEditingGroup(false);
       showToast('Categoría guardada');
     } finally {
@@ -178,6 +222,24 @@ export default function GroupView() {
     }
   }
 
+  // Desvincular mi cuenta del slot de jugador en esta categoría. El slot y sus
+  // partidos quedan; sólo dejan de contar en mi perfil.
+  async function handleUnlinkSelf() {
+    const player = group?.my_player;
+    if (unlinkBusy || !player) return;
+    setUnlinkBusy(true);
+    try {
+      await api.players.unlink(player.id, groupId);
+      setUnlinkConfirm(false);
+      showToast(`Te desvinculaste de ${player.name}`, 'info');
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setUnlinkBusy(false);
+    }
+  }
+
   async function handleLeaveCollab() {
     try {
       await api.collaborators.leave(groupId);
@@ -230,6 +292,17 @@ export default function GroupView() {
     } catch (e) {
       showToast(e.message, 'error');
     }
+  }
+
+  useDocumentTitle(group?.name);
+
+  const allT = group?.tournaments;
+  const filtered = useMemo(() => filterTournaments(allT ?? [], filters), [allT, filters]);
+  const activeFilters = countActiveFilters(filters);
+
+  function changeFilters(next) {
+    setFilters(next);
+    setVisibleCount(5);
   }
 
   // min-h-screen no es decorativo: el esqueleto reservaba 406 px para una lista
@@ -305,12 +378,21 @@ export default function GroupView() {
             <div className="flex items-center gap-2">
               <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} />
               {isDeletedAccount(group.owner_username) ? (
-                <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1">
+                <span className="flex gap-2 items-center border border-border-strong rounded-full pl-1 pr-3 py-1">
                   <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>Cuenta eliminada</span>
                 </span>
               ) : (
-                <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
-                  <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
+                <span
+                  className="flex gap-2 items-center bg-surface border border-border-strong rounded-full pl-1 pr-3 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors"
+                  onClick={() => navigate(`/u/${group.owner_username}`)}
+                >
+                  <PlayerAvatar
+                    name={group.owner_name ?? group.owner_username ?? '?'}
+                    src={group.owner_avatar_url}
+                    size={24}
+                    premium={!!group.owner_is_premium}
+                  />
+                  <span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
                 </span>
               )}
             </div>
@@ -361,6 +443,13 @@ export default function GroupView() {
                 </div>
               </div>
 
+              {/* Club */}
+              <div>
+                <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">CLUB (opcional)</label>
+                <ClubSelector value={editClub} onChange={setEditClub} />
+                <p className="text-[10px] text-dim font-mono mt-1.5">Se usa como club por defecto en las jornadas nuevas.</p>
+              </div>
+
               {/* Íconos */}
               <div>
                 <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">ÍCONOS (opcional · máx. 2)</label>
@@ -408,13 +497,26 @@ export default function GroupView() {
           )}
         </div>
 
-        {/* Privacidad (solo dueño) — justo encima de la línea divisoria */}
-        {isOwner && !editingGroup && (
-          <div>
-            <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border ${group.is_public ? 'text-cyan border-cyan/40' : 'text-yellow-400 border-yellow-400/40'}`}>
-              {group.is_public ? <Globe size={12}/> : <Lock size={12}/>}
-              {group.is_public ? 'Categoría pública' : 'Categoría privada'}
-            </span>
+        {/* Privacidad (solo dueño) y club — justo encima de la línea divisoria */}
+        {!editingGroup && (isOwner || group.club_id) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {isOwner && (
+              <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border ${group.is_public ? 'text-cyan border-cyan/40' : 'text-yellow-400 border-yellow-400/40'}`}>
+                {group.is_public ? <Globe size={12}/> : <Lock size={12}/>}
+                {group.is_public ? 'Categoría pública' : 'Categoría privada'}
+              </span>
+            )}
+            {group.club_id ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border text-brand border-brand/40 max-w-full">
+                <Building2 size={12} className="shrink-0" />
+                <span className="truncate">{group.club_name}</span>
+              </span>
+            ) : isOwner && group.pending_club_request_id && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border text-yellow-400 border-yellow-400/40 max-w-full">
+                <Building2 size={12} className="shrink-0" />
+                <span className="truncate">{group.pending_club_name} · pendiente</span>
+              </span>
+            )}
           </div>
         )}
 
@@ -425,6 +527,38 @@ export default function GroupView() {
               <Users size={14} className="shrink-0" /> Sos co-organizador de esta categoría
             </span>
             <Btn variant="danger" size="sm" icon={LogOut} onClick={() => setLeaveConfirm(true)}>SALIR</Btn>
+          </div>
+        )}
+
+        {/* Invitación pendiente a jugar en esta categoría. Antes sólo se podía
+            responder desde la campana de notificaciones. */}
+        {group.my_invitation && (
+          <div className="flex items-center justify-between gap-2 flex-wrap bg-brand/5 border border-brand/25 rounded-md px-3 py-2">
+            <span className="flex items-center gap-2 text-brand text-[12px] font-mono tracking-wide">
+              <UserPlus size={14} className="shrink-0" />
+              @{group.my_invitation.invited_by_username} te invitó a unirte como{' '}
+              <span className="font-bold">{group.my_invitation.player_name}</span>
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Btn variant="primary" size="sm" icon={Check} disabled={invitationBusy}
+                   onClick={() => respondInvitation('accept')}>ACEPTAR</Btn>
+              <Btn variant="danger" size="sm" icon={X} disabled={invitationBusy}
+                   onClick={() => respondInvitation('reject')}>RECHAZAR</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* Jugás en esta categoría con tu cuenta vinculada */}
+        {group.my_player && (
+          <div className="flex items-center justify-between gap-2 flex-wrap bg-surface border border-border-mid rounded-md px-3 py-2">
+            <span className="flex items-center gap-2 text-content text-[12px] font-mono tracking-wide">
+              <User size={14} className="shrink-0 text-green" />
+              Jugás en esta categoría como{' '}
+              <span className="text-white font-bold">{group.my_player.name}</span>
+            </span>
+            <Btn variant="danger" size="sm" icon={Unlink} onClick={() => setUnlinkConfirm(true)}>
+              DESVINCULARME
+            </Btn>
           </div>
         )}
       </div>
@@ -461,8 +595,27 @@ export default function GroupView() {
         {(!group.tournaments || group.tournaments.length === 0) && !canManage && (
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
         )}
+
+        {/* Con pocas jornadas la lista entera entra en pantalla y el buscador sólo estorba. */}
+        {group.tournaments?.length > 3 && (
+          <TournamentFilters
+            filters={filters}
+            onChange={changeFilters}
+            open={filtersOpen}
+            onToggle={() => setFiltersOpen(o => !o)}
+            total={group.tournaments.length}
+            shown={filtered.length}
+          />
+        )}
+
+        {activeFilters > 0 && filtered.length === 0 && (
+          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
+            Ningún torneo coincide con los filtros.
+          </div>
+        )}
+
         <div className="flex flex-col gap-2.5">
-          {group.tournaments?.slice(0, visibleCount).map((t, i) => {
+          {filtered.slice(0, visibleCount).map((t, i) => {
             const isAmericano = t.format === 'americano';
             const fmtColor = isAmericano ? '#e8f04a' : '#63b3ed';
             const fmtBg    = isAmericano ? 'rgba(232,240,74,0.07)' : 'rgba(99,179,237,0.07)';
@@ -542,10 +695,10 @@ export default function GroupView() {
             );
           })}
         </div>
-        {group.tournaments && visibleCount < group.tournaments.length && (
+        {visibleCount < filtered.length && (
           <div className="flex justify-center mt-4">
             <Btn size="sm" onClick={() => setVisibleCount(c => c + 10)}>
-              CARGAR MÁS ({group.tournaments.length - visibleCount} restantes)
+              CARGAR MÁS ({filtered.length - visibleCount} restantes)
             </Btn>
           </div>
         )}
@@ -741,6 +894,20 @@ export default function GroupView() {
           onCancel={() => setLeaveConfirm(false)}
         >
           Vas a perder el acceso para gestionar las jornadas de <strong className="text-white">{group.name}</strong>. Solo el dueño podría volver a invitarte.
+        </Modal>
+      )}
+
+      {/* Confirmar desvinculación propia */}
+      {unlinkConfirm && group.my_player && (
+        <Modal
+          title="¿Desvincularte de esta categoría?"
+          confirmText="Desvincularme"
+          confirmDanger
+          confirmDisabled={unlinkBusy}
+          onConfirm={handleUnlinkSelf}
+          onCancel={() => setUnlinkConfirm(false)}
+        >
+          <strong className="text-white">{group.my_player.name}</strong> y todos sus partidos se quedan en <strong className="text-white">{group.name}</strong>, pero dejan de estar asociados a tu cuenta y de contar en las estadísticas de tu perfil. El organizador puede volver a invitarte cuando quieras.
         </Modal>
       )}
 

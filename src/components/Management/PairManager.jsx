@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getPairLabel, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
+import { getPairLabel, managementWarnings, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
 import Modal from "../shared/Modal";
 import { Check, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
 import { PairAvatar } from "../shared/PlayerAvatar";
@@ -15,11 +15,15 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
 
   const assignedIds   = pairs.flatMap((p) => [p.p1, p.p2]);
   const activePlayers = players.filter((p) => !p.removed);
-  const freePlayers   = activePlayers.filter((p) => !assignedIds.includes(p.id));
+
+  // Los avisos salen del helper compartido: la pestaña de gestión marca el "!"
+  // con la misma lista, así no se puede mostrar uno sin el otro.
+  const warnings     = managementWarnings(tournament);
+  const missingPairs = warnings.find((w) => w.id === 'americano-min-pairs')?.missing ?? 0;
+  const freePlayers  = warnings.find((w) => w.id === 'players-without-pair')?.players ?? [];
 
   // Americano: 8 parejas mínimo para poder jugar, 16 máximo.
   const isAmericano   = tournament.format === 'americano';
-  const missingPairs  = isAmericano ? AMERICANO_MIN_PAIRS - pairs.length : 0;
   const pairsFull     = isAmericano && pairs.length >= AMERICANO_MAX_PAIRS;
 
   function handleAdd() {

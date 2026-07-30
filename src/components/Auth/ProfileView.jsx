@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { api } from '../../utils/api';
-import { fmt } from '../../utils/helpers';
+import { fmt, calcNivel } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck, Share2 } from 'lucide-react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Globe, Gem, Badge, BadgeCheck, Share2, BarChart3, Swords, Handshake, MapPin, Users, LayoutGrid } from 'lucide-react';
 // Recharts sólo lo necesita este bloque, que además casi nunca se muestra.
 const AdvancedStats = lazy(() => import('./AdvancedStats'));
 import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
@@ -15,8 +16,9 @@ import Modal from '../shared/Modal';
 import statsPreview from '../../assets/advanced-stats-preview.svg';
 import Loader from '../Loader/Loader';
 import PlayerAvatar from '../shared/PlayerAvatar';
+import ClubLogo from '../shared/ClubLogo';
 import AvatarCropper from '../shared/AvatarCropper';
-import ShareStoryButton from '../Snapshot/ShareStoryButton';
+import ShareProfileModal from '../shared/ShareProfileModal';
 import SnapshotModal from '../Snapshot/SnapshotModal';
 import ProfileStory from '../Snapshot/ProfileStory';
 
@@ -172,13 +174,12 @@ function SocialLinksDisplay({ links }) {
   );
 }
 
-function calcNivel(partidos, pct) {
-  if (partidos < 5) return null;
-  if (pct >= 65) return { label: 'Maestro', color: '#f0d04a' };
-  if (pct >= 50) return { label: 'Avanzado', color: '#4af07a' };
-  if (pct >= 35) return { label: 'Intermedio', color: '#4ab8f0' };
-  return { label: 'Amateur', color: '#888' };
-}
+const ROUND_LABEL = {
+  octavos: 'Octavos',
+  cuartos: 'Cuartos',
+  semis:   'Semifinal',
+  final:   'Final',
+};
 
 function PasswordInput({ value, onChange, placeholder = '* * * * * * *', autoComplete = 'off' }) {
   const [show, setShow] = useState(false);
@@ -244,7 +245,6 @@ export default function ProfileView() {
   const [followingCount,   setFollowingCount]    = useState(0);
   const [followModal,      setFollowModal]       = useState(null); // 'followers' | 'following' | null
   const [showInviteModal,  setShowInviteModal]   = useState(false);
-  const [shareCopied,      setShareCopied]       = useState(false);
   const [followList,       setFollowList]        = useState([]);
   const [followListLoading, setFollowListLoading] = useState(false);
 
@@ -270,6 +270,11 @@ export default function ProfileView() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showClaimHelp,    setShowClaimHelp]    = useState(false);
 
+  const [advancedPublic, setAdvancedPublic] = useState(false);
+  const [advancedBusy,   setAdvancedBusy]   = useState(false);
+  const [advancedError,  setAdvancedError]  = useState(null);
+
+  const [showShare,       setShowShare]       = useState(false);
   const [showStory,       setShowStory]       = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword,  setDeletePassword]  = useState('');
@@ -286,6 +291,7 @@ export default function ProfileView() {
         const existing = Array.isArray(d.owner.social_links) ? d.owner.social_links : [];
         setSocialLinks(ensureTrailingEmpty(existing));
         setAvatarUrl(d.owner.avatar_url ?? null);
+        setAdvancedPublic(d.owner.advanced_stats_public === true);
         setIsFollowing(d.is_following ?? false);
         setFollowersCount(d.owner.followers_count ?? 0);
         setFollowingCount(d.owner.following_count ?? 0);
@@ -294,14 +300,20 @@ export default function ProfileView() {
       .finally(() => setLoading(false));
   }, [username]);
 
+  useDocumentTitle(data?.owner?.name);
+
   // El perfil siempre rinde más alto que la pantalla, así que el hueco de carga
   // debe empujar el pie fuera del viewport en vez de dejarlo asomar.
   if (loading) return <Loader minHeight="100vh" />;
   if (error)   return <div className="text-danger p-10">{error}</div>;
 
-  const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats } = data;
+  const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats, club_stats, follow_ranking } = data;
   const isOwnProfile  = user?.username === owner.username;
   const displayAvatar = avatarUrl ?? (isOwnProfile ? user?.avatar_url : null) ?? null;
+
+  // El plan manda: sin premium no hay avanzadas ni para el dueño. Publicarlas
+  // las abre a cualquier visitante, incluida la captura del perfil.
+  const canSeeAdvanced = !!owner.is_premium && (isOwnProfile || advancedPublic);
 
   const savedLinks    = Array.isArray(owner.social_links) ? owner.social_links.filter(l => l.url?.trim()) : [];
   const filledLinks   = socialLinks.filter(l => {
@@ -381,6 +393,21 @@ export default function ProfileView() {
     }
   }
 
+  async function handleToggleAdvancedPublic() {
+    const next = !advancedPublic;
+    setAdvancedBusy(true);
+    setAdvancedError(null);
+    setAdvancedPublic(next);
+    try {
+      await api.auth.updateMe({ advanced_stats_public: next });
+    } catch (err) {
+      setAdvancedPublic(!next);
+      setAdvancedError(err.message);
+    } finally {
+      setAdvancedBusy(false);
+    }
+  }
+
   async function handleSave() {
     setSaveError(null); setSaveOk(false);
     const body = {};
@@ -449,17 +476,6 @@ export default function ProfileView() {
       setDeleteError(e.message);
       setDeleteBusy(false);
     }
-  }
-
-  function handleShare() {
-    navigator.clipboard.writeText(window.location.href);
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 1800);
-  }
-
-  function handleShareWhatsApp() {
-    const text = encodeURIComponent(`Mirá el perfil de ${owner.name} en Padeleando: ${window.location.href}`);
-    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   }
 
   async function handleFollowToggle() {
@@ -605,36 +621,26 @@ export default function ProfileView() {
               </div>
               {avatarError && <div className="text-[11px] text-danger font-mono mt-1">{avatarError}</div>}
               <SocialLinksDisplay links={savedLinks} />
-              {(stats?.partidos > 0 || stats?.torneos > 0) && (
-                <div className="mt-3">
-                  <ShareStoryButton variant="full" onClick={() => setShowStory(true)} className="inline-flex" />
-                </div>
-              )}
             </div>
 
-            {/* Botones — desktop (sm+): top-right */}
-            {!isOwnProfile && (
-              <div className="hidden sm:flex items-center gap-2 shrink-0">
-                <button
-                  onClick={handleShare}
-                  title="Copiar link del perfil"
-                  className={`w-9 h-9 flex items-center justify-center rounded border bg-transparent transition-colors cursor-pointer ${shareCopied ? 'border-green text-green' : 'border-border-strong text-muted hover:border-border-mid hover:text-white'}`}
-                >
-                  {shareCopied ? <Check size={14} /> : <Share2 size={14} />}
-                </button>
-                <button
-                  onClick={handleShareWhatsApp}
-                  title="Compartir por WhatsApp"
-                  className="w-9 h-9 flex items-center justify-center rounded border border-border-strong text-muted hover:border-[#25d366] hover:text-[#25d366] bg-transparent transition-colors cursor-pointer"
-                >
-                  <SiIcon icon={siWhatsapp} size={14} />
-                </button>
+            {/* Compartir: un solo botón, en todos los perfiles y en todos los
+                anchos. El de seguir lo acompaña sólo en desktop. */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowShare(true)}
+                title="Compartir perfil"
+                aria-label="Compartir perfil"
+                className="w-9 h-9 flex items-center justify-center rounded border border-border-strong text-muted hover:border-brand hover:text-brand bg-transparent transition-colors cursor-pointer"
+              >
+                <Share2 size={14} />
+              </button>
+              {!isOwnProfile && (
                 <button
                   onClick={user ? handleFollowToggle : () => setShowInviteModal(true)}
                   onMouseEnter={() => setFollowHover(true)}
                   onMouseLeave={() => setFollowHover(false)}
                   disabled={followBusy}
-                  className={`flex items-center gap-2 px-4 py-2 rounded font-condensed font-bold text-[13px] tracking-widest border transition-colors cursor-pointer disabled:opacity-40 ${
+                  className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded font-condensed font-bold text-[13px] tracking-widest border transition-colors cursor-pointer disabled:opacity-40 ${
                     isFollowing
                       ? followHover
                         ? 'border-danger text-danger bg-transparent'
@@ -649,28 +655,13 @@ export default function ProfileView() {
                     : <><UserPlus size={14} /> SEGUIR</>
                   }
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Botones — mobile: fila completa debajo */}
+          {/* Seguir — mobile: fila completa debajo */}
           {!isOwnProfile && (
             <div className="flex sm:hidden gap-2 mt-4">
-              <button
-                onClick={handleShare}
-                title="Copiar link del perfil"
-                className={`w-10 h-10 flex items-center justify-center rounded border bg-transparent transition-colors cursor-pointer shrink-0 ${shareCopied ? 'border-green text-green' : 'border-border-strong text-muted'}`}
-              >
-                {shareCopied ? <Check size={15} /> : <Share2 size={15} />}
-              </button>
-              <button
-                onClick={handleShareWhatsApp}
-                title="Compartir por WhatsApp"
-                className="w-10 h-10 flex items-center justify-center rounded border border-border-strong text-muted bg-transparent cursor-pointer shrink-0"
-                style={{ color: '#25d366', borderColor: '#25d36633' }}
-              >
-                <SiIcon icon={siWhatsapp} size={15} />
-              </button>
               <button
                 onClick={user ? handleFollowToggle : () => setShowInviteModal(true)}
                 disabled={followBusy}
@@ -821,13 +812,18 @@ export default function ProfileView() {
           const pctColor = pct >= 60 ? '#4af07a' : pct >= 40 ? '#e8f04a' : '#f07a4a';
           return (
             <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-              <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-4">ESTADÍSTICAS PERSONALES</div>
+              <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-4">
+                <BarChart3 size={13} className="shrink-0" />ESTADÍSTICAS PERSONALES
+              </div>
 
               {/* Torneos · Partidos · Racha actual — misma fila */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
                   <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos}</div>
                   <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>TORNEOS</div>
+                  <div className="text-[10px] font-mono mt-0.5" style={{ color: stats.torneos_este_mes > 0 ? '#4ab8f0' : '#555' }}>
+                    {stats.torneos_este_mes > 0 ? `${stats.torneos_este_mes} este mes` : 'ninguno este mes'}
+                  </div>
                   <div className="h-0.5 rounded-full mt-2" style={{ background: '#4ab8f0', opacity: 0.35 }} />
                 </div>
                 <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
@@ -865,28 +861,47 @@ export default function ProfileView() {
                 </div>
               )}
 
-              {/* Americano stats */}
-              {stats.torneos_americanos > 0 && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
-                    <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos_americanos}</div>
-                    <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>AMERICANOS</div>
-                    <div className="h-0.5 rounded-full mt-2" style={{ background: '#a84af0', opacity: 0.35 }} />
-                  </div>
+              {/* Títulos de cualquier formato, no sólo el americano. */}
+              {(stats.titulos_liga > 0 || stats.torneos_americanos > 0) && (
+                <div className={`grid gap-3 ${stats.torneos_americanos > 0 ? 'grid-cols-3' : 'grid-cols-1'}`}>
                   <div className="bg-base rounded-lg px-4 py-3 border"
-                    style={{ borderColor: stats.campeon_americano > 0 ? '#f0d04a44' : undefined }}>
+                    style={{ borderColor: stats.titulos_liga > 0 ? '#f0d04a44' : undefined }}>
                     <div className="flex items-start justify-between">
                       <div className="font-condensed font-black text-[32px] leading-none"
-                        style={{ color: stats.campeon_americano > 0 ? '#f0d04a' : '#333' }}>
-                        {stats.campeon_americano}
+                        style={{ color: stats.titulos_liga > 0 ? '#f0d04a' : '#333' }}>
+                        {stats.titulos_liga ?? 0}
                       </div>
-                      {stats.campeon_americano > 0 && <Trophy size={16} style={{ color: '#f0d04a', marginTop: 2 }} />}
+                      {stats.titulos_liga > 0 && <Trophy size={16} style={{ color: '#f0d04a', marginTop: 2 }} />}
                     </div>
                     <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>
-                      {stats.campeon_americano === 1 ? 'VEZ CAMPEÓN' : 'VECES CAMPEÓN'}
+                      {stats.titulos_liga === 1 ? 'LIGA GANADA' : 'LIGAS GANADAS'}
                     </div>
-                    <div className="h-0.5 rounded-full mt-2" style={{ background: '#f0d04a', opacity: stats.campeon_americano > 0 ? 0.35 : 0.08 }} />
+                    <div className="h-0.5 rounded-full mt-2" style={{ background: '#f0d04a', opacity: stats.titulos_liga > 0 ? 0.35 : 0.08 }} />
                   </div>
+                  {stats.torneos_americanos > 0 && (
+                    <>
+                      <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
+                        <div className="font-condensed font-black text-[32px] text-white leading-none">{stats.torneos_americanos}</div>
+                        <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>AMERICANOS</div>
+                        <div className="text-[10px] font-mono mt-0.5" style={{ color: '#555' }}>jugados</div>
+                        <div className="h-0.5 rounded-full mt-2" style={{ background: '#a84af0', opacity: 0.35 }} />
+                      </div>
+                      <div className="bg-base rounded-lg px-4 py-3 border"
+                        style={{ borderColor: stats.campeon_americano > 0 ? '#a84af044' : undefined }}>
+                        <div className="flex items-start justify-between">
+                          <div className="font-condensed font-black text-[32px] leading-none"
+                            style={{ color: stats.campeon_americano > 0 ? '#a84af0' : '#333' }}>
+                            {stats.campeon_americano}
+                          </div>
+                          {stats.campeon_americano > 0 && <Trophy size={16} style={{ color: '#a84af0', marginTop: 2 }} />}
+                        </div>
+                        <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>
+                          {stats.campeon_americano === 1 ? 'AMERICANO GANADO' : 'AMERICANOS GANADOS'}
+                        </div>
+                        <div className="h-0.5 rounded-full mt-2" style={{ background: '#a84af0', opacity: stats.campeon_americano > 0 ? 0.35 : 0.08 }} />
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -897,7 +912,9 @@ export default function ProfileView() {
         {recent_matches?.length > 0 && (
           <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555]">ÚLTIMOS PARTIDOS</div>
+              <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555]">
+                <Swords size={13} className="shrink-0" />ÚLTIMOS PARTIDOS
+              </div>
               <span className="font-mono text-[10px] text-dim">{recent_matches.length} registrados</span>
             </div>
             <div className="flex flex-col gap-2">
@@ -925,7 +942,10 @@ export default function ProfileView() {
                         <span className="text-[#444]">vs </span>
                         {firstName(m.opp1_name)} & {firstName(m.opp2_name)}
                       </div>
-                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate">{m.tournament_name}</div>
+                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate">
+                        {m.tournament_name}
+                        {m.bracket_round && <span className="text-brand"> · {ROUND_LABEL[m.bracket_round] ?? m.bracket_round}</span>}
+                      </div>
                     </div>
                     <div className="shrink-0 text-[10px] text-dim font-mono">
                       {m.played_at ? `${m.played_at.slice(8, 10)}/${m.played_at.slice(5, 7)}` : ''}
@@ -949,7 +969,9 @@ export default function ProfileView() {
         {/* Compañeros frecuentes */}
         {frequent_partners?.length > 0 && (
           <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
-            <div className="font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">COMPAÑEROS FRECUENTES</div>
+            <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">
+              <Handshake size={13} className="shrink-0" />COMPAÑEROS FRECUENTES
+            </div>
             <div className="rounded-lg overflow-hidden border border-border-strong">
               {frequent_partners.map((p, i) => (
                 <div key={i}
@@ -983,8 +1005,86 @@ export default function ProfileView() {
           </div>
         )}
 
+        {/* Ranking entre la gente que sigue. Sólo lo ve el dueño del perfil. */}
+        {isOwnProfile && follow_ranking?.length > 1 && (
+          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+            <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">
+              <Users size={13} className="shrink-0" />ENTRE TUS SEGUIDOS
+            </div>
+            <div className="rounded-lg overflow-hidden border border-border-strong">
+              {follow_ranking.map((r, i) => (
+                <div key={r.id}
+                  onClick={() => !r.is_me && r.username && navigate(`/u/${r.username}`)}
+                  className={`flex items-center gap-3 px-4 py-3 border-b border-border-strong last:border-b-0 transition-colors ${!r.is_me && r.username ? 'cursor-pointer hover:bg-surface' : ''}`}
+                  style={{ background: r.is_me ? '#e8f04a0d' : '#0d0d0d' }}>
+                  <div className="shrink-0 font-condensed font-black text-[13px] w-4 text-center"
+                    style={{ color: i === 0 ? '#f0d04a' : '#333' }}>
+                    {i + 1}
+                  </div>
+                  <PlayerAvatar name={r.name} src={r.avatar_url} size={32} premium={r.is_premium} />
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[13px] font-mono truncate ${r.is_me ? 'text-brand' : 'text-white'}`}>
+                      {r.name}{r.is_me && ' (vos)'}
+                    </div>
+                    <div className="text-[10px] font-mono text-dim">{r.partidos} PJ · {r.victorias}V</div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-condensed font-black text-[18px] leading-none"
+                      style={{ color: r.win_rate >= 60 ? '#4af07a' : r.win_rate >= 40 ? '#e8f04a' : '#f07a4a' }}>
+                      {r.win_rate}%
+                    </div>
+                    <div className="text-[10px] font-mono text-dim">victorias</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sólo los torneos con club asignado, así que el total puede ser menor. */}
+        {club_stats?.length > 0 && (
+          <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
+            <div className="flex items-center gap-2 font-condensed font-bold text-sm tracking-[3px] text-[#555] mb-3">
+              <MapPin size={13} className="shrink-0" />CLUBES FRECUENTES
+            </div>
+            <div className="rounded-lg overflow-hidden border border-border-strong">
+              {club_stats.map((c, i) => {
+                const pct = c.partidos > 0 ? Math.round((c.victorias / c.partidos) * 100) : 0;
+                return (
+                  <div key={c.id}
+                    onClick={() => navigate(`/club/${c.id}`)}
+                    className="flex items-center gap-3 px-4 py-3 border-b border-border-strong last:border-b-0 cursor-pointer hover:bg-surface transition-colors"
+                    style={{ background: '#0d0d0d' }}>
+                    <div className="shrink-0 font-condensed font-black text-[13px] w-4 text-center" style={{ color: '#333' }}>
+                      {i + 1}
+                    </div>
+                    <ClubLogo name={c.name} src={c.photo_url} size={32} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-mono truncate text-white">{c.name}</div>
+                      {c.location_name && (
+                        <div className="text-[10px] font-mono text-dim truncate">{c.location_name}</div>
+                      )}
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="font-condensed font-black text-[18px] text-white leading-none">{c.partidos}</div>
+                        <div className="text-[10px] font-mono text-dim">
+                          {c.partidos === 1 ? 'partido' : 'partidos'} · {pct}%
+                        </div>
+                      </div>
+                      <ChevronUp size={13} className="text-dim rotate-90 shrink-0" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Categorías */}
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">CATEGORÍAS PROPIAS</div>
+        <div className="flex items-center gap-2 font-condensed font-bold text-[16px] tracking-[3px] text-muted mb-4">
+          <LayoutGrid size={14} className="shrink-0" />CATEGORÍAS PROPIAS
+        </div>
         {groups.length === 0 && (
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
             {isOwnProfile ? 'Todavía no creaste ninguna categoría.' : 'Este usuario no tiene categorías públicas.'}
@@ -996,15 +1096,61 @@ export default function ProfileView() {
           ))}
         </div>
 
-        {/* Estadísticas avanzadas — al fondo para no interrumpir el flujo */}
-        {isOwnProfile && stats?.partidos > 0 && (
-          owner.is_premium ? (
-            // El alto del respaldo iguala al del bloque ya cargado para que la
-            // llegada del chunk no desplace nada.
-            <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 760 }} />}>
-              <AdvancedStats stats={stats} monthlyStats={monthly_stats ?? []} dailyActivity={data.daily_activity ?? []} />
-            </Suspense>
-          ) : (
+        {/* Estadísticas avanzadas — al fondo para no interrumpir el flujo.
+            Un visitante sólo las ve si el premium las publicó; el servidor ya
+            manda los campos vacíos cuando no corresponde. */}
+        {stats?.partidos > 0 && (canSeeAdvanced ? (
+            <>
+              {isOwnProfile && (
+                <div className="flex items-start justify-between gap-3 bg-surface border border-border-mid rounded-lg px-4 py-3 mb-3">
+                  <div className="min-w-0">
+                    <div className="font-condensed font-bold text-[13px] tracking-wide text-white">
+                      {advancedPublic ? 'Estadísticas avanzadas públicas' : 'Estadísticas avanzadas privadas'}
+                    </div>
+                    <div className="text-[11px] font-mono text-dim mt-0.5">
+                      {advancedPublic
+                        ? 'Cualquiera que visite tu perfil las ve y puede compartir la captura completa'
+                        : 'Sólo vos las ves, acá y en la captura del perfil'}
+                    </div>
+                    {advancedError && <div className="text-[11px] font-mono text-danger mt-1">{advancedError}</div>}
+                  </div>
+                  {/* Interruptor: el riel deja ver que hay dos posiciones, que un
+                      botón con el estado escrito no comunicaba. */}
+                  <button
+                    type="button"
+                    onClick={handleToggleAdvancedPublic}
+                    disabled={advancedBusy}
+                    role="switch"
+                    aria-checked={advancedPublic}
+                    aria-label="Estadísticas avanzadas públicas"
+                    title={advancedPublic ? 'Hacerlas privadas' : 'Hacerlas públicas'}
+                    className="shrink-0 flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                  >
+                    <span className={`flex items-center gap-1.5 font-condensed font-bold text-[11px] tracking-wide transition-colors ${advancedPublic ? 'text-brand' : 'text-muted'}`}>
+                      {advancedPublic ? <Globe size={12} /> : <Lock size={12} />}
+                      {advancedPublic ? 'PÚBLICAS' : 'PRIVADAS'}
+                    </span>
+                    <span className={`relative w-12 h-7 rounded-full border transition-colors ${
+                      advancedPublic ? 'bg-brand border-brand' : 'bg-base border-border-strong'
+                    }`}>
+                      <span className={`absolute top-[3px] left-[3px] w-[19px] h-[19px] rounded-full transition-transform duration-200 ${
+                        advancedPublic ? 'translate-x-[20px] bg-surface' : 'translate-x-0 bg-dim'
+                      }`} />
+                    </span>
+                  </button>
+                </div>
+              )}
+              {/* Iguala al alto del bloque completo (con sets y palizas) para que el chunk no desplace nada. */}
+              <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 1370 }} />}>
+                <AdvancedStats
+                  stats={stats}
+                  monthlyStats={monthly_stats ?? []}
+                  dailyActivity={data.daily_activity ?? []}
+                  weekdayStats={data.weekday_stats ?? []}
+                />
+              </Suspense>
+            </>
+          ) : isOwnProfile && (
             <div className="relative mb-6 rounded-lg overflow-hidden select-none mx-auto border border-border-mid">
               <img
                 src={statsPreview}
@@ -1088,11 +1234,36 @@ export default function ProfileView() {
         </div>
       )}
 
+      {showShare && (
+        <ShareProfileModal
+          name={owner.name}
+          username={owner.username}
+          url={window.location.href}
+          isOwnProfile={isOwnProfile}
+          // Sin partidos ni torneos la historia queda vacía: mejor no ofrecerla.
+          onCreateImage={(stats?.partidos > 0 || stats?.torneos > 0)
+            ? () => { setShowShare(false); setShowStory(true); }
+            : undefined}
+          onClose={() => setShowShare(false)}
+        />
+      )}
+
       {showStory && (
         <SnapshotModal
           filename={`perfil-${owner.username}.png`}
           onClose={() => setShowStory(false)}
-          story={<ProfileStory owner={owner} stats={stats ?? {}} avatar={displayAvatar} />}
+          story={(
+            <ProfileStory
+              owner={owner}
+              stats={stats ?? {}}
+              avatar={displayAvatar}
+              // La captura con avanzadas es del dueño premium; un visitante la
+              // consigue sólo si el dueño las publicó.
+              advanced={canSeeAdvanced}
+              monthlyStats={monthly_stats ?? []}
+              weekdayStats={data.weekday_stats ?? []}
+            />
+          )}
         />
       )}
 

@@ -21,12 +21,19 @@ const nameStyle = (isTop) => ({
 // rows: displayRows ya calculadas en Standings.jsx · champions: filas campeonas (puede ser []).
 export default function StandingsStory({ tournament, rows = [], champions = [] }) {
   const top = rows.slice(0, champions.length > 0 ? 8 : 9);
+  // En modo parejas la tabla lista parejas, no jugadores.
+  const hasPairs = tournament.mode === 'pairs' && tournament.pairs?.length > 0;
+  const count = hasPairs ? tournament.pairs.length : (tournament.players?.length ?? 0);
+  const unit = hasPairs
+    ? (count === 1 ? 'pareja' : 'parejas')
+    : (count === 1 ? 'jugador' : 'jugadores');
+  const matchCount = tournament.matches?.length ?? 0;
 
   return (
     <StoryFrame
       eyebrow="TABLA DE POSICIONES"
       title={tournament.name}
-      subtitle={`${tournament.players?.length ?? 0} jugadores · ${tournament.matches?.length ?? 0} partidos`}
+      subtitle={`${count} ${unit} · ${matchCount} ${matchCount === 1 ? 'partido' : 'partidos'}`}
       meta={<CategoryChip tournament={tournament} />}
       headerRight={<ClubBadge tournament={tournament} />}
     >

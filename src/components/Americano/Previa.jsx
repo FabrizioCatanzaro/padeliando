@@ -5,7 +5,7 @@ import MatchCard from "../Matches/MatchCard";
 import MatchForm from "../Matches/MatchForm";
 import Modal from "../shared/Modal";
 import ShareFixtureModal from "../shared/ShareFixtureModal";
-import { Share2, Trash2 } from "lucide-react";
+import { Share2, Trash2, Dices } from "lucide-react";
 
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 const getLiveKey  = (id) => `live_${id}`;
@@ -296,7 +296,7 @@ export default function Previa({
       {confirmClearSchedule && (
         <Modal
           title="Eliminar calendario sugerido"
-          message="El calendario es sólo una guía: los partidos ya registrados no se borran. Podés volver a generar uno con “AL AZAR”."
+          message="El calendario es sólo una guía: los partidos ya registrados no se borran. Podés volver a generar uno con el botón del dado."
           confirmText="Eliminar"
           confirmDanger
           onConfirm={() => { handleClearSchedule(); setConfirmClearSchedule(false); }}
@@ -330,10 +330,11 @@ export default function Previa({
               <button
                 onClick={handleGenerateSchedule}
                 disabled={generating || anyLiveRunning}
-                title={anyLiveRunning ? 'No se puede regenerar el calendario con un partido en vivo' : undefined}
-                className="bg-transparent text-muted border border-border-strong px-3 py-2.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                title={anyLiveRunning ? 'No se puede regenerar el calendario con un partido en vivo' : 'Generar calendario al azar'}
+                aria-label="Generar calendario al azar"
+                className="bg-transparent text-muted border border-border-strong px-3 py-2.5 cursor-pointer rounded-sm hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {generating ? '...' : '↺ AL AZAR'}
+                <Dices size={15} className={generating ? 'animate-spin' : undefined} />
               </button>
               <button
                 onClick={() => addNewMatch()}
@@ -481,7 +482,7 @@ export default function Previa({
         isDraft ? null : (
         <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
           No hay partidos registrados todavía.<br />
-          {isOwner ? `Usá "AL AZAR" para generar el calendario o "NUEVO PARTIDO" para agregar uno manualmente.` : '¡Pronto habrá resultados!'}
+          {isOwner ? `Usá el botón del dado para generar el calendario o "NUEVO PARTIDO" para agregar uno manualmente.` : '¡Pronto habrá resultados!'}
         </div>
         )
       ) : (

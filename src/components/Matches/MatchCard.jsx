@@ -32,7 +32,9 @@ export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete
         )}
       </div>
       <div className="flex items-center gap-3 flex-wrap">
-        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-xl ${win1 ? "text-brand" : "text-secondary"}`}>
+        {/* Los nombres de pareja son largos: a 20px envuelven en 3-4 líneas en
+            mobile y estiran la card. 16px hasta sm, 20px de ahí para arriba. */}
+        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-base sm:text-xl leading-tight ${win1 ? "text-brand" : "text-secondary"}`}>
           {getLabel(team1)}
         </div>
         <div className="flex flex-col items-center gap-1 min-w-20 justify-center">
@@ -56,7 +58,7 @@ export default function MatchCard({ match, tournament, isOwner, onEdit, onDelete
             </div>
           )}
         </div>
-        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-xl justify-end text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
+        <div className={`flex-1 flex items-center gap-2 font-condensed font-semibold text-base sm:text-xl leading-tight justify-end text-right ${!win1 ? "text-cyan" : "text-secondary"}`}>
           {getLabel(team2)}
         </div>
       </div>

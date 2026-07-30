@@ -73,6 +73,15 @@ function NotifItemText({ n, onNavigate }) {
       )}{' '}
       porque su organizador eliminó su cuenta.</>
   );
+  if (n.type === 'player_unlinked') return (
+    <>{n.body}{' '}
+      {n.group_id && (
+        <span
+          onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}`); }}
+          className="text-brand cursor-pointer hover:underline"
+        >Ver categoría →</span>
+      )}</>
+  );
   if (n.type === 'club_request') return <>{actor} {n.body}</>;
   if (n.type === 'premium_claim') return <>{actor} {n.body}</>;
   return null;
