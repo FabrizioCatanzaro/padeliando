@@ -2,7 +2,7 @@ import { Gem } from 'lucide-react';
 import StoryFrame, { StatTile } from './StoryFrame';
 import { C, fonts } from './story-theme';
 import PlayerAvatar from '../shared/PlayerAvatar';
-import { calcNivel } from '../../utils/helpers';
+import { calcNivel, bestMonthOf } from '../../utils/helpers';
 
 function fmtDuracion(segundos) {
   const min = Math.round(segundos / 60);
@@ -17,6 +17,17 @@ const WEEK = [
   { dow: 0, full: 'Domingo' },
 ];
 
+// La columna deja 255 px de contenido y el valor va en una sola línea, así que
+// los valores de texto ("Julio 2026", "Miércoles") no entran al tamaño de un
+// número. Unbounded 800 gasta ~0,65 em por carácter.
+function valueFontSize(value) {
+  const len = String(value).length;
+  if (len <= 8)  return 40;
+  if (len <= 11) return 32;
+  if (len <= 14) return 26;
+  return 22;
+}
+
 // Tarjeta compacta del bloque avanzado. Más baja que StatTile porque van hasta
 // siete y el alto del lienzo es fijo.
 function MiniTile({ value, label, sub, accent = C.brand }) {
@@ -25,11 +36,15 @@ function MiniTile({ value, label, sub, accent = C.brand }) {
       background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
       padding: '18px 22px', minWidth: 0, overflow: 'hidden',
     }}>
-      <div style={{
-        fontFamily: fonts.display, fontWeight: 800, fontSize: 40, lineHeight: 1,
-        color: accent, whiteSpace: 'nowrap',
-      }}>
-        {value}
+      {/* Alto fijo y apoyado abajo: con tamaños distintos por tarjeta, si no,
+          las etiquetas de una misma fila quedaban a distinta altura. */}
+      <div style={{ height: 40, display: 'flex', alignItems: 'flex-end' }}>
+        <span style={{
+          fontFamily: fonts.display, fontWeight: 800, fontSize: valueFontSize(value), lineHeight: 1,
+          color: accent, whiteSpace: 'nowrap',
+        }}>
+          {value}
+        </span>
       </div>
       <div style={{ fontSize: 18, letterSpacing: 2.5, color: C.dim, marginTop: 10, fontWeight: 600 }}>
         {label}
@@ -101,20 +116,12 @@ function advancedTiles(stats, monthlyStats, weekdayStats) {
       accent: C.cyan,
     });
 
-  const bestMonth = (() => {
-    const active = (monthlyStats ?? []).filter((m) => m.partidos > 0);
-    if (!active.length) return null;
-    const best = active.reduce((b, m) =>
-      m.victorias > b.victorias || (m.victorias === b.victorias && m.partidos > b.partidos) ? m : b, active[0]);
-    const [y, mo] = best.month.split('-');
-    const label = new Date(parseInt(y), parseInt(mo) - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-    return { ...best, label: label.charAt(0).toUpperCase() + label.slice(1) };
-  })();
+  const bestMonth = bestMonthOf(monthlyStats);
   if (bestMonth)
     tiles.push({
-      value: `${bestMonth.partidos}PJ · ${bestMonth.victorias}V`,
+      value: bestMonth.label,
       label: 'MEJOR MES',
-      sub: bestMonth.label,
+      sub: `${bestMonth.partidos}PJ · ${bestMonth.victorias}V`,
       accent: '#a84af0',
     });
 

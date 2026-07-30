@@ -42,6 +42,25 @@ export const fmt = (d) => {
 
 export const normalize = (s) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+/**
+ * Mejor mes de una serie `monthly_stats` ([{ month: 'YYYY-MM', partidos, victorias }]):
+ * más victorias, y a igualdad el de más partidos. Lo usan el perfil y su
+ * captura, que muestran el mismo dato y no deben poder separarse.
+ * Devuelve `mes` y `anio` sueltos además del `label` ("Julio 2026", sin el "de"
+ * que mete toLocaleDateString): con el mes como valor destacado, "Septiembre
+ * 2026" no entra en media columna y cada superficie arma lo que le cabe.
+ */
+export function bestMonthOf(monthlyStats) {
+  const active = (monthlyStats ?? []).filter((m) => m.partidos > 0);
+  if (!active.length) return null;
+  const best = active.reduce((b, m) =>
+    m.victorias > b.victorias || (m.victorias === b.victorias && m.partidos > b.partidos) ? m : b, active[0]);
+  const [anio, mo] = best.month.split('-');
+  const raw = new Date(parseInt(anio), parseInt(mo) - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
+  const mes = `${raw.charAt(0).toUpperCase()}${raw.slice(1)}`;
+  return { ...best, mes, anio, label: `${mes} ${anio}` };
+}
+
 export function calcStandings(players, matches) {
   const s = {};
   players.forEach((p) => {

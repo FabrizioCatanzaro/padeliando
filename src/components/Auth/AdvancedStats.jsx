@@ -4,6 +4,7 @@
 // esa librería a toda visita de perfil, incluida la de un anónimo que nunca la
 // ve. ProfileView lo carga con React.lazy.
 import { Gem } from 'lucide-react';
+import { bestMonthOf } from '../../utils/helpers';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -238,18 +239,7 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity, week
   const activeMonths = filledMonths.filter(m => m.partidos > 0).length;
   const avgPerMonth  = activeMonths > 0 ? (stats.partidos / activeMonths).toFixed(1) : '—';
 
-  const bestMonth = (() => {
-    const active = (monthlyStats ?? []).filter(m => m.victorias > 0 || m.partidos > 0);
-    if (!active.length) return null;
-    const best = active.reduce((b, m) =>
-      m.victorias > b.victorias || (m.victorias === b.victorias && m.partidos > b.partidos) ? m : b,
-      active[0]
-    );
-    const [y, mo] = best.month.split('-');
-    const label = new Date(parseInt(y), parseInt(mo) - 1, 1)
-      .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-    return { ...best, label: label.charAt(0).toUpperCase() + label.slice(1) };
-  })();
+  const bestMonth = bestMonthOf(monthlyStats);
 
   return (
     <div className="bg-surface border border-border-mid rounded-lg p-5 mb-6">
@@ -272,9 +262,13 @@ export default function AdvancedStats({ stats, monthlyStats, dailyActivity, week
         <div className="bg-base rounded-lg px-4 py-3 border border-border-strong">
           {bestMonth ? (
             <>
-              <div className="font-condensed font-black text-[22px] text-white leading-none">{bestMonth.partidos}PJ · {bestMonth.victorias}V</div>
+              {/* Sólo el mes en grande: con el año, "Septiembre 2026" no entra
+                  en media columna en mobile. El año baja al detalle. */}
+              <div className="font-condensed font-black text-[22px] text-white leading-none truncate">{bestMonth.mes}</div>
               <div className="text-[10px] font-mono mt-1.5 tracking-widest" style={{ color: '#444' }}>MEJOR MES</div>
-              <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: '#555' }}>{bestMonth.label}</div>
+              <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: '#555' }}>
+                {bestMonth.anio} · {bestMonth.partidos}PJ · {bestMonth.victorias}V
+              </div>
             </>
           ) : (
             <>
