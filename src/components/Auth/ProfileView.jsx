@@ -4,7 +4,7 @@ import { fmt, calcNivel } from '../../utils/helpers';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Gem, Badge, BadgeCheck, Share2 } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Camera, Trash2, ChevronDown, ChevronUp, X, Link, Flame, Trophy, UserPlus, UserCheck, Lock, Globe, Gem, Badge, BadgeCheck, Share2 } from 'lucide-react';
 // Recharts sólo lo necesita este bloque, que además casi nunca se muestra.
 const AdvancedStats = lazy(() => import('./AdvancedStats'));
 import { siInstagram, siX, siFacebook, siWhatsapp } from 'simple-icons';
@@ -271,6 +271,10 @@ export default function ProfileView() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showClaimHelp,    setShowClaimHelp]    = useState(false);
 
+  const [advancedPublic, setAdvancedPublic] = useState(false);
+  const [advancedBusy,   setAdvancedBusy]   = useState(false);
+  const [advancedError,  setAdvancedError]  = useState(null);
+
   const [showStory,       setShowStory]       = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword,  setDeletePassword]  = useState('');
@@ -287,6 +291,7 @@ export default function ProfileView() {
         const existing = Array.isArray(d.owner.social_links) ? d.owner.social_links : [];
         setSocialLinks(ensureTrailingEmpty(existing));
         setAvatarUrl(d.owner.avatar_url ?? null);
+        setAdvancedPublic(d.owner.advanced_stats_public === true);
         setIsFollowing(d.is_following ?? false);
         setFollowersCount(d.owner.followers_count ?? 0);
         setFollowingCount(d.owner.following_count ?? 0);
@@ -305,6 +310,10 @@ export default function ProfileView() {
   const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats, club_stats, follow_ranking } = data;
   const isOwnProfile  = user?.username === owner.username;
   const displayAvatar = avatarUrl ?? (isOwnProfile ? user?.avatar_url : null) ?? null;
+
+  // El plan manda: sin premium no hay avanzadas ni para el dueño. Publicarlas
+  // las abre a cualquier visitante, incluida la captura del perfil.
+  const canSeeAdvanced = !!owner.is_premium && (isOwnProfile || advancedPublic);
 
   const savedLinks    = Array.isArray(owner.social_links) ? owner.social_links.filter(l => l.url?.trim()) : [];
   const filledLinks   = socialLinks.filter(l => {
@@ -381,6 +390,21 @@ export default function ProfileView() {
       setAvatarError(err.message);
     } finally {
       setAvatarBusy(false);
+    }
+  }
+
+  async function handleToggleAdvancedPublic() {
+    const next = !advancedPublic;
+    setAdvancedBusy(true);
+    setAdvancedError(null);
+    setAdvancedPublic(next);
+    try {
+      await api.auth.updateMe({ advanced_stats_public: next });
+    } catch (err) {
+      setAdvancedPublic(!next);
+      setAdvancedError(err.message);
+    } finally {
+      setAdvancedBusy(false);
     }
   }
 
@@ -1096,19 +1120,52 @@ export default function ProfileView() {
           ))}
         </div>
 
-        {/* Estadísticas avanzadas — al fondo para no interrumpir el flujo */}
-        {isOwnProfile && stats?.partidos > 0 && (
-          owner.is_premium ? (
-            // Iguala al alto del bloque completo (con sets y palizas) para que el chunk no desplace nada.
-            <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 1370 }} />}>
-              <AdvancedStats
-                stats={stats}
-                monthlyStats={monthly_stats ?? []}
-                dailyActivity={data.daily_activity ?? []}
-                weekdayStats={data.weekday_stats ?? []}
-              />
-            </Suspense>
-          ) : (
+        {/* Estadísticas avanzadas — al fondo para no interrumpir el flujo.
+            Un visitante sólo las ve si el premium las publicó; el servidor ya
+            manda los campos vacíos cuando no corresponde. */}
+        {stats?.partidos > 0 && (canSeeAdvanced ? (
+            <>
+              {isOwnProfile && (
+                <div className="flex items-start justify-between gap-3 bg-surface border border-border-mid rounded-lg px-4 py-3 mb-3">
+                  <div className="min-w-0">
+                    <div className="font-condensed font-bold text-[13px] tracking-wide text-white">
+                      {advancedPublic ? 'Estadísticas avanzadas públicas' : 'Estadísticas avanzadas privadas'}
+                    </div>
+                    <div className="text-[11px] font-mono text-dim mt-0.5">
+                      {advancedPublic
+                        ? 'Cualquiera que visite tu perfil las ve y puede compartir la captura completa'
+                        : 'Sólo vos las ves, acá y en la captura del perfil'}
+                    </div>
+                    {advancedError && <div className="text-[11px] font-mono text-danger mt-1">{advancedError}</div>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleAdvancedPublic}
+                    disabled={advancedBusy}
+                    aria-pressed={advancedPublic}
+                    title={advancedPublic ? 'Hacerlas privadas' : 'Hacerlas públicas'}
+                    className={`shrink-0 flex items-center gap-1.5 border px-3 py-1.5 rounded font-condensed font-bold text-[11px] tracking-wide transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default ${
+                      advancedPublic
+                        ? 'bg-brand text-base border-brand'
+                        : 'bg-transparent text-muted border-border-strong hover:text-white hover:border-border-mid'
+                    }`}
+                  >
+                    {advancedPublic ? <Globe size={13} /> : <Lock size={13} />}
+                    {advancedPublic ? 'PÚBLICAS' : 'PRIVADAS'}
+                  </button>
+                </div>
+              )}
+              {/* Iguala al alto del bloque completo (con sets y palizas) para que el chunk no desplace nada. */}
+              <Suspense fallback={<div className="mb-6 rounded-lg bg-surface border border-border-mid" style={{ height: 1370 }} />}>
+                <AdvancedStats
+                  stats={stats}
+                  monthlyStats={monthly_stats ?? []}
+                  dailyActivity={data.daily_activity ?? []}
+                  weekdayStats={data.weekday_stats ?? []}
+                />
+              </Suspense>
+            </>
+          ) : isOwnProfile && (
             <div className="relative mb-6 rounded-lg overflow-hidden select-none mx-auto border border-border-mid">
               <img
                 src={statsPreview}
@@ -1201,9 +1258,9 @@ export default function ProfileView() {
               owner={owner}
               stats={stats ?? {}}
               avatar={displayAvatar}
-              // Sólo el dueño premium se lleva la captura con avanzadas; un
-              // visitante exporta la básica, aunque el perfil sea premium.
-              advanced={isOwnProfile && !!owner.is_premium}
+              // La captura con avanzadas es del dueño premium; un visitante la
+              // consigue sólo si el dueño las publicó.
+              advanced={canSeeAdvanced}
               monthlyStats={monthly_stats ?? []}
               weekdayStats={data.weekday_stats ?? []}
             />

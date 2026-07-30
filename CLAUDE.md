@@ -151,6 +151,8 @@ Rules that keep the three from drifting:
 - `duration_seconds` covers 69% of matches, so anything derived from it must say how many matches it measured.
 - Leagues run on a fixed weekday: the profile's weekday chart only renders with 3+ active days, otherwise it is five empty bars.
 
+**The profile's advanced stats are gated server-side.** `GET /groups/user/:username` returns them only to the owner, or to anyone if a premium user opted in via `users.advanced_stats_public` (default `false`). The queries that only feed that block are skipped entirely when it won't render. The frontend's `canSeeAdvanced` mirrors the same rule for the UI and the profile snapshot, but it is cosmetic — the payload is the source of truth, so don't put those fields back into the public response.
+
 ### Theming
 - Theme variables live in `src/index.css` as CSS custom properties under `@theme`.
 - Dark mode is the **default**. Light mode adds the `.light` class to `<html>`.
