@@ -4,8 +4,8 @@ const channels = [
   {
     icon: Mail,
     label: 'Email',
-    value: 'fabricando.dev@gmail.com',
-    href: 'mailto:fabricando.dev@gmail.com',
+    value: 'soporte@hola.padeleando.ar',
+    href: 'mailto:soporte@hola.padeleando.ar',
     desc: 'Para consultas generales, soporte técnico o sugerencias.',
   },
   {

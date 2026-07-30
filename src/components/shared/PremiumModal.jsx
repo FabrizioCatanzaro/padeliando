@@ -38,7 +38,7 @@ const COMPARISON = [
 const FAQS = [
   {
     q: '¿Cómo funciona la prueba gratuita de 7 días?',
-    a: 'La primera vez que quieras ser parte de Premium te regalamos 7 días de prueba. Solicitalo mandándonos un mail a fabricando.dev@gmail.com.',
+    a: 'La primera vez que quieras ser parte de Premium te regalamos 7 días de prueba. Solicitalo mandándonos un mail a soporte@hola.padeleando.ar.',
   },
   {
     q: '¿Puedo cancelar en cualquier momento?',
@@ -237,8 +237,8 @@ export default function PremiumModal({ onClose }) {
             )}
             {!error && (
               <p className="text-center text-[11px] text-muted mt-2">
-                ¿Primera vez? Mandanos un mail a <a href='mailto:fabricando.dev@gmail.com' className="text-brand hover:underline">
-                  fabricando.dev@gmail.com
+                ¿Primera vez? Mandanos un mail a <a href='mailto:soporte@hola.padeleando.ar' className="text-brand hover:underline">
+                  soporte@hola.padeleando.ar
                 </a> y te regalamos 7 días de Premium.
               </p>
             )}
