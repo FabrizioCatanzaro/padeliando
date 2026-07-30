@@ -8,7 +8,7 @@ import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, ArrowLeftRight, Link2, LogOut, Copy } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, ArrowLeftRight, Link2, LogOut, Copy, Unlink } from 'lucide-react';
 import Btn from '../shared/Btn';
 import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
@@ -19,6 +19,7 @@ import WhenVisible from '../shared/WhenVisible';
 // inicial. Se difiere hasta que está por entrar en pantalla.
 const HistoricalStats = lazy(() => import('../Stats/Stats').then(m => ({ default: m.HistoricalStats })));
 import PremiumModal from '../shared/PremiumModal';
+import PlayerAvatar from '../shared/PlayerAvatar';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
@@ -56,6 +57,11 @@ export default function GroupView() {
   const [removeCollabTarget, setRemoveCollabTarget] = useState(null); // { user_id, name, username } | null
   const [leaveConfirm,      setLeaveConfirm]      = useState(false);
 
+  // invitación de jugador pendiente para quien mira (viene en GET /groups/:id)
+  const [invitationBusy,    setInvitationBusy]    = useState(false);
+  const [unlinkConfirm,     setUnlinkConfirm]     = useState(false);
+  const [unlinkBusy,        setUnlinkBusy]        = useState(false);
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -71,6 +77,23 @@ export default function GroupView() {
 
   function refreshGroup() {
     return api.groups.get(groupId).then(setGroup);
+  }
+
+  async function respondInvitation(action) {
+    const inv = group?.my_invitation;
+    if (invitationBusy || !inv) return;
+    setInvitationBusy(true);
+    try {
+      await api.invitations.respond(inv.id, action);
+      showToast(action === 'accept'
+        ? `Te uniste a la categoría como ${inv.player_name}.`
+        : 'Invitación rechazada.');
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setInvitationBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -176,6 +199,24 @@ export default function GroupView() {
       showToast('Link copiado');
     } catch {
       showToast('No se pudo copiar', 'error');
+    }
+  }
+
+  // Desvincular mi cuenta del slot de jugador en esta categoría. El slot y sus
+  // partidos quedan; sólo dejan de contar en mi perfil.
+  async function handleUnlinkSelf() {
+    const player = group?.my_player;
+    if (unlinkBusy || !player) return;
+    setUnlinkBusy(true);
+    try {
+      await api.players.unlink(player.id, groupId);
+      setUnlinkConfirm(false);
+      showToast(`Te desvinculaste de ${player.name}`, 'info');
+      await refreshGroup();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setUnlinkBusy(false);
     }
   }
 
@@ -308,12 +349,21 @@ export default function GroupView() {
             <div className="flex items-center gap-2">
               <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} />
               {isDeletedAccount(group.owner_username) ? (
-                <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1">
+                <span className="flex gap-2 items-center border border-border-strong rounded-full pl-1 pr-3 py-1">
                   <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>Cuenta eliminada</span>
                 </span>
               ) : (
-                <span className="flex gap-2 items-center border border-border-strong rounded px-2 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors" onClick={() => navigate(`/u/${group.owner_username}`)}>
-                  <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
+                <span
+                  className="flex gap-2 items-center bg-surface border border-border-strong rounded-full pl-1 pr-3 py-1 hover:bg-border-mid hover:text-white cursor-pointer transition-colors"
+                  onClick={() => navigate(`/u/${group.owner_username}`)}
+                >
+                  <PlayerAvatar
+                    name={group.owner_name ?? group.owner_username ?? '?'}
+                    src={group.owner_avatar_url}
+                    size={24}
+                    premium={!!group.owner_is_premium}
+                  />
+                  <span className='text-sm text-content font-mono'>@{group.owner_username ?? '—'}</span>
                 </span>
               )}
             </div>
@@ -428,6 +478,38 @@ export default function GroupView() {
               <Users size={14} className="shrink-0" /> Sos co-organizador de esta categoría
             </span>
             <Btn variant="danger" size="sm" icon={LogOut} onClick={() => setLeaveConfirm(true)}>SALIR</Btn>
+          </div>
+        )}
+
+        {/* Invitación pendiente a jugar en esta categoría. Antes sólo se podía
+            responder desde la campana de notificaciones. */}
+        {group.my_invitation && (
+          <div className="flex items-center justify-between gap-2 flex-wrap bg-brand/5 border border-brand/25 rounded-md px-3 py-2">
+            <span className="flex items-center gap-2 text-brand text-[12px] font-mono tracking-wide">
+              <UserPlus size={14} className="shrink-0" />
+              @{group.my_invitation.invited_by_username} te invitó a unirte como{' '}
+              <span className="font-bold">{group.my_invitation.player_name}</span>
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Btn variant="primary" size="sm" icon={Check} disabled={invitationBusy}
+                   onClick={() => respondInvitation('accept')}>ACEPTAR</Btn>
+              <Btn variant="danger" size="sm" icon={X} disabled={invitationBusy}
+                   onClick={() => respondInvitation('reject')}>RECHAZAR</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* Jugás en esta categoría con tu cuenta vinculada */}
+        {group.my_player && (
+          <div className="flex items-center justify-between gap-2 flex-wrap bg-surface border border-border-mid rounded-md px-3 py-2">
+            <span className="flex items-center gap-2 text-content text-[12px] font-mono tracking-wide">
+              <User size={14} className="shrink-0 text-green" />
+              Jugás en esta categoría como{' '}
+              <span className="text-white font-bold">{group.my_player.name}</span>
+            </span>
+            <Btn variant="danger" size="sm" icon={Unlink} onClick={() => setUnlinkConfirm(true)}>
+              DESVINCULARME
+            </Btn>
           </div>
         )}
       </div>
@@ -744,6 +826,20 @@ export default function GroupView() {
           onCancel={() => setLeaveConfirm(false)}
         >
           Vas a perder el acceso para gestionar las jornadas de <strong className="text-white">{group.name}</strong>. Solo el dueño podría volver a invitarte.
+        </Modal>
+      )}
+
+      {/* Confirmar desvinculación propia */}
+      {unlinkConfirm && group.my_player && (
+        <Modal
+          title="¿Desvincularte de esta categoría?"
+          confirmText="Desvincularme"
+          confirmDanger
+          confirmDisabled={unlinkBusy}
+          onConfirm={handleUnlinkSelf}
+          onCancel={() => setUnlinkConfirm(false)}
+        >
+          <strong className="text-white">{group.my_player.name}</strong> y todos sus partidos se quedan en <strong className="text-white">{group.name}</strong>, pero dejan de estar asociados a tu cuenta y de contar en las estadísticas de tu perfil. El organizador puede volver a invitarte cuando quieras.
         </Modal>
       )}
 

@@ -263,7 +263,7 @@ export default function Main() {
       <div className="hidden sm:flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (
           <div key={t.id} onClick={() => setTab(t.id)}
-            className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${activeTab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
+            className={`border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 rounded-t-md whitespace-nowrap transition-all hover:text-brand ${activeTab === t.id ? 'text-brand border-b-brand bg-brand/10' : 'text-muted border-b-transparent bg-transparent hover:bg-brand/5'}`}>
              <t.icon size={14} className="inline mr-1.5" />{t.label}
             {t.id === 'management' && warningCount > 0 && (
               <WarningMark count={warningCount} className="ml-1.5 align-middle" />
@@ -278,7 +278,7 @@ export default function Main() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 bg-transparent border-0 cursor-pointer transition-colors ${activeTab === t.id ? 'text-brand' : 'text-muted'}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 border-0 cursor-pointer transition-colors ${activeTab === t.id ? 'text-brand bg-brand/10' : 'text-muted bg-transparent'}`}
           >
             <span className="relative inline-flex leading-none">
               <t.icon size={20} />

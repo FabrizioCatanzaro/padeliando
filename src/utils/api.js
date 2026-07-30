@@ -132,6 +132,7 @@ export const api = {
     rename:               (id, name, groupId) => req('PATCH',  `/players/${id}`, { name, groupId }),
     removeFromTournament: (pId, tId)      => req('DELETE', `/players/${pId}/tournament/${tId}`),
     removeFromGroup:      (pId, gId)      => req('DELETE', `/players/${pId}/group/${gId}`),
+    unlink:               (pId, gId)      => req('DELETE', `/players/${pId}/group/${gId}/link`),
   },
   tournaments: {
     get:         (id)   => req('GET',    `/tournaments/${id}`),

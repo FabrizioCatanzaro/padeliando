@@ -312,6 +312,21 @@ function NotifText({ n, navigate }) {
       </div>
     );
   }
+  if (n.type === 'player_unlinked') {
+    return (
+      <div className="text-[13px] text-secondary">
+        {n.body}{' '}
+        {n.group_id && (
+          <span
+            onClick={() => navigate(`/cat/${n.group_id}`)}
+            className="text-brand cursor-pointer hover:underline font-mono text-[12px]"
+          >
+            Ver categoría →
+          </span>
+        )}
+      </div>
+    );
+  }
   if (n.type === 'club_request') {
     return (
       <div className="text-[13px] text-secondary">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useCallback, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useContext, useCallback, useMemo, useRef, useSyncExternalStore, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { calcStandings, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from "../../utils/helpers";
 import Standings from "../Standings/Standings";
@@ -69,19 +69,54 @@ function LastUpdated() {
 
 // Cartel "¿Jugás en este torneo?" — reutilizable en la vista normal y en el Modo TV.
 // Invitados (sin cuenta) ven un CTA para iniciar sesión; los logueados que no son
-// jugadores ni dueños eligen a qué jugador reclamar y solicitan unirse.
-function JoinBanner({ user, tournament, joinStatus, claimablePlayers = [], hidden, busy, onRequest, onHide, onLogin }) {
+// jugadores ni dueños eligen a qué jugador reclamar y solicitan unirse. Si ya los
+// invitaron, el cartel se transforma en la propia invitación.
+function JoinBanner({ user, tournament, joinStatus, claimablePlayers = [], hidden, busy, onRequest, onRespondInvite, onHide, onLogin }) {
   const [selectedId, setSelectedId] = useState('');
   // Valor efectivo: la elección del usuario si sigue disponible, si no el primero.
   const effectiveId = claimablePlayers.some((p) => p.id === selectedId)
     ? selectedId
     : (claimablePlayers[0]?.id ?? '');
 
-  if (hidden || tournament?.status !== 'active') return null;
+  if (hidden) return null;
 
   const closeBtn = (tone) => (
     <button onClick={onHide} className={`${tone} cursor-pointer transition-colors shrink-0`}>✕</button>
   );
+
+  // Invitación pendiente: tiene prioridad sobre todo lo demás y se muestra sea
+  // cual sea el estado del torneo. Antes sólo se podía aceptar desde la campana,
+  // y acá aparecía un "solicitar unirse" que no correspondía.
+  const invitation = joinStatus?.invitation;
+  if (invitation && !joinStatus.is_player) {
+    return (
+      <div className="px-6 py-2.5 bg-brand/8 border-y border-brand/20 flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-[12px] font-mono text-brand/80">
+          @{invitation.invited_by_username} te invitó a unirte como{' '}
+          <span className="text-brand font-bold">{invitation.player_name}</span>
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onRespondInvite('accept')}
+            disabled={busy}
+            className="text-[11px] font-mono px-3 py-1.5 rounded border border-brand text-brand hover:bg-brand hover:text-base cursor-pointer transition-colors disabled:opacity-40"
+          >
+            {busy ? 'Procesando...' : 'Aceptar'}
+          </button>
+          <button
+            onClick={() => onRespondInvite('reject')}
+            disabled={busy}
+            className="text-[11px] font-mono px-3 py-1.5 rounded border border-border-strong text-muted hover:text-danger hover:border-danger/40 cursor-pointer transition-colors disabled:opacity-40"
+          >
+            Rechazar
+          </button>
+          {closeBtn('text-brand/60 hover:text-brand')}
+        </div>
+      </div>
+    );
+  }
+
+  if (tournament?.status !== 'active') return null;
 
   // Invitado sin cuenta → CTA de inicio de sesión.
   if (!user) {
@@ -170,15 +205,19 @@ export default function ReadonlyView() {
   const groupOwnerIsPremium = tournament?.group_owner_is_premium ?? false;
   const groupOwner = useMemo(
     () => (tournament?.owner_username
-      ? { username: tournament.owner_username, name: tournament.owner_name }
+      ? {
+          username:   tournament.owner_username,
+          name:       tournament.owner_name,
+          avatar_url: tournament.owner_avatar_url ?? null,
+        }
       : null),
-    [tournament?.owner_username, tournament?.owner_name],
+    [tournament?.owner_username, tournament?.owner_name, tournament?.owner_avatar_url],
   );
   const [error, setError]           = useState(false);
   const [tab, setTab]               = useState("standings");
   const [shareOpen, setShareOpen]   = useState(false);
   const [qrOpen, setQrOpen]         = useState(false);
-  const [joinStatus, setJoinStatus] = useState(null); // { is_player, request }
+  const [joinStatus, setJoinStatus] = useState(null); // { is_player, is_owner, request, invitation }
   const [joinBusy, setJoinBusy]     = useState(false);
   const [hideJoinBanner, setHideJoinBanner] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -330,7 +369,26 @@ export default function ReadonlyView() {
     setJoinBusy(true);
     try {
       const result = await api.joinRequests.send(tournament.id, playerId);
-      setJoinStatus({ is_player: false, request: result });
+      setJoinStatus((s) => ({ ...s, is_player: false, request: result }));
+    } catch {
+      //
+    } finally {
+      setJoinBusy(false);
+    }
+  }
+
+  async function handleInviteResponse(action) {
+    const inv = joinStatus?.invitation;
+    if (joinBusy || !inv) return;
+    setJoinBusy(true);
+    try {
+      await api.invitations.respond(inv.id, action);
+      setJoinStatus((s) => ({
+        ...s,
+        invitation: null,
+        is_player: action === 'accept' ? true : s.is_player,
+      }));
+      if (action === 'accept') await load(); // el slot ya lleva el nombre de la cuenta
     } catch {
       //
     } finally {
@@ -445,6 +503,7 @@ export default function ReadonlyView() {
       hidden={hideJoinBanner}
       busy={joinBusy}
       onRequest={handleJoinRequest}
+      onRespondInvite={handleInviteResponse}
       onHide={() => setHideJoinBanner(true)}
       onLogin={() => navigate(`/login?redirect=${encodeURIComponent(`/view/${id}`)}`)}
     />
@@ -510,16 +569,21 @@ export default function ReadonlyView() {
           )}
           {groupOwner && (
             isDeletedAccount(groupOwner.username) ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444]">
+              <span className="inline-flex items-center gap-1.5 bg-surface border border-border-strong rounded-full pl-2 pr-2.5 py-0.5 text-[11px] font-mono text-[#444]">
                 <User size={11} />
                 Cuenta Eliminada
               </span>
             ) : (
               <span
                 onClick={() => navigate(`/u/${groupOwner.username}`)}
-                className="inline-flex items-center gap-1 text-[11px] font-mono text-[#444] hover:text-white cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1.5 bg-surface border border-border-strong rounded-full pl-0.5 pr-2.5 py-0.5 text-[11px] font-mono text-[#444] hover:bg-border-mid hover:text-white cursor-pointer transition-colors"
               >
-                <User size={11} />
+                <PlayerAvatar
+                  name={groupOwner.name ?? groupOwner.username}
+                  src={groupOwner.avatar_url}
+                  size={18}
+                  premium={groupOwnerIsPremium}
+                />
                 @{groupOwner.username}
               </span>
             )
@@ -577,7 +641,7 @@ export default function ReadonlyView() {
       <div className="hidden sm:flex border-b border-border px-4 items-center overflow-x-auto">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => { setTvMode(false); setTab(t.id); }}
-            className={`flex flex-row gap-2 items-center bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand ${activeTab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'}`}>
+            className={`flex flex-row gap-2 items-center border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 rounded-t-md whitespace-nowrap transition-all hover:text-brand ${activeTab === t.id ? 'text-brand border-b-brand bg-brand/10' : 'text-muted border-b-transparent bg-transparent hover:bg-brand/5'}`}>
             <t.icon size={15}/>{t.label}
           </button>
         ))}
@@ -589,7 +653,7 @@ export default function ReadonlyView() {
           <button
             key={t.id}
             onClick={() => { setTvMode(false); setTab(t.id); }}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 bg-transparent border-0 cursor-pointer transition-colors ${activeTab === t.id ? 'text-brand' : 'text-muted'}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 border-0 cursor-pointer transition-colors ${activeTab === t.id ? 'text-brand bg-brand/10' : 'text-muted bg-transparent'}`}
           >
             <t.icon size={20} />
             <span className="text-[9px] font-mono tracking-wide leading-none">
@@ -861,7 +925,24 @@ function TvStandingsScreen({ tournament }) {
 }
 
 // ── Pantalla: PARTIDOS EN VIVO ─────────────────────────────────────────────────
+// El tamaño de los avatares es una prop numérica, no una clase, así que no se
+// puede resolver con breakpoints. En la cancha del modo TV importa: con 40 px
+// sobre el ancho de un teléfono el nombre se queda sin lugar dentro de su
+// píldora.
+const MQ_WIDE = '(min-width: 1024px)';
+
+function subscribeWide(onChange) {
+  const mq = window.matchMedia(MQ_WIDE);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+
+function useIsWide() {
+  return useSyncExternalStore(subscribeWide, () => window.matchMedia(MQ_WIDE).matches);
+}
+
 function TvLiveScreen({ tournament, isAmericano }) {
+  const wide = useIsWide();
   const all = Array.isArray(tournament.live_match) ? tournament.live_match : [];
   const enVivo   = all.filter((m) => m.startedAt != null);
   const proximos = all.filter((m) => m.startedAt == null);
@@ -876,10 +957,13 @@ function TvLiveScreen({ tournament, isAmericano }) {
     );
   }
 
+  // En mobile las dos secciones van apiladas, no lado a lado: la columna de
+  // próximos medía 288 px fijos y sobre un viewport de 390 dejaba la cancha en
+  // vivo con unos 60 px de ancho, donde ningún nombre era legible.
   return (
-    <div className="h-full flex gap-4 lg:gap-6 px-4 lg:px-8 py-5">
+    <div className="h-full flex flex-col lg:flex-row gap-4 lg:gap-6 px-4 lg:px-8 py-5">
       {/* En juego */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
         <div className="flex items-center justify-between mb-3 shrink-0">
           <div className="flex items-center gap-2 font-condensed font-bold text-[16px] tracking-[3px] text-white">
             <span className="w-2.5 h-2.5 rounded-full bg-danger animate-pulse" /> PARTIDOS EN JUEGO
@@ -890,7 +974,7 @@ function TvLiveScreen({ tournament, isAmericano }) {
           <AutoScrollY resetKey={`live-${enVivo.length}`} className="flex-1">
             <div className={enVivo.length === 1 ? 'grid grid-cols-1 gap-5 max-w-3xl' : 'grid grid-cols-1 xl:grid-cols-2 gap-5'}>
               {enVivo.map((m, i) => (
-                <LiveCourt key={i} match={m} tournament={tournament} isAmericano={isAmericano} avatarSize={40} />
+                <LiveCourt key={i} match={m} tournament={tournament} isAmericano={isAmericano} avatarSize={wide ? 40 : 26} />
               ))}
             </div>
           </AutoScrollY>
@@ -903,14 +987,14 @@ function TvLiveScreen({ tournament, isAmericano }) {
 
       {/* Próximos */}
       {proximos.length > 0 && (
-        <div className="w-72 xl:w-80 shrink-0 flex flex-col">
+        <div className="shrink-0 min-h-0 max-h-[42%] w-full flex flex-col lg:max-h-none lg:w-72 xl:w-80">
           <div className="flex items-center gap-2 mb-3 shrink-0 font-condensed font-bold text-[15px] tracking-[2px] text-muted">
             <Calendar size={15} /> PRÓXIMOS PARTIDOS
           </div>
           <AutoScrollY resetKey={`prox-${proximos.length}`} className="flex-1">
             <div className="flex flex-col gap-3">
               {proximos.map((m, i) => (
-                <ProximoMatch key={i} match={m} tournament={tournament} isAmericano={isAmericano} avatarSize={26} />
+                <ProximoMatch key={i} match={m} tournament={tournament} isAmericano={isAmericano} avatarSize={wide ? 26 : 22} />
               ))}
             </div>
           </AutoScrollY>
@@ -1007,17 +1091,25 @@ function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq,
   );
 }
 
-function ProximoTeam({ players, align, avatarSize }) {
+// Un nombre por línea, en todos los tamaños. La tarjeta vive en una columna de
+// 288 px: con los dos equipos enfrentados lado a lado, cada nombre se quedaba
+// con unos 30 px una vez descontados el padding, los avatares y el "vs" —
+// alcanzaba para la inicial y nada más.
+function ProximoTeam({ players, avatarSize }) {
   return (
-    <div className={`flex-1 flex items-center gap-2 lg:gap-3 min-w-0 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
+    <div className="flex items-center gap-2 lg:gap-3 min-w-0">
       <div className="flex -space-x-1.5 shrink-0">
         {players.map((p, i) => (
           <PlayerAvatar key={i} name={p.name} src={p.src} size={avatarSize} premium={p.premium} />
         ))}
       </div>
-      <span className="font-condensed font-bold text-[14px] sm:text-[15px] lg:text-[22px] text-white truncate">
-        {players.map((p) => p.name).join(" & ")}
-      </span>
+      <div className="min-w-0 font-condensed font-bold text-[14px] sm:text-[15px] lg:text-[20px] text-white leading-tight">
+        {/* Los nombres largos bajan de línea en lugar de cortarse: en una
+            pantalla que se mira de lejos, media palabra no sirve de nada. */}
+        {players.map((p, i) => (
+          <div key={i} className="break-words">{i > 0 ? `& ${p.name}` : p.name}</div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1037,10 +1129,10 @@ function ProximoMatch({ match, tournament, isAmericano, avatarSize }) {
           {court != null && <span className={chipCls}>CANCHA {court}</span>}
         </div>
       )}
-      <div className="flex items-center gap-3 lg:gap-5">
-        <ProximoTeam players={team1} align="left" avatarSize={avatarSize} />
-        <span className="text-muted font-mono text-[11px] lg:text-[15px] shrink-0">vs</span>
-        <ProximoTeam players={team2} align="right" avatarSize={avatarSize} />
+      <div className="flex flex-col gap-1.5 lg:gap-2">
+        <ProximoTeam players={team1} avatarSize={avatarSize} />
+        <span className="text-muted font-mono text-[11px] lg:text-[13px] self-start">vs</span>
+        <ProximoTeam players={team2} avatarSize={avatarSize} />
       </div>
     </div>
   );
@@ -1067,12 +1159,18 @@ function splitNames(label) {
 function CourtName({ pos, player, side, avatarSize = 22 }) {
   return (
     <div
-      className="absolute -translate-x-1/2 -translate-y-1/2 max-w-[46%]"
+      // w-max es necesario: al estar posicionada con `left`, la píldora calcula
+      // su ancho contra lo que queda desde ese punto hasta el borde, así que la
+      // del equipo 2 (left 75 %) envolvía el nombre aun sobrándole lugar.
+      className="absolute -translate-x-1/2 -translate-y-1/2 w-max max-w-[46%]"
       style={{ left: pos.left, top: pos.top }}
     >
       <div className={`flex items-center gap-1.5 lg:gap-2.5 pl-1 pr-3 lg:pr-4 py-1 lg:py-1.5 rounded-full border shadow-lg ${side === 1 ? "bg-brand border-brand" : "bg-cyan border-cyan"}`}>
         <PlayerAvatar name={player.name} src={player.src} size={avatarSize} premium={player.premium} />
-        <span className="font-condensed font-bold text-[12px] sm:text-[15px] lg:text-[22px] leading-none text-black truncate">{player.name}</span>
+        {/* La píldora no puede pasar del 46 % del ancho para no cruzar la red,
+            así que en mobile un nombre y apellido no entra en una línea. Se
+            deja envolver en vez de cortarse. */}
+        <span className="font-condensed font-bold text-[12px] sm:text-[15px] lg:text-[22px] leading-tight text-black break-words">{player.name}</span>
       </div>
     </div>
   );
