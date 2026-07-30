@@ -1196,7 +1196,18 @@ export default function ProfileView() {
         <SnapshotModal
           filename={`perfil-${owner.username}.png`}
           onClose={() => setShowStory(false)}
-          story={<ProfileStory owner={owner} stats={stats ?? {}} avatar={displayAvatar} />}
+          story={(
+            <ProfileStory
+              owner={owner}
+              stats={stats ?? {}}
+              avatar={displayAvatar}
+              // Sólo el dueño premium se lleva la captura con avanzadas; un
+              // visitante exporta la básica, aunque el perfil sea premium.
+              advanced={isOwnProfile && !!owner.is_premium}
+              monthlyStats={monthly_stats ?? []}
+              weekdayStats={data.weekday_stats ?? []}
+            />
+          )}
         />
       )}
 
