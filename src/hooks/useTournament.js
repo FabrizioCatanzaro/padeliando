@@ -249,8 +249,8 @@ export function useTournament(groupId, tournamentId) {
 
   // Acá sí hace falta recargar: club_name y club_courts salen de un JOIN con
   // clubs que el PATCH no devuelve.
-  async function handleUpdateClubEvent({ club_id, event_date, number_of_courts }) {
-    await api.tournaments.update(tournament.id, { club_id, event_date, number_of_courts });
+  async function handleUpdateClubEvent({ club_id, pending_club_request_id, event_date, number_of_courts }) {
+    await api.tournaments.update(tournament.id, { club_id, pending_club_request_id, event_date, number_of_courts });
     await reload(true);
     showToast('Club y fecha actualizados');
   }

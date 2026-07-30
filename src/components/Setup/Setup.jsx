@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { uid, clubCourts, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
+import { uid, clubCourts, entityClub, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
 import { api } from "../../utils/api";
 import { useTournament } from "../../hooks/useTournament";
 import PlayerInput from "./PlayerInput";
@@ -84,14 +84,12 @@ export default function Setup() {
   const [eventDate, setEventDate] = useState("");
   const [creating, setCreating]   = useState(false);
 
-  // Heredar el club de la categoría como default (editable por torneo)
+  // Heredar el club de la categoría como default (editable por torneo).
+  // Si la categoría no tiene club, se usa el de la última jornada que sí lo tenga.
   useEffect(() => {
     api.groups.get(groupId).then((g) => {
-      if (g.club_id) {
-        setClub({ id: g.club_id, name: g.club_name, location_name: g.club_location_name, courts: g.club_courts, photo_url: g.club_photo_url });
-      } else if (g.pending_club_request_id) {
-        setClub({ pending: true, request_id: g.pending_club_request_id, name: g.pending_club_name });
-      }
+      const inherited = entityClub(g) ?? entityClub((g.tournaments ?? []).find((t) => t.club_id));
+      if (inherited) setClub(inherited);
     }).catch(() => {});
   }, [groupId]);
 

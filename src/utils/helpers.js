@@ -234,6 +234,19 @@ function patchBracketNames(bracket, pairs, players) {
   };
 }
 
+// Club asociado a una categoría o jornada, en la forma que espera ClubSelector.
+// Contempla la solicitud pendiente de alta de club. Sin club → null.
+export function entityClub(e) {
+  if (!e) return null;
+  if (e.club_id) {
+    return { id: e.club_id, name: e.club_name, location_name: e.club_location_name, courts: e.club_courts, photo_url: e.club_photo_url };
+  }
+  if (e.pending_club_request_id) {
+    return { pending: true, request_id: e.pending_club_request_id, name: e.pending_club_name };
+  }
+  return null;
+}
+
 // Cantidad de canchas que aporta un club para un torneo.
 // Sin club → 1 (default). Club sin canchas cargadas → 0 (los partidos quedan con cancha "-").
 export function clubCourts(club) {

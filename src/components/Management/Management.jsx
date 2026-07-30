@@ -4,25 +4,25 @@ import PlayerManager from "./PlayerManager";
 import PairManager from "./PairManager";
 import ClubSelector from "../shared/ClubSelector";
 import Btn from "../shared/Btn";
-import { clubCourts } from "../../utils/helpers";
+import { clubCourts, entityClub } from "../../utils/helpers";
 import { Play, RotateCcw, TicketCheck, Trash2, Check } from "lucide-react";
 
 function ClubEventEditor({ tournament, onSave }) {
-  const initialClub = tournament.club_id
-    ? { id: tournament.club_id, name: tournament.club_name, location_name: tournament.club_location_name }
-    : null;
-  const [club, setClub]   = useState(initialClub);
+  const [club, setClub]   = useState(() => entityClub(tournament));
   const [date, setDate]   = useState(tournament.event_date ? String(tournament.event_date).slice(0, 10) : "");
   const [saving, setSaving] = useState(false);
 
-  const clubChanged = (club?.id ?? null) !== (tournament.club_id ?? null);
+  const clubId      = club?.pending ? null : (club?.id ?? null);
+  const requestId   = club?.pending ? club.request_id : null;
+  const clubChanged = clubId !== (tournament.club_id ?? null)
+    || requestId !== (tournament.pending_club_request_id ?? null);
   const dirty = clubChanged
     || (date || null) !== (tournament.event_date ? String(tournament.event_date).slice(0, 10) : null);
 
   async function save() {
     setSaving(true);
     try {
-      const payload = { club_id: club?.id ?? null, event_date: date || null };
+      const payload = { club_id: clubId, pending_club_request_id: requestId, event_date: date || null };
       // Al cambiar de club, las canchas del torneo pasan a ser las del nuevo club.
       if (clubChanged) payload.number_of_courts = clubCourts(club);
       await onSave(payload);

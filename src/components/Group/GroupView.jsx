@@ -2,7 +2,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount } from '../../utils/helpers';
+import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount, entityClub } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
@@ -18,6 +18,7 @@ import WhenVisible from '../shared/WhenVisible';
 // entero bajo el pliegue, pero arrastraba los 111 KB de Recharts a la carga
 // inicial. Se difiere hasta que está por entrar en pantalla.
 const HistoricalStats = lazy(() => import('../Stats/Stats').then(m => ({ default: m.HistoricalStats })));
+import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
 import PlayerAvatar from '../shared/PlayerAvatar';
 
@@ -40,6 +41,7 @@ export default function GroupView() {
   const [editDesc,     setEditDesc]     = useState('');
   const [editIsPublic, setEditIsPublic] = useState(true);
   const [editEmojis,   setEditEmojis]   = useState([]);
+  const [editClub,     setEditClub]     = useState(null);
 
   // modals
   const [showEmojiModal, setShowEmojiModal] = useState(false);
@@ -113,6 +115,7 @@ export default function GroupView() {
     setEditDesc(group.description ?? '');
     setEditIsPublic(group.is_public);
     setEditEmojis(group.emojis ?? []);
+    setEditClub(entityClub(group));
     setEditingGroup(true);
   }
 
@@ -142,8 +145,19 @@ export default function GroupView() {
         description:   editDesc.trim(),
         is_public:     editIsPublic,
         emojis:        editEmojis,
+        club_id:       editClub?.pending ? null : (editClub?.id ?? null),
+        pending_club_request_id: editClub?.pending ? editClub.request_id : null,
       });
-      setGroup(prev => ({ ...prev, ...updated }));
+      // El PUT devuelve sólo las columnas de groups: los datos del club los
+      // aporta el que ya está elegido, así se evita releer la categoría.
+      setGroup(prev => ({
+        ...prev, ...updated,
+        club_name:          editClub?.pending ? null : (editClub?.name ?? null),
+        club_location_name: editClub?.pending ? null : (editClub?.location_name ?? null),
+        club_courts:        editClub?.pending ? null : (editClub?.courts ?? null),
+        club_photo_url:     editClub?.pending ? null : (editClub?.photo_url ?? null),
+        pending_club_name:  editClub?.pending ? editClub.name : null,
+      }));
       setEditingGroup(false);
       showToast('Categoría guardada');
     } finally {
@@ -414,6 +428,13 @@ export default function GroupView() {
                 </div>
               </div>
 
+              {/* Club */}
+              <div>
+                <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">CLUB (opcional)</label>
+                <ClubSelector value={editClub} onChange={setEditClub} />
+                <p className="text-[10px] text-dim font-mono mt-1.5">Se usa como club por defecto en las jornadas nuevas.</p>
+              </div>
+
               {/* Íconos */}
               <div>
                 <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">ÍCONOS (opcional · máx. 2)</label>
@@ -461,13 +482,26 @@ export default function GroupView() {
           )}
         </div>
 
-        {/* Privacidad (solo dueño) — justo encima de la línea divisoria */}
-        {isOwner && !editingGroup && (
-          <div>
-            <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border ${group.is_public ? 'text-cyan border-cyan/40' : 'text-yellow-400 border-yellow-400/40'}`}>
-              {group.is_public ? <Globe size={12}/> : <Lock size={12}/>}
-              {group.is_public ? 'Categoría pública' : 'Categoría privada'}
-            </span>
+        {/* Privacidad (solo dueño) y club — justo encima de la línea divisoria */}
+        {!editingGroup && (isOwner || group.club_id) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {isOwner && (
+              <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border ${group.is_public ? 'text-cyan border-cyan/40' : 'text-yellow-400 border-yellow-400/40'}`}>
+                {group.is_public ? <Globe size={12}/> : <Lock size={12}/>}
+                {group.is_public ? 'Categoría pública' : 'Categoría privada'}
+              </span>
+            )}
+            {group.club_id ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border text-brand border-brand/40 max-w-full">
+                <Building2 size={12} className="shrink-0" />
+                <span className="truncate">{group.club_name}</span>
+              </span>
+            ) : isOwner && group.pending_club_request_id && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border text-yellow-400 border-yellow-400/40 max-w-full">
+                <Building2 size={12} className="shrink-0" />
+                <span className="truncate">{group.pending_club_name} · pendiente</span>
+              </span>
+            )}
           </div>
         )}
 
