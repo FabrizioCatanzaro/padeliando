@@ -22,6 +22,7 @@ import TournamentFilters from './TournamentFilters';
 import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../utils/tournamentFilters';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
+import ShareCategoryModal from '../shared/ShareCategoryModal';
 import PlayerAvatar from '../shared/PlayerAvatar';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
@@ -35,7 +36,7 @@ export default function GroupView() {
   const [saving,           setSaving]           = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [allTournaments, setAllTournaments] = useState([]);
-  const [copied,           setCopied]           = useState(false);
+  const [showShareModal,   setShowShareModal]   = useState(false);
   const [visibleCount,     setVisibleCount]     = useState(5);
   const [filters,          setFilters]          = useState(EMPTY_FILTERS);
   const [filtersOpen,      setFiltersOpen]      = useState(false);
@@ -123,24 +124,6 @@ export default function GroupView() {
     setEditEmojis(group.emojis ?? []);
     setEditClub(entityClub(group));
     setEditingGroup(true);
-  }
-
-  async function copyLink() {
-    const shareLink = `${window.location.origin}/cat/${groupId}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: group.name,
-          text: `¡Mirá la categoría "${group.name}" en Padeleando!`,
-          url: shareLink,
-        });
-      } catch { /* usuario canceló */ }
-    } else {
-      await navigator.clipboard.writeText(shareLink);
-      setCopied(true);
-      showToast('Enlace copiado');
-      setTimeout(() => setCopied(false), 2000);
-    }
   }
 
   async function handleSaveGroup() {
@@ -363,7 +346,7 @@ export default function GroupView() {
           {isOwner && !editingGroup && (
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
               {group.is_public && (
-                <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} title="Compartir" />
+                <Btn size="sm" icon={Share2} onClick={() => setShowShareModal(true)} title="Compartir" />
               )}
               <Btn size="sm" icon={Users} onClick={() => setShowCollabModal(true)} title="Co-organizadores">
                 {group.collaborators?.length ? String(group.collaborators.length) : ''}
@@ -376,7 +359,7 @@ export default function GroupView() {
 
           {!isOwner && (
             <div className="flex items-center gap-2">
-              <Btn size="sm" icon={copied ? Check : Share2} onClick={copyLink} />
+              <Btn size="sm" icon={Share2} onClick={() => setShowShareModal(true)} />
               {isDeletedAccount(group.owner_username) ? (
                 <span className="flex gap-2 items-center border border-border-strong rounded-full pl-1 pr-3 py-1">
                   <User2 className="text-content" size={13}/><span className='text-sm text-content font-mono'>Cuenta eliminada</span>
@@ -909,6 +892,16 @@ export default function GroupView() {
         >
           <strong className="text-white">{group.my_player.name}</strong> y todos sus partidos se quedan en <strong className="text-white">{group.name}</strong>, pero dejan de estar asociados a tu cuenta y de contar en las estadísticas de tu perfil. El organizador puede volver a invitarte cuando quieras.
         </Modal>
+      )}
+
+      {showShareModal && (
+        <ShareCategoryModal
+          categoryName={group.name}
+          clubName={group.club_id ? group.club_name : null}
+          tournamentsCount={group.tournaments?.length ?? 0}
+          url={`${window.location.origin}/cat/${groupId}`}
+          onClose={() => setShowShareModal(false)}
+        />
       )}
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
