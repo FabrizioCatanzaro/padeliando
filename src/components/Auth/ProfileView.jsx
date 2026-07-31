@@ -43,6 +43,12 @@ const NETWORKS = [
 
 const EMPTY_LINK = { network: '', url: '' };
 
+// El avatar se guarda a 512 px: pedirlo transformado sólo cambia el formato y la compresión.
+function avatarZoomUrl(src) {
+  if (!src?.includes('/upload/')) return src;
+  return src.replace('/upload/', '/upload/f_auto,q_auto,w_512,c_limit/');
+}
+
 function ensureTrailingEmpty(links) {
   const last = links[links.length - 1];
   if (!last || last.network !== '' || last.url !== '') return [...links, { ...EMPTY_LINK }];
@@ -267,6 +273,8 @@ export default function ProfileView() {
   const [avatarBusy,  setAvatarBusy]  = useState(false);
   const [avatarError, setAvatarError] = useState(null);
   const [cropFile,    setCropFile]    = useState(null);
+  const [avatarZoom,  setAvatarZoom]  = useState(false);
+  const [confirmAvatarDelete, setConfirmAvatarDelete] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showClaimHelp,    setShowClaimHelp]    = useState(false);
 
@@ -301,6 +309,13 @@ export default function ProfileView() {
   }, [username]);
 
   useDocumentTitle(data?.owner?.name);
+
+  useEffect(() => {
+    if (!avatarZoom) return;
+    function onKey(e) { if (e.key === 'Escape') setAvatarZoom(false); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [avatarZoom]);
 
   // El perfil siempre rinde más alto que la pantalla, así que el hueco de carga
   // debe empujar el pie fuera del viewport en vez de dejarlo asomar.
@@ -385,9 +400,12 @@ export default function ProfileView() {
     try {
       await api.auth.deleteAvatar();
       setAvatarUrl(null);
+      setAvatarZoom(false);
       if (isOwnProfile) login({ ...user, avatar_url: null });
+      setConfirmAvatarDelete(false);
     } catch (err) {
       setAvatarError(err.message);
+      setConfirmAvatarDelete(false);
     } finally {
       setAvatarBusy(false);
     }
@@ -520,12 +538,20 @@ export default function ProfileView() {
           <div className="flex items-start gap-4">
             {/* Avatar */}
             <div className="relative shrink-0">
-              <PlayerAvatar
-                name={owner.name}
-                src={displayAvatar}
-                size={130}
-                premium={isOwnProfile ? user?.subscription?.plan === 'premium' : owner.is_premium}
-              />
+              <button
+                type="button"
+                onClick={() => displayAvatar && setAvatarZoom(true)}
+                aria-label={displayAvatar ? `Ver la foto de ${owner.name}` : undefined}
+                disabled={!displayAvatar}
+                className="bg-transparent border-0 p-0 rounded-full block enabled:cursor-pointer enabled:hover:brightness-110 transition"
+              >
+                <PlayerAvatar
+                  name={owner.name}
+                  src={displayAvatar}
+                  size={130}
+                  premium={isOwnProfile ? user?.subscription?.plan === 'premium' : owner.is_premium}
+                />
+              </button>
               {isOwnProfile && (
                 <>
                   <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp"
@@ -536,7 +562,7 @@ export default function ProfileView() {
                     <Camera size={13} />
                   </button>
                   {displayAvatar && (
-                    <button type="button" onClick={handleAvatarDelete} disabled={avatarBusy} title="Quitar foto"
+                    <button type="button" onClick={() => setConfirmAvatarDelete(true)} disabled={avatarBusy} title="Quitar foto"
                       className="absolute -top-1 -right-1 bg-surface text-muted rounded-full w-6 h-6 flex items-center justify-center border border-border-strong cursor-pointer hover:text-danger hover:border-danger transition disabled:opacity-50 disabled:cursor-wait">
                       <Trash2 size={11} />
                     </button>
@@ -923,9 +949,11 @@ export default function ProfileView() {
                 const draw = m.result === 'draw';
                 const color = win ? '#4af07a' : draw ? '#e8f04a' : '#f07a4a';
                 const firstName = (n) => n?.split(' ')[0] ?? '?';
+                // De una categoría privada llega el resultado, no la jornada.
+                const priv = m.private_group;
                 return (
-                  <div key={m.id} onClick={() => navigate(`/cat/${m.group_id}/torneo/${m.tournament_id}`)}
-                    className="bg-base rounded-lg px-3 py-2.5 border border-border-strong flex items-center gap-3 cursor-pointer hover:border-border-mid transition-colors">
+                  <div key={m.id} onClick={priv ? undefined : () => navigate(`/cat/${m.group_id}/torneo/${m.tournament_id}`)}
+                    className={`bg-base rounded-lg px-3 py-2.5 border border-border-strong flex items-center gap-3 transition-colors ${priv ? '' : 'cursor-pointer hover:border-border-mid'}`}>
                     <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center font-condensed font-black text-[13px]"
                       style={{ background: `${color}18`, color, border: `1px solid ${color}44` }}>
                       {win ? 'V' : draw ? 'E' : 'D'}
@@ -942,8 +970,10 @@ export default function ProfileView() {
                         <span className="text-[#444]">vs </span>
                         {firstName(m.opp1_name)} & {firstName(m.opp2_name)}
                       </div>
-                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate">
-                        {m.tournament_name}
+                      <div className="text-[10px] text-dim font-mono mt-0.5 truncate flex items-center gap-1">
+                        {priv
+                          ? <><Lock size={9} className="shrink-0" />Categoría privada</>
+                          : m.tournament_name}
                         {m.bracket_round && <span className="text-brand"> · {ROUND_LABEL[m.bracket_round] ?? m.bracket_round}</span>}
                       </div>
                     </div>
@@ -1329,6 +1359,44 @@ export default function ProfileView() {
             </div>
           </div>
         </div>
+      )}
+
+      {avatarZoom && displayAvatar && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-1000 p-5"
+          onClick={() => setAvatarZoom(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setAvatarZoom(false)}
+            className="absolute top-4 right-4 bg-surface text-white border border-border-strong rounded-full w-10 h-10 flex items-center justify-center cursor-pointer hover:bg-border-mid transition"
+            aria-label="Cerrar"
+          >
+            <X size={18} />
+          </button>
+          <div className="flex flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
+            <img
+              src={avatarZoomUrl(displayAvatar)}
+              alt={owner.name}
+              width={512}
+              height={512}
+              className="w-full max-w-[min(512px,80vw)] aspect-square object-cover rounded-full border border-border-strong"
+            />
+            <div className="text-sm font-mono text-muted">@{owner.username}</div>
+          </div>
+        </div>
+      )}
+
+      {confirmAvatarDelete && (
+        <Modal
+          title="Eliminar foto de perfil"
+          message="Se va a quitar tu foto de perfil y volvés a las iniciales. Podés subir otra cuando quieras."
+          confirmText={avatarBusy ? 'Eliminando...' : 'Eliminar foto'}
+          confirmDisabled={avatarBusy}
+          confirmDanger
+          onConfirm={handleAvatarDelete}
+          onCancel={() => { if (!avatarBusy) setConfirmAvatarDelete(false); }}
+        />
       )}
 
       {followModal && (

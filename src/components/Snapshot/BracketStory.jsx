@@ -1,4 +1,4 @@
-import StoryFrame, { CategoryChip, ClubBadge } from './StoryFrame';
+import StoryFrame, { TournamentMeta, ClubBadge } from './StoryFrame';
 import { C, fonts } from './story-theme';
 import { PairAvatar } from '../shared/PlayerAvatar';
 
@@ -83,7 +83,7 @@ export default function BracketStory({ tournament }) {
     <StoryFrame
       eyebrow="CUADRO ELIMINATORIO"
       title={tournament.name}
-      meta={<CategoryChip tournament={tournament} />}
+      meta={<TournamentMeta tournament={tournament} />}
       headerRight={<ClubBadge tournament={tournament} />}
       accent={C.brand}
     >

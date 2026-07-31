@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import * as htmlToImage from 'html-to-image';
+import { snapshotFontCSS } from './snapshot-fonts';
 
 // Genera un PNG 1080x1920 (9:16, historia de Instagram) a partir de un nodo del DOM
 // y lo entrega vía la hoja de compartir del SO (navigator.share con archivos) o,
@@ -18,12 +19,19 @@ export function useSnapshot() {
         try { await document.fonts.ready; } catch { /* ignore */ }
       }
 
+      // Fuentes embebidas a mano: sin esto html-to-image intenta leer la hoja de
+      // Google Fonts, que es cross-origin, y el PNG sale con la tipografía del
+      // sistema. Si fallara, mejor una imagen con otra fuente que ninguna.
+      let fontEmbedCSS;
+      try { fontEmbedCSS = await snapshotFontCSS(); } catch { /* ignore */ }
+
       const blob = await htmlToImage.toBlob(node, {
         width: 1080,
         height: 1920,
         pixelRatio: 1,
         cacheBust: true,
         backgroundColor: '#000000',
+        ...(fontEmbedCSS ? { fontEmbedCSS } : {}),
       });
       if (!blob) throw new Error('No se pudo generar la imagen');
 

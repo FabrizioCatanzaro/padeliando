@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import PlayerInput from "../Setup/PlayerInput";
 import Modal from "../shared/Modal";
 import PlayerAvatar from "../shared/PlayerAvatar";
+import ActionMenu from "../shared/ActionMenu";
 import { Pencil, Trash2, UserPlus, X, Clock, Check, Unlink } from "lucide-react";
 import { api } from "../../utils/api";
 import { useAuth } from "../../context/useAuth";
@@ -86,6 +88,22 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
     }
   }
 
+  function playerActions(p) {
+    const items = [];
+    if (isLoggedIn && !p.user_id && !p.invitation_status) {
+      items.push({ label: "Vincular usuario", icon: <UserPlus size={15} />, onClick: () => openInvite(p.id) });
+    }
+    if (p.user_id) {
+      items.push({ label: "Desvincular cuenta", icon: <Unlink size={15} />, onClick: () => setUnlinkTarget(p) });
+    }
+    if (p.invitation_status === 'pending') {
+      items.push({ label: "Cancelar invitación", icon: <X size={15} />, onClick: () => cancelInvite(p) });
+    }
+    items.push({ label: "Editar jugador", icon: <Pencil size={15} />, onClick: () => startEdit(p) });
+    items.push({ label: "Eliminar jugador", icon: <Trash2 size={15} />, danger: true, onClick: () => setDeleteTarget(p) });
+    return items;
+  }
+
   return (
     <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
       <div className="flex justify-between items-center mb-3">
@@ -133,12 +151,21 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
               <div className="flex items-center gap-2">
                 <span className="text-dim text-[11px] font-mono w-4 shrink-0 text-right tabular-nums">{i + 1}</span>
                 <PlayerAvatar name={p.name} src={p.linked_avatar_url ?? null} size={28} premium={p.is_premium ?? false} />
-                <span className="flex-1 text-content font-sans">{p.name}</span>
+                {p.linked_username ? (
+                  <Link
+                    to={`/u/${p.linked_username}`}
+                    className="flex-1 min-w-0 truncate text-content font-sans no-underline hover:text-brand transition-colors"
+                  >
+                    {p.name}
+                  </Link>
+                ) : (
+                  <span className="flex-1 min-w-0 truncate text-content font-sans">{p.name}</span>
+                )}
 
                 {/* Badge de vinculación */}
                 {p.user_id && (
-                  <span className="text-[10px] font-mono text-green bg-[#1a2e1a] border border-[#4af07a44] px-1.5 py-0.5 rounded">
-                    ✓ @{p.linked_username}
+                  <span className="flex items-center gap-1 shrink-0 text-[10px] font-mono text-green bg-[#1a2e1a] border border-[#4af07a44] px-1.5 py-0.5 rounded">
+                    <Check size={10} /> @{p.linked_username}
                   </span>
                 )}
                 {!p.user_id && p.invitation_status === 'pending' && (
@@ -155,41 +182,48 @@ export default function PlayerManager({ tournament, isOwner, onAdd, onEdit, onDe
 
                 {isOwner && (
                   <>
-                    {/* Botón invitar: solo si no está vinculado y no hay invitación pendiente */}
-                    {isLoggedIn && !p.user_id && !p.invitation_status && (
-                      <div
-                        onClick={() => openInvite(p.id)}
-                        title="Invitar usuario registrado"
-                        className="bg-transparent border-0 text-muted cursor-pointer px-1.5 py-0.5 hover:text-brand transition-colors"
-                      >
-                        <UserPlus size={14} />
+                    {/* Desktop: acciones sueltas. Mobile: colapsadas en el menú de elipsis. */}
+                    <div className="hidden sm:flex items-center">
+                      {/* Botón invitar: solo si no está vinculado y no hay invitación pendiente */}
+                      {isLoggedIn && !p.user_id && !p.invitation_status && (
+                        <div
+                          onClick={() => openInvite(p.id)}
+                          title="Invitar usuario registrado"
+                          className="bg-transparent border-0 text-muted cursor-pointer px-1.5 py-0.5 hover:text-brand transition-colors"
+                        >
+                          <UserPlus size={14} />
+                        </div>
+                      )}
+                      {/* Desvincular la cuenta del slot (el jugador y su historial quedan) */}
+                      {p.user_id && (
+                        <div
+                          onClick={() => setUnlinkTarget(p)}
+                          title="Desvincular cuenta"
+                          className="bg-transparent border-0 text-muted cursor-pointer px-1.5 py-0.5 hover:text-danger transition-colors"
+                        >
+                          <Unlink size={14} />
+                        </div>
+                      )}
+                      {/* Cancelar invitación pendiente */}
+                      {p.invitation_status === 'pending' && (
+                        <div
+                          onClick={() => cancelInvite(p)}
+                          title="Cancelar invitación"
+                          className="bg-transparent border-0 text-muted cursor-pointer px-1.5 py-0.5 hover:text-danger transition-colors"
+                        >
+                          <X size={14} />
+                        </div>
+                      )}
+                      <div onClick={() => startEdit(p)} className="bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
+                        <Pencil size={15} />
                       </div>
-                    )}
-                    {/* Desvincular la cuenta del slot (el jugador y su historial quedan) */}
-                    {p.user_id && (
-                      <div
-                        onClick={() => setUnlinkTarget(p)}
-                        title="Desvincular cuenta"
-                        className="bg-transparent border-0 text-muted cursor-pointer px-1.5 py-0.5 hover:text-danger transition-colors"
-                      >
-                        <Unlink size={14} />
+                      <div onClick={() => setDeleteTarget(p)} className="bg-transparent border-0 text-danger cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
+                        <Trash2 size={15} />
                       </div>
-                    )}
-                    {/* Cancelar invitación pendiente */}
-                    {p.invitation_status === 'pending' && (
-                      <div
-                        onClick={() => cancelInvite(p)}
-                        title="Cancelar invitación"
-                        className="bg-transparent border-0 text-muted cursor-pointer px-1.5 py-0.5 hover:text-danger transition-colors"
-                      >
-                        <X size={14} />
-                      </div>
-                    )}
-                    <div onClick={() => startEdit(p)} className="bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
-                      <Pencil size={15} />
                     </div>
-                    <div onClick={() => setDeleteTarget(p)} className="bg-transparent border-0 text-danger cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
-                      <Trash2 size={15} />
+
+                    <div className="sm:hidden">
+                      <ActionMenu label={`Acciones de ${p.name}`} items={playerActions(p)} />
                     </div>
                   </>
                 )}

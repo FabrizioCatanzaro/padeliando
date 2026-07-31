@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getPairLabel, managementWarnings, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
 import Modal from "../shared/Modal";
+import ActionMenu from "../shared/ActionMenu";
 import { Check, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
 import { PairAvatar } from "../shared/PlayerAvatar";
 export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDelete }) {
@@ -25,6 +26,10 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
   // Americano: 8 parejas mínimo para poder jugar, 16 máximo.
   const isAmericano   = tournament.format === 'americano';
   const pairsFull     = isAmericano && pairs.length >= AMERICANO_MAX_PAIRS;
+
+  // Sin dos jugadores libres no hay pareja posible: el botón queda deshabilitado.
+  const freeToPair   = activePlayers.filter((p) => !assignedIds.includes(p.id));
+  const noPairsLeft  = freeToPair.length < 2;
 
   function handleAdd() {
     if (!newP1 || !newP2 || newP1 === newP2) return;
@@ -55,11 +60,28 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
           <span className="ml-2 text-brand">{pairs.length}</span>
         </div>
         {isOwner && !pairsFull && (
-          <button onClick={() => setShowAdd(!showAdd)} className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap">
+          <button
+            onClick={() => { if (showAdd || !noPairsLeft) setShowAdd(!showAdd); }}
+            disabled={!showAdd && noPairsLeft}
+            title={!showAdd && noPairsLeft ? "No quedan jugadores libres para armar otra pareja" : undefined}
+            className={`bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide rounded-sm whitespace-nowrap ${
+              !showAdd && noPairsLeft ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+            }`}
+          >
             {showAdd ? "Cancelar" : "+ Nueva pareja"}
           </button>
         )}
       </div>
+
+      {isOwner && !pairsFull && !showAdd && noPairsLeft && (
+        <p className="text-[10px] text-dim font-mono mb-3">
+          {activePlayers.length === 0
+            ? 'Agregá jugadores para poder armar parejas.'
+            : freeToPair.length === 1
+              ? `Sólo queda ${freeToPair[0].name} sin pareja — hacen falta dos jugadores libres.`
+              : 'Todos los jugadores ya están en una pareja.'}
+        </p>
+      )}
 
       {isAmericano && missingPairs > 0 && (
         <div className="flex items-start gap-2 bg-brand/10 border border-brand/30 rounded-md px-3.5 py-2.5 mb-3 text-[12px] font-mono text-brand leading-relaxed">
@@ -75,8 +97,8 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
       )}
 
       {showAdd && (
-        <div className="flex gap-2 mb-3 flex-wrap">
-          <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+        <div className="flex flex-col sm:flex-row gap-2 mb-3">
+          <select className="w-full min-w-0 sm:flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
             value={newP1} onChange={(e) => setNewP1(e.target.value)}>
             <option value="">Jugador 1</option>
             {activePlayers.map((p) => {
@@ -88,8 +110,8 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
               );
             })}
           </select>
-          <span className="text-muted self-center font-condensed font-bold">&</span>
-          <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+          <span className="hidden sm:block text-muted self-center font-condensed font-bold">&</span>
+          <select className="w-full min-w-0 sm:flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
             value={newP2} onChange={(e) => setNewP2(e.target.value)}>
             <option value="">Jugador 2</option>
             {activePlayers.map((p) => {
@@ -122,12 +144,14 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
 
       <div className="flex flex-col gap-1.5">
         {pairs.map((pair, i) => (
-          <div key={pair.id} className="flex items-center gap-2 bg-base border border-border-mid rounded-md px-3 py-2">
+          <div key={pair.id} className="bg-base border border-border-mid rounded-md px-3 py-2">
             {editId === pair.id ? (
-              <>
+              // En mobile los selects se apilan: uno al lado del otro se salen de la
+              // pantalla y dejan confirmar/cancelar fuera del viewport.
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 {(() => { const otherIds = pairs.filter(pr => pr.id !== pair.id).flatMap(pr => [pr.p1, pr.p2]); return (
                 <>
-                <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+                <select className="w-full min-w-0 sm:flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={editP1} onChange={(e) => setEditP1(e.target.value)}>
                   <option value="">Jugador 1</option>
                   {activePlayers.map((p) => {
@@ -139,8 +163,8 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
                     );
                   })}
                 </select>
-                <span className="text-muted font-condensed font-bold">&</span>
-                <select className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+                <span className="hidden sm:block text-muted font-condensed font-bold">&</span>
+                <select className="w-full min-w-0 sm:flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                   value={editP2} onChange={(e) => setEditP2(e.target.value)}>
                   <option value="">Jugador 2</option>
                   {activePlayers.map((p) => {
@@ -154,15 +178,17 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
                 </select>
                 </>
                 ); })()}
-                <div onClick={confirmEdit} className="bg-brand text-base border-0 px-1.5 py-1.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm">
-                  <Check size={12} />
+                <div className="flex items-center justify-end gap-2 shrink-0">
+                  <div onClick={confirmEdit} className="bg-brand text-base border-0 px-1.5 py-1.5 font-condensed font-bold text-[12px] tracking-wide cursor-pointer rounded-sm">
+                    <Check size={12} />
+                  </div>
+                  <div onClick={() => setEditId(null)} className="bg-transparent text-muted border border-border-strong px-1.5 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans">
+                    <X size={12}/>
+                  </div>
                 </div>
-                <div onClick={() => setEditId(null)} className="bg-transparent text-muted border border-border-strong px-1.5 py-1.5 text-[12px] cursor-pointer rounded-sm font-sans">
-                  <X size={12}/>
-                </div>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="flex items-center gap-2">
                 <span className="text-dim text-[11px] font-mono w-4 shrink-0 text-right tabular-nums">{i + 1}</span>
                 {(() => {
                   const p1 = players.find((p) => p.id === pair.p1);
@@ -177,20 +203,33 @@ export default function PairManager({ tournament, isOwner, onAdd, onEdit, onDele
                     />
                   );
                 })()}
-                <span className="flex-1 text-content font-sans">
+                <span className="flex-1 min-w-0 text-content font-sans">
                   {getPairLabel(pair.id, pairs, players)}
                 </span>
                 {isOwner && (
                   <>
-                    <div onClick={() => startEdit(pair)} className="bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
-                      <Pencil size={15} />
+                    {/* Desktop: acciones sueltas. Mobile: colapsadas en el menú de elipsis. */}
+                    <div className="hidden sm:flex items-center shrink-0">
+                      <div onClick={() => startEdit(pair)} className="bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
+                        <Pencil size={15} />
+                      </div>
+                      <div onClick={() => setDeleteTarget(pair)} className="bg-transparent border-0 text-danger cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
+                        <Trash2 size={15} />
+                      </div>
                     </div>
-                    <div onClick={() => setDeleteTarget(pair)} className="bg-transparent border-0 text-danger cursor-pointer text-[12px] font-sans px-1.5 py-0.5">
-                      <Trash2 size={15} />
+
+                    <div className="sm:hidden shrink-0">
+                      <ActionMenu
+                        label="Acciones de la pareja"
+                        items={[
+                          { label: "Editar pareja", icon: <Pencil size={15} />, onClick: () => startEdit(pair) },
+                          { label: "Eliminar pareja", icon: <Trash2 size={15} />, danger: true, onClick: () => setDeleteTarget(pair) },
+                        ]}
+                      />
                     </div>
                   </>
                 )}
-              </>
+              </div>
             )}
           </div>
         ))}

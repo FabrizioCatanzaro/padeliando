@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
-import { adaptTournament, adaptMatch, getTournamentWinnerLabel } from '../utils/helpers';
+import { adaptTournament, adaptMatch, patchBracketNames, getTournamentWinnerLabel } from '../utils/helpers';
 import { useAuth } from '../context/useAuth';
 import { useToast } from '../context/useToast';
 
@@ -270,24 +270,46 @@ export function useTournament(groupId, tournamentId) {
   }
 
   async function handleGenerateBracket() {
-    await api.tournaments.bracket(tournament.id);
-    await reload();
+    const res = await api.tournaments.bracket(tournament.id);
+    applyBracket(res.bracket);
+    showToast('Cuadro generado');
   }
 
-  async function handleUpdateBracketMatch(matchId, score1, score2, duration_seconds, court) {
-    await api.tournaments.updateBracket(tournament.id, matchId, { score1, score2, duration_seconds, court });
-    await reload();
+  // Los tres endpoints del cuadro devuelven el bracket ya actualizado: se aplica al
+  // estado local como con los partidos de la previa, sin volver a pedir el torneo
+  // (eso disparaba el skeleton y hacía "parpadear" toda la página tras cada carga).
+  function applyBracket(bracket) {
+    setTournament((prev) =>
+      prev ? { ...prev, bracket: patchBracketNames(bracket, prev.pairs, prev.players) } : prev
+    );
+  }
+
+  async function handleUpdateBracketMatch(matchId, score1, score2, duration_seconds, court, isEdit = false) {
+    const res = await api.tournaments.updateBracket(tournament.id, matchId, { score1, score2, duration_seconds, court });
+    applyBracket(res.bracket);
+    flash();
+    showToast(isEdit ? 'Partido actualizado' : 'Partido registrado');
+  }
+
+  async function handleClearBracketMatch(matchId) {
+    const res = await api.tournaments.clearBracketMatch(tournament.id, matchId);
+    applyBracket(res.bracket);
+    flash();
+    showToast('Resultado borrado');
   }
 
   async function handleSetBracket(bracket) {
-    await api.tournaments.setBracket(tournament.id, bracket);
-    await reload();
+    const res = await api.tournaments.setBracket(tournament.id, bracket);
+    applyBracket(res.bracket);
+    flash();
+    showToast('Cruces actualizados');
   }
 
   async function handleDeleteBracket() {
     await api.tournaments.deleteBracket(tournament.id);
     localStorage.removeItem(`bracket_live_${tournament.id}`);
-    await reload();
+    setTournament((prev) => (prev ? { ...prev, bracket: null, live_match: null } : prev));
+    showToast('Cuadro borrado');
   }
 
   function getShareLink() {
@@ -306,7 +328,7 @@ export function useTournament(groupId, tournamentId) {
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
     getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
-    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket, handleDeleteBracket,
+    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleClearBracketMatch, handleSetBracket, handleDeleteBracket,
     handleUpdateMode,
     refresh: () => reload(true),
   };

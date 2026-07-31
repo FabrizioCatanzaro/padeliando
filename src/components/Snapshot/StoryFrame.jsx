@@ -4,6 +4,7 @@
 // html-to-image sea consistente.
 
 import { STORY_W, STORY_H, C, fonts } from './story-theme';
+import { tournamentDate } from '../../utils/helpers';
 import logoTxtUrl from '../../assets/padeleando-txt-hd.webp';
 
 export default function StoryFrame({
@@ -98,34 +99,62 @@ export default function StoryFrame({
 
 // ── Átomos reutilizables por las historias ─────────────────────────────────────
 
-// Chip con la categoría a la que pertenece el torneo.
-// Va en el slot `meta` del StoryFrame, debajo del título.
-export function CategoryChip({ tournament, accent = C.brand }) {
+const MESES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+// La fecha llega como YYYY-MM-DD y se parte a mano: `new Date` la correría un
+// día hacia atrás en los husos al oeste de UTC.
+function storyDate(t) {
+  const [y, m, d] = tournamentDate(t ?? {}).split('-');
+  if (!y || !m || !d) return null;
+  return `${Number(d)} ${MESES[Number(m) - 1]} ${y}`;
+}
+
+// Categoría a la que pertenece el torneo y fecha en que se jugó, como píldoras
+// hermanas. Va en el slot `meta` del StoryFrame, debajo del título.
+export function TournamentMeta({ tournament, accent = C.brand }) {
   const groupName = tournament?.group_name;
-  if (!groupName) return null;
+  const date      = storyDate(tournament);
+  if (!groupName && !date) return null;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginTop: 22 }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12, minWidth: 0,
-        background: C.surface, border: `1px solid ${C.border}`,
-        borderRadius: 999, padding: '10px 22px 10px 12px',
-      }}>
+    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginTop: 22 }}>
+      {groupName && (
         <div style={{
-          width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-          background: `${accent}1f`, border: `1px solid ${accent}55`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, fontWeight: 800, color: accent,
+          display: 'flex', alignItems: 'center', gap: 12, minWidth: 0,
+          background: C.surface, border: `1px solid ${C.border}`,
+          borderRadius: 999, padding: '10px 22px 10px 12px',
         }}>
-          {groupName.trim().charAt(0).toUpperCase()}
+          <div style={{
+            width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+            background: `${accent}1f`, border: `1px solid ${accent}55`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18, fontWeight: 800, color: accent,
+          }}>
+            {groupName.trim().charAt(0).toUpperCase()}
+          </div>
+          <div style={{
+            fontSize: 24, fontWeight: 600, color: C.soft, maxWidth: 520,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {groupName}
+          </div>
         </div>
+      )}
+      {date && (
         <div style={{
-          fontSize: 24, fontWeight: 600, color: C.soft, maxWidth: 520,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
+          background: C.surface, border: `1px solid ${accent}33`,
+          borderRadius: 999, padding: '10px 24px',
         }}>
-          {groupName}
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: accent, flexShrink: 0 }} />
+          <div style={{
+            fontFamily: fonts.display, fontSize: 24, fontWeight: 700,
+            letterSpacing: 2, color: C.white, whiteSpace: 'nowrap',
+          }}>
+            {date}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -203,15 +232,17 @@ export function HighlightCard({ label, main, sub, accent = C.brand, emoji, big, 
 }
 
 // Tarjeta de estadística grande (número + etiqueta).
-export function StatTile({ value, label, accent = C.brand, sub }) {
+// `valueSize` lo baja el call site cuando el valor es texto (un nombre de club,
+// una duración) y al tamaño de un número no entraría en el ancho de la tarjeta.
+export function StatTile({ value, label, accent = C.brand, sub, valueSize }) {
   return (
     <div style={{
       background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20,
       padding: '30px 30px 26px', flex: 1, minWidth: 0, overflow: 'hidden',
     }}>
       <div style={{
-        fontFamily: fonts.display, fontWeight: 800, fontSize: 66, lineHeight: 1,
-        color: accent, whiteSpace: 'nowrap',
+        fontFamily: fonts.display, fontWeight: 800, fontSize: valueSize ?? 66, lineHeight: 1,
+        color: accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {value}
       </div>

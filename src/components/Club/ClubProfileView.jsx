@@ -48,7 +48,7 @@ function EventCard({ ev, state, delay }) {
         style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #1c1c1c 100%)' }}>
         <div className="flex justify-between items-start gap-2 mb-2">
           <div className="font-condensed font-bold text-lg text-content leading-tight">{ev.name}</div>
-          <Badge variant="status" color={meta.color}>{meta.label}</Badge>
+          <Badge variant="status" color={meta.color} icon={meta.icon} pulse={meta.pulse}>{meta.label}</Badge>
         </div>
         <div className="flex items-center gap-3 flex-wrap text-dim font-mono text-sm">
           <span>{isAmericano ? 'AMERICANO' : 'LIGA'}</span>

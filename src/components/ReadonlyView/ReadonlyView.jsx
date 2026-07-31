@@ -561,7 +561,7 @@ export default function ReadonlyView() {
 
         {/* Estado + ganador + dueño */}
         <div className="flex items-center justify-center gap-2.5 flex-wrap">
-          <Badge variant="status" color={statusMeta.color}>
+          <Badge variant="status" color={statusMeta.color} icon={statusMeta.icon} pulse={statusMeta.pulse}>
             {statusMeta.label}
           </Badge>
           {winnerLabel && (
@@ -825,6 +825,55 @@ function FullscreenBtn() {
   );
 }
 
+// Aviso de bienvenida al Modo TV: el visitante entra directo al overlay y nada
+// le indica que hay una vista normal debajo. Se muestra una sola vez por
+// dispositivo y se va solo; flota sobre el contenido para no mover el layout.
+const TV_HINT_KEY = 'padeleando:tv-hint-seen';
+const TV_HINT_MS  = 9000;
+
+function TvHint({ onExit }) {
+  const [show, setShow] = useState(() => {
+    try { return !localStorage.getItem(TV_HINT_KEY); } catch { return false; }
+  });
+
+  useEffect(() => {
+    if (!show) return;
+    try { localStorage.setItem(TV_HINT_KEY, '1'); } catch { /* modo privado */ }
+    const id = setTimeout(() => setShow(false), TV_HINT_MS);
+    return () => clearTimeout(id);
+  }, [show]);
+
+  if (!show) return null;
+
+  return (
+    <div role="status" className="absolute top-3 right-3 lg:right-6 z-20 max-w-[min(320px,calc(100vw-1.5rem))] animate-[fadeInUp_0.3s_ease-out]">
+      <div className="absolute -top-1.5 right-8 w-3 h-3 rotate-45 border-l border-t border-brand/40 bg-surface-alt" />
+      <div className="relative rounded-xl border border-brand/40 bg-surface-alt shadow-xl px-4 py-3">
+        <button
+          onClick={() => setShow(false)}
+          title="Entendido"
+          className="absolute top-2 right-2 text-muted hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+        >
+          <X size={13} />
+        </button>
+        <div className="flex items-center gap-1.5 text-brand font-mono text-[10px] tracking-wide mb-1">
+          <Tv size={12} />MODO TV
+        </div>
+        <p className="text-[12px] text-secondary leading-snug pr-4">
+          Las pantallas rotan solas. Tocá{' '}
+          <button
+            onClick={onExit}
+            className="text-white font-semibold underline underline-offset-2 bg-transparent border-none p-0 cursor-pointer"
+          >
+            SALIR
+          </button>{' '}
+          para ver posiciones, partidos y estadísticas por tu cuenta.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, onNext, onTogglePause, soundOn, onToggleSound, onExit }) {
   const clubName = club?.name ?? tournament.club_name ?? null;
   const clubLogo = club?.photo_url ?? null;
@@ -841,12 +890,15 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
     hasPlayed: countPlayed(tournament) > 0,
     isDraft: isAmericanoDraft({ format: tournament.format, pairCount: tournament.pairs?.length }),
   });
-  const status =
-      dispStatus === 'finished' ? { label: 'FINALIZADO',    cls: 'border-border-mid text-muted bg-surface', dot: null }
-    : dispStatus === 'draft'    ? { label: 'BORRADOR',      cls: 'border-brand/40 text-brand bg-brand/10',   dot: null }
-    : dispStatus === 'upcoming' ? { label: 'PRÓXIMAMENTE',  cls: 'border-cyan/40 text-cyan bg-cyan/10',      dot: null }
-    : hasLive                   ? { label: 'EN VIVO',       cls: 'border-danger/50 text-danger bg-danger/10', dot: 'bg-danger' }
-    :                             { label: 'EN CURSO',      cls: 'border-green/40 text-green bg-green/10',    dot: 'bg-green' };
+  const status = TOURNAMENT_STATUS_META[dispStatus === 'active' && hasLive ? 'live' : dispStatus];
+  const StatusIcon = status.icon;
+  const statusCls = {
+    default: 'border-border-mid text-muted bg-surface',
+    brand:   'border-brand/40 text-brand bg-brand/10',
+    cyan:    'border-cyan/40 text-cyan bg-cyan/10',
+    green:   'border-green/40 text-green bg-green/10',
+    danger:  'border-danger/50 text-danger bg-danger/10',
+  }[status.color];
 
   return (
     <header className="shrink-0 flex items-start gap-3 lg:gap-5 px-4 lg:px-8 py-3 border-b border-border bg-gradient-to-b from-surface/40 to-transparent">
@@ -863,8 +915,10 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
           {tournament.name}
         </h1>
         <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono tracking-wide ${status.cls}`}>
-            {status.dot && <span className={`w-1.5 h-1.5 rounded-full ${status.dot} animate-pulse`} />}
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono tracking-wide ${statusCls}`}>
+            {StatusIcon
+              ? <StatusIcon size={11} className="shrink-0" />
+              : <span className={`w-1.5 h-1.5 rounded-full bg-current shrink-0 ${status.pulse ? 'animate-pulse' : ''}`} />}
             {status.label}
           </span>
           {clubName && (
@@ -886,8 +940,8 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
         </div>
       </div>
 
-      {/* Controles — en mobile: navegación arriba, iconos abajo */}
-      <div className="shrink-0 flex flex-col items-end gap-2 lg:flex-row lg:items-center lg:gap-2.5">
+      {/* Controles — en mobile: navegación arriba, iconos al medio, salir abajo */}
+      <div className="shrink-0 flex flex-col items-center gap-2 lg:flex-row lg:gap-2.5">
         <div className="flex items-center rounded-full border border-border-mid bg-surface overflow-hidden h-9 lg:h-10">
           <button onClick={onPrev} title="Pantalla anterior" className="px-2 h-full text-muted hover:text-white transition-colors cursor-pointer">
             <ChevronLeft size={16} />
@@ -906,8 +960,24 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
           </TvIconBtn>
           <FullscreenBtn />
           <TvClock />
-          <TvIconBtn title="Salir del modo TV" onClick={onExit}><X size={16} /></TvIconBtn>
         </div>
+
+        {/* El rótulo "MODO TV" vive dentro del propio botón de salida: avisa en
+            qué modo está el visitante y dónde se sale, sin una píldora suelta.
+            En mobile baja a su propia fila, donde entra sin apretar los iconos. */}
+        <button
+          onClick={onExit}
+          title="Salir del modo TV"
+          className="flex flex-col rounded-2xl border border-border-mid bg-surface overflow-hidden text-muted hover:text-white hover:border-border-strong transition-colors cursor-pointer shrink-0"
+        >
+          <span className="flex items-center justify-center gap-1 px-3 py-0.5 border-b border-border-mid bg-brand/10 text-brand font-mono text-[9px] lg:text-[10px] tracking-wide">
+            <Tv size={10} />MODO TV
+          </span>
+          <span className="flex items-center justify-center gap-1.5 px-3 py-1.5">
+            <X size={15} />
+            <span className="font-mono text-[10px] lg:text-[11px] tracking-wide">SALIR</span>
+          </span>
+        </button>
       </div>
     </header>
   );
@@ -1064,6 +1134,7 @@ function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq,
 
       {/* Contenido principal */}
       <main className="flex-1 min-h-0 relative">
+        <TvHint onExit={onExit} />
         {screen === 'standings' && <TvStandingsScreen tournament={tournament} />}
         {screen === 'live'      && <TvLiveScreen tournament={tournament} isAmericano={isAmericano} />}
         {screen === 'bracket'   && <TvBracketScreen tournament={tournament} />}
@@ -1081,7 +1152,7 @@ function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq,
       <footer className="shrink-0 flex items-center justify-between px-4 lg:px-8 py-2 border-t border-border bg-surface/40">
         <div className="flex items-center gap-2">
           <img src={appLogo} alt="" className="w-5 h-5 object-contain opacity-70" />
-          <span className="font-mono text-[10px] tracking-[2px] text-muted">CREADO POR PADELEANDO</span>
+          <span className="font-condensed font-bold text-[10px] tracking-[2px] text-muted">padeleando.ar</span>
         </div>
         <div className="flex items-center gap-1.5 font-mono text-[10px] text-dim">
           <Flame size={12} className="text-brand/60" /> {playedCount} PARTIDOS JUGADOS
