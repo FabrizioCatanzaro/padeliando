@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Trophy, Pencil, Trash2 } from "lucide-react";
+import { Trophy, Pencil, Trash2, Info } from "lucide-react";
 import { PairAvatar } from "../shared/PlayerAvatar";
 import { courtLabel, AMERICANO_MIN_PAIRS } from "../../utils/helpers";
 import { Timer, ScoreCounter, CourtSelector, MatchCardHeader, MinimizedMatch } from "../Matches/MatchForm";
@@ -9,6 +9,39 @@ import SnapshotModal from "../Snapshot/SnapshotModal";
 import BracketStory from "../Snapshot/BracketStory";
 
 const PHASE_TITLE = { octavos: "OCTAVOS", cuartos: "CUARTOS DE FINAL", semis: "SEMIFINALES", final: "FINAL" };
+const SLOT_LABEL  = { octavos: "Octavos", cuartos: "Cuartos", semis: "Semi", final: "la Final" };
+
+// Asigna una pareja a un slot del draft. Si esa pareja ya jugaba en otro cruce,
+// intercambia ambas en vez de duplicarla, así no hay que vaciar un slot primero.
+function assignDraftPair(draft, phaseKey, matchId, slot, pair) {
+  const next = JSON.parse(JSON.stringify(draft));
+  const target = phaseKey === 'final' ? next.final : next[phaseKey]?.find(m => m.id === matchId);
+  if (!target) return draft;
+
+  const displacedId   = target[`${slot}_id`]   ?? null;
+  const displacedName = target[`${slot}_name`] ?? null;
+
+  const origin = pair ? findDraftSlot(next, pair.pair_id) : null;
+  if (origin && !(origin.match === target && origin.slot === slot)) {
+    origin.match[`${origin.slot}_id`]   = displacedId;
+    origin.match[`${origin.slot}_name`] = displacedName;
+  }
+
+  target[`${slot}_id`]   = pair?.pair_id   ?? null;
+  target[`${slot}_name`] = pair?.pair_name ?? null;
+  return next;
+}
+
+// Dónde está asignada una pareja dentro del draft: { match, slot } o null.
+function findDraftSlot(draft, pairId) {
+  const rounds = [...(draft.octavos ?? []), ...(draft.cuartos ?? []), ...(draft.semis ?? [])];
+  if (draft.final) rounds.push(draft.final);
+  for (const m of rounds) {
+    if (m.pair1_id != null && String(m.pair1_id) === String(pairId)) return { match: m, slot: 'pair1' };
+    if (m.pair2_id != null && String(m.pair2_id) === String(pairId)) return { match: m, slot: 'pair2' };
+  }
+  return null;
+}
 
 // ── Chip de seed con color según posición ──────────────────────────────────────
 const SEED_TONE = {
@@ -45,6 +78,30 @@ function PairName({ name, className = "" }) {
 const EMPTY_TIMER = { startedAt: null, stoppedAt: null };
 const getLiveKey  = (id) => `bracket_live_${id}`;
 
+// Inverso de la propagación del ganador: qué partido se alimenta del ganador de matchId.
+function findChildMatch(bracket, matchId) {
+  for (const qm of bracket.cuartos ?? []) {
+    if (qm.slot1_source === matchId || qm.slot2_source === matchId) return qm;
+  }
+  for (const sm of bracket.semis ?? []) {
+    if (sm.source1 === matchId || sm.source2 === matchId) return sm;
+  }
+  const f = bracket.final;
+  if (f && (f.source1 === matchId || f.source2 === matchId)) return f;
+  return null;
+}
+
+// Cuántos partidos posteriores ya jugados se deshacen en cascada al borrar este resultado.
+function countDependentResults(bracket, matchId) {
+  let count = 0;
+  let child = findChildMatch(bracket, matchId);
+  while (child && child.winner_id !== null) {
+    count++;
+    child = findChildMatch(bracket, child.id);
+  }
+  return count;
+}
+
 // ── Tarjeta de partido del bracket (sólo display + toggle EN VIVO) ─────────────
 function pairAvatarFor(pairId, tournament, size = 20) {
   if (!pairId) return null;
@@ -65,7 +122,7 @@ function pairAvatarFor(pairId, tournament, size = 20) {
 
 function BracketMatchCard({
   match, phase, isOwner, standings, tournament,
-  editMode, draftMatch, allPairs, onPairChange, usedPairIds,
+  editMode, draftMatch, allPairs, onPairChange, pairLocations,
   isLive, onToggleLive,
 }) {
   const isTBD1   = !match.pair1_name;
@@ -77,10 +134,15 @@ function BracketMatchCard({
 
   if (editMode) {
     const dm = draftMatch ?? match;
-    const isDisabled = (pairId, currentSlotValue) => {
-      if (pairId === currentSlotValue) return false;
-      return usedPairIds?.has(pairId) ?? false;
+    // Ninguna opción se deshabilita: elegir una pareja que ya juega en otro cruce
+    // la intercambia con la de este slot. El sufijo dice dónde está hoy.
+    const optionLabel = (p, currentId) => {
+      const where = p.pair_id === currentId ? null : pairLocations?.get(p.pair_id);
+      return `#${p.seed} ${p.pair_name}${where ? ` — hoy en ${where}` : ''}`;
     };
+    const renderOptions = (currentId) => allPairs.map(p => (
+      <option key={p.pair_id} value={p.pair_id}>{optionLabel(p, currentId)}</option>
+    ));
     return (
       <div className="bg-surface border border-brand/40 rounded-lg p-3">
         <select
@@ -89,11 +151,7 @@ function BracketMatchCard({
           className="w-full bg-base border border-border-mid text-content px-2 py-1.5 font-sans text-[12px] rounded-sm outline-none mb-1"
         >
           <option value="">— Seleccionar pareja —</option>
-          {allPairs.map(p => (
-            <option key={p.pair_id} value={p.pair_id} disabled={isDisabled(p.pair_id, dm.pair1_id)}>
-              #{p.seed} {p.pair_name}
-            </option>
-          ))}
+          {renderOptions(dm.pair1_id)}
         </select>
         <div className="border-t border-border my-1" />
         <select
@@ -102,11 +160,7 @@ function BracketMatchCard({
           className="w-full bg-base border border-border-mid text-content px-2 py-1.5 font-sans text-[12px] rounded-sm outline-none mt-1"
         >
           <option value="">— Seleccionar pareja —</option>
-          {allPairs.map(p => (
-            <option key={p.pair_id} value={p.pair_id} disabled={isDisabled(p.pair_id, dm.pair2_id)}>
-              #{p.seed} {p.pair_name}
-            </option>
-          ))}
+          {renderOptions(dm.pair2_id)}
         </select>
       </div>
     );
@@ -291,7 +345,7 @@ function BracketLiveCard({ liveMatch, bracketMatch, phase, tournament, saving, o
 }
 
 // ── Card de partido jugado del bracket ────────────────────────────────────────
-function BracketPlayedCard({ match, tournament, isOwner, onEdit, matchNum, phase }) {
+function BracketPlayedCard({ match, tournament, isOwner, onEdit, onClear, matchNum, phase }) {
   const win1 = match.winner_id === match.pair1_id;
   const court = courtLabel(tournament, match.court);
   return (
@@ -319,12 +373,18 @@ function BracketPlayedCard({ match, tournament, isOwner, onEdit, matchNum, phase
         </div>
       </div>
       {isOwner && (
-        <div className="mt-2.5 pt-2.5 border-t border-border-mid">
+        <div className="mt-2.5 pt-2.5 border-t border-border-mid flex items-center gap-4">
           <button
             onClick={onEdit}
             className="bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5 flex items-center gap-1.5 hover:text-white"
           >
             ✎ Editar resultado
+          </button>
+          <button
+            onClick={onClear}
+            className="bg-transparent border-0 text-muted cursor-pointer text-[12px] font-sans px-1.5 py-0.5 flex items-center gap-1.5 hover:text-danger"
+          >
+            <Trash2 size={13} /> Borrar resultado
           </button>
         </div>
       )}
@@ -376,7 +436,7 @@ function BracketEditCard({ match, tournament, saving, editScore, onScoreChange, 
 }
 
 // ── Componente principal ───────────────────────────────────────────────────────
-export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpdateMatch, onSetBracket, onDeleteBracket, onSetLiveMatch }) {
+export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpdateMatch, onClearMatch, onSetBracket, onDeleteBracket, onSetLiveMatch }) {
   const bracket = tournament.bracket;
 
   const [liveMatches,  setLiveMatches]  = useState(() => {
@@ -400,6 +460,9 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
   const [showStory,    setShowStory]    = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting,     setDeleting]     = useState(false);
+  const [clearTarget,  setClearTarget]  = useState(null);
+  const [clearing,     setClearing]     = useState(false);
+  const [reorgBlocked, setReorgBlocked] = useState(false);
 
   // Persist liveMatches + sync onSetLiveMatch
   const prevLiveRef = useRef(liveMatches);
@@ -503,11 +566,21 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     if (s1 === s2) return;
     setSaving(editMatchId);
     try {
-      await onUpdateMatch(editMatchId, s1, s2, editScore.duration_seconds ?? null, editScore.court ?? null);
+      await onUpdateMatch(editMatchId, s1, s2, editScore.duration_seconds ?? null, editScore.court ?? null, true);
       setEditMatchId(null);
     } finally {
       setSaving(null);
     }
+  }
+
+  async function handleClearResult() {
+    if (!clearTarget) return;
+    setClearing(true);
+    try {
+      await onClearMatch?.(clearTarget.id);
+      setClearTarget(null);
+      if (editMatchId === clearTarget.id) setEditMatchId(null);
+    } finally { setClearing(false); }
   }
 
   async function handleGenerateBracket() {
@@ -532,16 +605,10 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     finally { setSavingLayout(false); }
   }
 
-  function updateDraftPair(phaseKey, matchId, slot, pairId) {
-    const pair = bracket.standings?.find(s => s.pair_id === pairId);
-    setDraftBracket(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-      const match = phaseKey === 'final' ? next.final : next[phaseKey]?.find(m => m.id === matchId);
-      if (!match) return prev;
-      match[`${slot}_id`]   = pair?.pair_id   ?? null;
-      match[`${slot}_name`] = pair?.pair_name ?? null;
-      return next;
-    });
+  // rawValue viene del <select>, siempre string; los pair_id son TEXT, se comparan como tales.
+  function updateDraftPair(phaseKey, matchId, slot, rawValue) {
+    const pair = rawValue ? bracket.standings?.find(s => String(s.pair_id) === rawValue) : null;
+    setDraftBracket(prev => assignDraftPair(prev, phaseKey, matchId, slot, pair ?? null));
   }
 
   function getDraftMatch(phaseKey, matchId) {
@@ -550,21 +617,22 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
     return draftBracket[phaseKey]?.find(m => m.id === matchId) ?? null;
   }
 
-  // Parejas ya asignadas en cualquier cruce del draft — se deshabilitan en el
-  // resto de los selects para evitar que la misma pareja aparezca en 2 slots.
-  function collectUsedPairIds() {
-    if (!draftBracket) return new Set();
-    const ids = new Set();
-    const add = (m) => {
+  // Dónde juega hoy cada pareja en el draft, para anunciarlo en los selects.
+  function collectPairLocations() {
+    if (!draftBracket) return null;
+    const map = new Map();
+    const add = (m, label) => {
       if (!m) return;
-      if (m.pair1_id) ids.add(m.pair1_id);
-      if (m.pair2_id) ids.add(m.pair2_id);
+      if (m.pair1_id) map.set(m.pair1_id, label);
+      if (m.pair2_id) map.set(m.pair2_id, label);
     };
-    ['octavos', 'cuartos', 'semis'].forEach(k => (draftBracket[k] ?? []).forEach(add));
-    add(draftBracket.final);
-    return ids;
+    ['octavos', 'cuartos', 'semis'].forEach(k =>
+      (draftBracket[k] ?? []).forEach((m, i) => add(m, `${SLOT_LABEL[k]} ${i + 1}`))
+    );
+    add(draftBracket.final, SLOT_LABEL.final);
+    return map;
   }
-  const usedPairIds = editMode ? collectUsedPairIds() : null;
+  const pairLocations = editMode ? collectPairLocations() : null;
 
   // ── Sin bracket ──────────────────────────────────────────────────────────────
   if (!bracket) {
@@ -682,12 +750,14 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
         {!editMode && (
           <div className="flex gap-2">
             <ShareStoryButton onClick={() => setShowStory(true)} />
-            {isOwner && !hasResults && (
+            {isOwner && (
               <button
-                onClick={enterEditMode}
+                onClick={() => hasResults ? setReorgBlocked(true) : enterEditMode()}
                 aria-label="Reorganizar"
                 title="Reorganizar"
-                className="bg-transparent text-muted border border-border-strong px-3 py-2 cursor-pointer rounded-sm inline-flex items-center"
+                className={`bg-transparent border px-3 py-2 cursor-pointer rounded-sm inline-flex items-center ${
+                  hasResults ? "text-border-strong border-border" : "text-muted border-border-strong"
+                }`}
               >
                 <Pencil size={15} />
               </button>
@@ -717,8 +787,20 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
       </div>
 
       {editMode && (
-        <div className="bg-surface-alt border border-brand/30 rounded-md px-3.5 py-2.5 text-[11px] text-brand font-mono mb-4">
-          Modo reorganizar: asigná las parejas a cada cruce. Los cambios se aplican al confirmar.
+        <div className="bg-surface-alt border border-brand/30 rounded-md px-3.5 py-2.5 text-[11px] text-brand font-mono mb-4 leading-relaxed">
+          Modo reorganizar: elegí la pareja que querés en cada lugar. Si ya está jugando en otro
+          cruce, las dos se intercambian solas. Los cambios se aplican al confirmar.
+          <span className="block mt-1 text-soft">
+            Dejá los cruces como los querés antes de arrancar: en cuanto cargues el primer resultado el cuadro queda fijo.
+          </span>
+        </div>
+      )}
+
+      {/* Aviso previo: el cuadro sólo se puede reorganizar mientras no haya resultados. */}
+      {isOwner && !editMode && !hasResults && (
+        <div className="flex items-start gap-2 text-[11px] text-muted font-mono mb-4 leading-relaxed">
+          <Info size={13} className="shrink-0 mt-px" />
+          <span>Podés reorganizar los cruces con el lápiz hasta que cargues el primer resultado.</span>
         </div>
       )}
 
@@ -791,7 +873,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                       draftMatch={getDraftMatch(phase.key, item.data.id)}
                       allPairs={standings}
                       onPairChange={updateDraftPair}
-                      usedPairIds={usedPairIds}
+                      pairLocations={pairLocations}
                       isLive={isMatchLive(item.data, phase.key)}
                       onToggleLive={() => handleToggleLive(item.data.id)}
                     />
@@ -897,7 +979,7 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
                   onCancel={() => setEditMatchId(null)}
                 />
               ) : (
-                <BracketPlayedCard key={m.id} match={m} tournament={tournament} isOwner={isOwner} onEdit={() => handleOpenEdit(m)} matchNum={matchNum} phase={m.phase} />
+                <BracketPlayedCard key={m.id} match={m} tournament={tournament} isOwner={isOwner} onEdit={() => handleOpenEdit(m)} onClear={() => setClearTarget(m)} matchNum={matchNum} phase={m.phase} />
               );
             })}
           </div>
@@ -911,6 +993,44 @@ export default function Bracket({ tournament, isOwner, onGenerateBracket, onUpda
           story={<BracketStory tournament={tournament} />}
         />
       )}
+
+      {reorgBlocked && (
+        <Modal
+          title="El cuadro ya está en juego"
+          confirmText="Entendido"
+          hideCancel
+          onConfirm={() => setReorgBlocked(false)}
+          onCancel={() => setReorgBlocked(false)}
+        >
+          Los cruces no se pueden reorganizar porque ya hay resultados cargados: mover una pareja
+          dejaría partidos jugados que no corresponden a ningún cruce.
+          <span className="block mt-2">
+            Si necesitás cambiarlos, borrá primero los resultados desde la lista de abajo
+            (cada uno tiene "Borrar resultado") y el lápiz vuelve a habilitarse.
+          </span>
+        </Modal>
+      )}
+
+      {clearTarget && (() => {
+        const dependents = countDependentResults(bracket, clearTarget.id);
+        return (
+          <Modal
+            title="¿Borrar el resultado?"
+            confirmText={clearing ? "Borrando..." : "Borrar resultado"}
+            confirmDanger
+            confirmDisabled={clearing}
+            onConfirm={handleClearResult}
+            onCancel={() => !clearing && setClearTarget(null)}
+          >
+            El cruce <strong className="text-white">{clearTarget.pair1_name} vs {clearTarget.pair2_name}</strong> vuelve
+            a quedar sin jugar y podrás cargarlo de nuevo.
+            {dependents > 0 && (
+              <> También se {dependents === 1 ? "deshace" : "deshacen"} <strong className="text-white">{dependents}</strong> {dependents === 1 ? "partido posterior" : "partidos posteriores"} del
+              cuadro, porque dependían de este ganador.</>
+            )}
+          </Modal>
+        );
+      })()}
 
       {confirmDelete && (
         <Modal

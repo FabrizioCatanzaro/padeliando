@@ -223,7 +223,7 @@ export function calcNivel(partidos, pct) {
   return { label: 'Amateur', color: '#888888' };
 }
 
-function patchBracketNames(bracket, pairs, players) {
+export function patchBracketNames(bracket, pairs, players) {
   if (!bracket) return bracket;
   const nameByPair = {};
   for (const pair of pairs) {

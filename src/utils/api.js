@@ -146,6 +146,7 @@ export const api = {
     updateBracket:(id, mId, b) => req('PATCH',  `/tournaments/${id}/bracket/${mId}`, b),
     setBracket:   (id, b)     => req('PATCH',  `/tournaments/${id}/bracket`, { bracket: b }),
     deleteBracket:(id)         => req('DELETE', `/tournaments/${id}/bracket`),
+    clearBracketMatch: (id, mId) => req('DELETE', `/tournaments/${id}/bracket/${mId}`),
   },
   matches: {
     create: (body)   => req('POST',   '/matches',       body),

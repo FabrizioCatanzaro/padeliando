@@ -63,7 +63,7 @@ export default function Main() {
     handleAddPair, handleEditPair, handleDeletePair,
     handleResetScores, handleDeleteTournament,
     getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
-    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleSetBracket, handleDeleteBracket,
+    handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleClearBracketMatch, handleSetBracket, handleDeleteBracket,
     handleUpdateMode, refresh,
   } = useTournament(groupId, tournamentId);
 
@@ -323,6 +323,7 @@ export default function Main() {
             isOwner={canEditMatches}
             onGenerateBracket={handleGenerateBracket}
             onUpdateMatch={handleUpdateBracketMatch}
+            onClearMatch={handleClearBracketMatch}
             onSetBracket={handleSetBracket}
             onDeleteBracket={handleDeleteBracket}
             onSetLiveMatch={handleSetLiveMatch}
