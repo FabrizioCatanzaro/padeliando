@@ -767,7 +767,7 @@ function buildHeadToHead(tournaments) {
   return { byKey, names };
 }
 
-export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false, groupName }) {
+export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false, groupName, title }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [rankMode, setRankMode] = useState('wins'); // 'wins' | 'winrate'
   const [rankScope, setRankScope] = useState(null); // null = segun las jornadas; 'players' | 'pairs'
@@ -970,9 +970,16 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
 
   return (
     <>
-      <div className="flex justify-end mb-4">
-        <ShareStoryButton onClick={() => setShowStory(true)} />
-      </div>
+      {title ? (
+        <div className="flex items-center justify-between gap-3 py-4 border-t border-border mt-10 mb-5">
+          <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">{title}</div>
+          <ShareStoryButton variant="icon" onClick={() => setShowStory(true)} />
+        </div>
+      ) : (
+        <div className="flex justify-end mb-4">
+          <ShareStoryButton onClick={() => setShowStory(true)} />
+        </div>
+      )}
 
       {/* ── BÁSICAS (siempre visibles) ── */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
@@ -1021,7 +1028,10 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
       {/* ── AVANZADAS (solo si el dueño tiene premium) ── */}
       {ownerIsPremium ? (
         <>
-          <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">ESTADÍSTICAS AVANZADAS</div>
+          <div className="flex items-center gap-2 font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border">
+            <Gem size={15} className="text-brand shrink-0" />
+            ESTADÍSTICAS AVANZADAS
+          </div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-6">
             <LeaderCard
               title="Jugador más ganador"

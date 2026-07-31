@@ -561,7 +561,7 @@ export default function ReadonlyView() {
 
         {/* Estado + ganador + dueño */}
         <div className="flex items-center justify-center gap-2.5 flex-wrap">
-          <Badge variant="status" color={statusMeta.color}>
+          <Badge variant="status" color={statusMeta.color} icon={statusMeta.icon} pulse={statusMeta.pulse}>
             {statusMeta.label}
           </Badge>
           {winnerLabel && (
@@ -890,12 +890,15 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
     hasPlayed: countPlayed(tournament) > 0,
     isDraft: isAmericanoDraft({ format: tournament.format, pairCount: tournament.pairs?.length }),
   });
-  const status =
-      dispStatus === 'finished' ? { label: 'FINALIZADO',    cls: 'border-border-mid text-muted bg-surface', dot: null }
-    : dispStatus === 'draft'    ? { label: 'BORRADOR',      cls: 'border-brand/40 text-brand bg-brand/10',   dot: null }
-    : dispStatus === 'upcoming' ? { label: 'PRÓXIMAMENTE',  cls: 'border-cyan/40 text-cyan bg-cyan/10',      dot: null }
-    : hasLive                   ? { label: 'EN VIVO',       cls: 'border-danger/50 text-danger bg-danger/10', dot: 'bg-danger' }
-    :                             { label: 'EN CURSO',      cls: 'border-green/40 text-green bg-green/10',    dot: 'bg-green' };
+  const status = TOURNAMENT_STATUS_META[dispStatus === 'active' && hasLive ? 'live' : dispStatus];
+  const StatusIcon = status.icon;
+  const statusCls = {
+    default: 'border-border-mid text-muted bg-surface',
+    brand:   'border-brand/40 text-brand bg-brand/10',
+    cyan:    'border-cyan/40 text-cyan bg-cyan/10',
+    green:   'border-green/40 text-green bg-green/10',
+    danger:  'border-danger/50 text-danger bg-danger/10',
+  }[status.color];
 
   return (
     <header className="shrink-0 flex items-start gap-3 lg:gap-5 px-4 lg:px-8 py-3 border-b border-border bg-gradient-to-b from-surface/40 to-transparent">
@@ -912,8 +915,10 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
           {tournament.name}
         </h1>
         <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono tracking-wide ${status.cls}`}>
-            {status.dot && <span className={`w-1.5 h-1.5 rounded-full ${status.dot} animate-pulse`} />}
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono tracking-wide ${statusCls}`}>
+            {StatusIcon
+              ? <StatusIcon size={11} className="shrink-0" />
+              : <span className={`w-1.5 h-1.5 rounded-full bg-current shrink-0 ${status.pulse ? 'animate-pulse' : ''}`} />}
             {status.label}
           </span>
           {clubName && (

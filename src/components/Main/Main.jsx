@@ -212,7 +212,7 @@ export default function Main() {
 
         {/* Estado + tipo + ganador */}
         <div className="flex items-center gap-2.5 flex-wrap mb-3">
-          <Badge variant="status" color={statusMeta.color}>
+          <Badge variant="status" color={statusMeta.color} icon={statusMeta.icon} pulse={statusMeta.pulse}>
             {statusMeta.label}
           </Badge>
           <span className="text-dim">·</span>

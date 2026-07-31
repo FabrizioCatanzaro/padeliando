@@ -579,8 +579,7 @@ export default function GroupView() {
           <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
         )}
 
-        {/* Con pocas jornadas la lista entera entra en pantalla y el buscador sólo estorba. */}
-        {group.tournaments?.length > 3 && (
+        {group.tournaments?.length > 0 && (
           <TournamentFilters
             filters={filters}
             onChange={changeFilters}
@@ -639,7 +638,7 @@ export default function GroupView() {
                 <div className="px-4 py-3.5 flex-1 min-w-0">
                   <div className="flex justify-between items-start gap-2 mb-2">
                     <div className="font-condensed font-bold text-lg text-content leading-tight">{t.name}</div>
-                    <Badge variant="status" color={statusMeta.color}>
+                    <Badge variant="status" color={statusMeta.color} icon={statusMeta.icon} pulse={statusMeta.pulse}>
                       {statusMeta.label}
                     </Badge>
                   </div>
@@ -685,10 +684,9 @@ export default function GroupView() {
             </Btn>
           </div>
         )}
-        <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted my-5 py-4 border-t border-border mt-10">ESTADÍSTICAS HISTÓRICAS</div>
-        <WhenVisible>
-          <Suspense fallback={<div style={{ minHeight: 600 }} />}>
-            <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} groupName={group.name} />
+        <WhenVisible minHeight={680}>
+          <Suspense fallback={<div style={{ minHeight: 680 }} />}>
+            <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} groupName={group.name} title="ESTADÍSTICAS HISTÓRICAS" />
           </Suspense>
         </WhenVisible>
       </div>

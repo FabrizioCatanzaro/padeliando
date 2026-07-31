@@ -1,3 +1,5 @@
+import { FileText, CalendarClock, CircleCheckBig } from 'lucide-react';
+
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
 // Cuenta anónima que hereda torneos huérfanos cuando un dueño elimina su cuenta.
@@ -406,11 +408,13 @@ export function tournamentDisplayStatus({ status, hasLiveMatch, hasPlayed, isDra
   return 'upcoming';
 }
 
+// Sin `icon` el badge dibuja un punto del color del estado; `pulse` lo hace latir.
 export const TOURNAMENT_STATUS_META = {
-  draft:    { label: 'BORRADOR',     color: 'brand'   },
-  upcoming: { label: 'PRÓXIMAMENTE', color: 'cyan'    },
-  active:   { label: 'EN CURSO',     color: 'green'   },
-  finished: { label: 'FINALIZADO',   color: 'default' },
+  draft:    { label: 'BORRADOR',     color: 'brand',   icon: FileText      },
+  upcoming: { label: 'PRÓXIMAMENTE', color: 'cyan',    icon: CalendarClock },
+  active:   { label: 'EN CURSO',     color: 'green'    },
+  live:     { label: 'EN VIVO',      color: 'danger',  pulse: true },
+  finished: { label: 'FINALIZADO',   color: 'default', icon: CircleCheckBig },
 };
 
 // Avisos que el organizador resuelve desde la pestaña de gestión. Es la fuente

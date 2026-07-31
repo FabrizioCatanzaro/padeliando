@@ -22,19 +22,20 @@ const COLOR_STATUS = {
   danger:  'text-danger',
 }
 
-const STATUS_DOT = { default: '■', brand: '●', cyan: '●', green: '●', danger: '●' }
-
 export default function Badge({
   variant = 'chip',
   color   = 'default',
   icon: Icon,
+  pulse   = false,
   children,
   className = '',
 }) {
   if (variant === 'status') {
     return (
-      <span className={`inline-flex items-center gap-1 text-sm font-mono ${COLOR_STATUS[color]} ${className}`}>
-        <span>{STATUS_DOT[color]}</span>
+      <span className={`inline-flex items-center gap-1.5 text-sm font-mono ${COLOR_STATUS[color]} ${className}`}>
+        {Icon
+          ? <Icon size={13} className="shrink-0" />
+          : <span className={`w-1.5 h-1.5 rounded-full bg-current shrink-0 ${pulse ? 'animate-pulse' : ''}`} />}
         {children}
       </span>
     )
