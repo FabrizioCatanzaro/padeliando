@@ -232,15 +232,17 @@ export function HighlightCard({ label, main, sub, accent = C.brand, emoji, big, 
 }
 
 // Tarjeta de estadística grande (número + etiqueta).
-export function StatTile({ value, label, accent = C.brand, sub }) {
+// `valueSize` lo baja el call site cuando el valor es texto (un nombre de club,
+// una duración) y al tamaño de un número no entraría en el ancho de la tarjeta.
+export function StatTile({ value, label, accent = C.brand, sub, valueSize }) {
   return (
     <div style={{
       background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20,
       padding: '30px 30px 26px', flex: 1, minWidth: 0, overflow: 'hidden',
     }}>
       <div style={{
-        fontFamily: fonts.display, fontWeight: 800, fontSize: 66, lineHeight: 1,
-        color: accent, whiteSpace: 'nowrap',
+        fontFamily: fonts.display, fontWeight: 800, fontSize: valueSize ?? 66, lineHeight: 1,
+        color: accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {value}
       </div>

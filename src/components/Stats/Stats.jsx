@@ -13,6 +13,7 @@ import ShareStoryButton from "../Snapshot/ShareStoryButton";
 import SnapshotModal from "../Snapshot/SnapshotModal";
 import StatsStory from "../Snapshot/StatsStory";
 import CategoryStory from "../Snapshot/CategoryStory";
+import RankingStory, { RANKING_STORY_LIMIT } from "../Snapshot/RankingStory";
 import { TournamentMeta, ClubBadge } from "../Snapshot/StoryFrame";
 import { C } from "../Snapshot/story-theme";
 import groupStatsPreview from "../../assets/group-advanced-stats-preview.svg";
@@ -67,6 +68,11 @@ function fmtDuracion(segundos) {
   const min = Math.round(segundos / 60);
   if (min < 60) return `${min} m`;
   return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} m`;
+}
+
+function fmtHorasCorto(segundos) {
+  const horas = segundos / 3600;
+  return horas >= 1 ? `${Math.round(horas)} h` : `${Math.round(segundos / 60)} m`;
 }
 
 function fmtMMSS(segundos) {
@@ -768,6 +774,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const [h2hKey,   setH2hKey]   = useState(null);
   const [showAllAttendance, setShowAllAttendance] = useState(false);
   const [showStory, setShowStory] = useState(false);
+  const [showRankStory, setShowRankStory] = useState(false);
   const navigate = useNavigate();
 
   // ── Standings individuales + movimiento de ranking ──────────────────────
@@ -929,12 +936,36 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const storyRankedRows = showPairTable
     ? sortRows(pairRows, 'wins')
     : buildIndividualRows(sortedByDate, 'wins');
-  const storyRanking = storyRankedRows.slice(0, 10).map((r) => ({
+  // Top 5: con la lista completa el snapshot se estiraba y las filas quedaban ilegibles.
+  const storyRanking = storyRankedRows.slice(0, 5).map((r) => ({
     key: r.id ?? r.name,
     name: showPairTable ? r.label : r.name,
     pj: r.pj,
     pg: r.pg,
     pct: r.pj > 0 ? Math.round((r.pg / r.pj) * 100) : 0,
+  }));
+  const storyGames = allHistMatches.reduce((acc, m) => acc + (+m.score1 || 0) + (+m.score2 || 0), 0);
+  // En el snapshot el total va compacto ("104 h"): a tamaño de tarjeta, un
+  // "104 h 32 m" no entra en el ancho y quedaba cortado con elipsis.
+  const storyPlayTime = histTimed.length > 0
+    ? {
+        total: fmtHorasCorto(histSeconds),
+        // Sólo el subconjunto cronometrado: el detalle dice sobre cuántos mide.
+        detail: histTimed.length === totalMatches
+          ? `${fmtDuracion(histSeconds / histTimed.length)} / partido`
+          : `${fmtDuracion(histSeconds / histTimed.length)} · ${histTimed.length} partidos`,
+      }
+    : null;
+  const storyClub = clubRows[0] ? { name: clubRows[0].name, jornadas: clubRows[0].jornadas } : null;
+
+  // ── Historia del ranking: refleja los dos selectores de la tabla ───────────
+  const rankStoryAll = showPairTable ? pairRows : rankedRows;
+  const rankStoryRows = rankStoryAll.slice(0, RANKING_STORY_LIMIT).map((r) => ({
+    key: r.id ?? r.name,
+    name: showPairTable ? r.label : r.name,
+    pj: r.pj,
+    pg: r.pg,
+    pct: r.pct ?? (r.pj > 0 ? Math.round((r.pg / r.pj) * 100) : 0),
   }));
 
   return (
@@ -1030,7 +1061,10 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
 
           <div className="mb-6">
             <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-              <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">RANKING HISTÓRICO</div>
+              <div className="flex items-center gap-3">
+                <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted">RANKING HISTÓRICO</div>
+                {rankStoryRows.length > 0 && <ShareStoryButton onClick={() => setShowRankStory(true)} />}
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {canShowPairs && (
                   <Toggle
@@ -1245,6 +1279,26 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
 
+      {showRankStory && (
+        <SnapshotModal
+          filename={`ranking${groupName ? "-" + groupName : ""}.png`}
+          onClose={() => setShowRankStory(false)}
+          story={
+            <RankingStory
+              groupName={groupName}
+              rows={rankStoryRows}
+              mode={rankMode}
+              scope={showPairTable ? 'pairs' : 'players'}
+              tournamentsCount={tournaments.length}
+              hiddenCount={rankStoryAll.length - rankStoryRows.length}
+              note={showPairTable && !allPairMode
+                ? `Sólo jornadas de parejas fijas (${tournaments.filter((t) => t.mode === 'pairs').length} de ${tournaments.length})`
+                : null}
+            />
+          }
+        />
+      )}
+
       {showStory && (
         <SnapshotModal
           filename={`stats-categoria${groupName ? "-" + groupName : ""}.png`}
@@ -1259,8 +1313,12 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
               bestPlayer={topPlayerWins ? { name: topPlayerWins.label, wins: topPlayerWins.pg } : null}
               bestPair={canShowPairs && topPairWins ? { label: topPairWins.label, record: `${topPairWins.pg}/${topPairWins.pj}`, tied: topPairWins.tied } : null}
               ranking={storyRanking}
-              rankingTitle={showPairTable ? "RANKING DE PAREJAS · GANADOS" : "RANKING HISTÓRICO · GANADOS"}
-              champions={champRows.slice(0, 5)}
+              rankingTitle={showPairTable ? "TOP 5 PAREJAS · GANADOS" : "TOP 5 HISTÓRICO · GANADOS"}
+              champions={champRows.slice(0, 3)}
+              playersCount={playerBase.length}
+              totalGames={storyGames}
+              playTime={storyPlayTime}
+              topClub={storyClub}
             />
           }
         />
