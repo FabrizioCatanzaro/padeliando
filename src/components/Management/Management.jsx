@@ -32,7 +32,7 @@ function ClubEventEditor({ tournament, onSave }) {
   }
 
   return (
-    <div className="bg-surface border border-border-mid rounded-lg p-4 mt-6">
+    <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
       <div className="font-condensed font-bold text-[11px] tracking-[2px] text-muted mb-3">CLUB Y FECHA</div>
       <div className="flex flex-col gap-3">
         <div>
@@ -76,6 +76,8 @@ export default function Management({
         <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">GESTIÓN DEL TORNEO</div>
       </div>
 
+      {isOwner && <ClubEventEditor tournament={tournament} onSave={onUpdateClubEvent} />}
+
       <PlayerManager
         tournament={tournament}
         isOwner={isOwner}
@@ -116,8 +118,6 @@ export default function Management({
           )}
         </div>
       )}
-
-      {isOwner && <ClubEventEditor tournament={tournament} onSave={onUpdateClubEvent} />}
 
       {tournament.mode === "pairs" && (
         <PairManager
