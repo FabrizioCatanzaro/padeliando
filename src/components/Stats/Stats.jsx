@@ -847,6 +847,8 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
     const infoById = {};
     tournaments.forEach((t) => t.players.forEach((p) => { infoById[p.id] = { key: playerKey(p), name: p.name }; }));
     tournaments.filter((t) => t.mode === "pairs").forEach((t) => {
+      // Una pareja suma la jornada una sola vez, jugue los partidos que juegue.
+      const seen = new Set();
       getAllMatches(t).forEach((m) => {
         const s1 = +m.score1, s2 = +m.score2;
         // Igual que calcStandings: un marcador igualado no es un partido válido.
@@ -855,7 +857,8 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
           const keys  = team.map((id) => infoById[id]?.key ?? `?${id}`);
           const key   = [...keys].sort().join("|");
           const label = team.map((id) => infoById[id]?.name ?? "?").join(" & ");
-          if (!pairMap[key]) pairMap[key] = { id: key, label, pj: 0, pg: 0, pp: 0, sf: 0, sc: 0 };
+          if (!pairMap[key]) pairMap[key] = { id: key, label, pj: 0, pg: 0, pp: 0, sf: 0, sc: 0, torneos: 0 };
+          if (!seen.has(key)) { seen.add(key); pairMap[key].torneos++; }
           pairMap[key].pj++;
           pairMap[key].sf += sf;
           pairMap[key].sc += sc;
