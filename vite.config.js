@@ -1,9 +1,16 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+// La versión sale del package.json, que es lo que se bumpea en cada commit.
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),
+  },
   build: {
     // Por defecto Vite inlinea como base64 todo asset de menos de 4 KB. Los
     // avatares del modal premium entran en ese umbral y engordaban el chunk

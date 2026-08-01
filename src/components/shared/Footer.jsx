@@ -22,6 +22,7 @@ export default function Footer() {
           <span className="text-xs text-muted font-mono">
             {new Date().getFullYear()} © Desarrollado por Fabrizio Catanzaro
           </span>
+          <span className="text-[11px] text-dim font-mono">v{import.meta.env.VITE_APP_VERSION}</span>
         </div>
       </div>
 
