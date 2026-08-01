@@ -275,6 +275,9 @@ File uploads use `reqMultipart()` (no `Content-Type` header; browser sets multip
 - `update(id, data)` — PUT /groups/:id
 - `delete(id)` — DELETE /groups/:id
 - `byUsername(username)` — GET /groups/user/:username (public profile + stats)
+- `following()` — GET /groups/following (categories the user follows)
+- `follow(id)` / `unfollow(id)` — POST/DELETE /groups/:id/follow (public categories only)
+- `followers(id)` — GET /groups/:id/followers
 
 **players**
 - `search(query, groupId, mine)` — GET /players
@@ -541,6 +544,13 @@ padeliando-api/
 | added_by | TEXT FK → users | nullable; who added them |
 | added_at | TIMESTAMPTZ | |
 
+### `group_follows`
+| Column | Type | Notes |
+|--------|------|-------|
+| user_id | TEXT FK → users | composite PK; follower |
+| group_id | TEXT FK → groups | composite PK; public categories only |
+| created_at | TIMESTAMPTZ | |
+
 ### `collaborator_invitations`
 | Column | Type | Notes |
 |--------|------|-------|
@@ -581,6 +591,7 @@ padeliando-api/
 | `migration_groups_location.sql` | `location_name`, `place_id`, `lat`, `lon` on `groups` |
 | `migration_user_social_links.sql` | `social_links` JSONB on `users` |
 | `migration_collaborators.sql` | `group_collaborators`, `collaborator_invitations`, `ownership_transfers` tables; extends `notifications.type` CHECK with `collab_invite`/`ownership_transfer` |
+| `migration_group_follows.sql` | `group_follows` table; extends `notifications.type` CHECK with `new_tournament` |
 
 ---
 

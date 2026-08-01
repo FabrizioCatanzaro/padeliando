@@ -52,6 +52,7 @@ export default function HomeView() {
   const [groups,       setGroups]       = useState([]);
   const [partGroups,   setPartGroups]   = useState([]);
   const [coorgGroups,  setCoorgGroups]  = useState([]);
+  const [followedGroups, setFollowedGroups] = useState([]);
   // Sólo hay algo que esperar si hay sesión: un visitante no dispara ninguna
   // petición para pintar la portada. Arrancando en true, el primer render
   // devolvía el esqueleto de la vista con sesión y al apagarse se insertaba el
@@ -104,8 +105,10 @@ export default function HomeView() {
 
   useEffect(() => {
     if (!isLoggedIn) { setLoading(false); return; }
-    Promise.all([api.groups.list(), api.groups.participating(), api.groups.collaborating()])
-      .then(([owned, part, coorg]) => { setGroups(owned); setPartGroups(part); setCoorgGroups(coorg); })
+    Promise.all([api.groups.list(), api.groups.participating(), api.groups.collaborating(), api.groups.following()])
+      .then(([owned, part, coorg, followed]) => {
+        setGroups(owned); setPartGroups(part); setCoorgGroups(coorg); setFollowedGroups(followed);
+      })
       .catch(() => { navigate('/login'); })
       .finally(() => setLoading(false));
   }, []);
@@ -769,12 +772,27 @@ export default function HomeView() {
                   <h2 className="font-condensed font-bold text-sm tracking-widest text-muted">PARTICIPANDO EN</h2>
                   <span className="font-mono text-xs text-secondary border border-dim px-2 py-0.5 rounded-full">{partGroups.length}</span>
                 </div>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-10">
                   {partGroups.map((g, i) => (
                     <GroupCard key={g.id} g={g} delay={i * 60} badge="jugador" onClick={() => navigate(`/cat/${g.id}`)} />
                   ))}
                 </div>
 
+              </>
+            )}
+
+            {/* Categorías que sigo */}
+            {followedGroups.length > 0 && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="font-condensed font-bold text-sm tracking-widest text-muted">SIGUIENDO</h2>
+                  <span className="font-mono text-xs text-secondary border border-dim px-2 py-0.5 rounded-full">{followedGroups.length}</span>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+                  {followedGroups.map((g, i) => (
+                    <GroupCard key={g.id} g={g} delay={i * 60} badge="siguiendo" onClick={() => navigate(`/cat/${g.id}`)} />
+                  ))}
+                </div>
               </>
             )}
           </>

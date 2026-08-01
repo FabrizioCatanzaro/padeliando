@@ -109,6 +109,10 @@ export const api = {
     update:        (id, b)    => req('PUT',    `/groups/${id}`, b),
     delete:        (id)       => req('DELETE', `/groups/${id}`),
     byUsername:    (username) => req('GET',    `/groups/user/${username}`),
+    following:     ()         => req('GET',    '/groups/following'),
+    follow:        (id)       => req('POST',   `/groups/${id}/follow`),
+    unfollow:      (id)       => req('DELETE', `/groups/${id}/follow`),
+    followers:     (id)       => req('GET',    `/groups/${id}/followers`),
   },
   clubs: {
     list:        (q = '')      => req('GET',    `/clubs?q=${encodeURIComponent(q)}`),
