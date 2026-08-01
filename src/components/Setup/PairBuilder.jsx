@@ -41,7 +41,7 @@ export default function PairBuilder({ players, pairs, onChange }) {
           return (
             <div key={pair.id} className="flex gap-2 items-center">
               <select
-                className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+                className="flex-1 min-w-0 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                 value={pair.p1Name}
                 onChange={(e) => updatePair(pair.id, "p1Name", e.target.value)}
               >
@@ -56,7 +56,7 @@ export default function PairBuilder({ players, pairs, onChange }) {
               <span className="text-muted font-condensed font-bold">&amp;</span>
 
               <select
-                className="flex-1 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
+                className="flex-1 min-w-0 bg-base border border-border-mid text-content px-3 py-2.25 font-sans text-[13px] rounded-sm outline-none"
                 value={pair.p2Name}
                 onChange={(e) => updatePair(pair.id, "p2Name", e.target.value)}
               >
