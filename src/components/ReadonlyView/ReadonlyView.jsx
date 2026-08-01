@@ -17,6 +17,8 @@ import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
 import { AuthContext } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useTournamentAlerts } from '../../hooks/useTournamentAlerts';
+import LiveAlert from './LiveAlert';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin, Hourglass, Timer } from "lucide-react";
 import courtSvg from "../../assets/padel-court.svg";
 import appLogo from "../../assets/padeleando.svg";
@@ -235,18 +237,24 @@ export default function ReadonlyView() {
   const [soundOn, setSoundOn]   = useState(false);
   const [club, setClub]         = useState(null);
   const audioRef  = useRef(null);
-  const soundSigRef = useRef(null);
+
+  // Novedades del torneo entre refrescos (el sonido se engancha más abajo, en
+  // handleAlerts, que necesita playTone).
+  const alertsApi = useTournamentAlerts(user?.username, { onAlert: (list) => handleAlerts(list) });
+  const trackAlerts = alertsApi.track;
 
   // Sólo el torneo: es lo único que cambia entre ciclos de refresco.
   const load = useCallback(async () => {
     try {
       const t = await api.readonly.get(id);
-      setTournament(adaptTournament(t));
+      const adapted = adaptTournament(t);
+      setTournament(adapted);
+      trackAlerts(adapted);
       setRefreshTick((x) => x + 1);
     } catch {
       setError(true);
     }
-  }, [id]);
+  }, [id, trackAlerts]);
 
   const REFRESH_MS = 30_000;
   useEffect(() => {
@@ -313,23 +321,18 @@ export default function ReadonlyView() {
     });
   }
 
-  // Detecta cambios entre refrescos y dispara sonidos: resultado nuevo (dos notas)
-  // o partido que entra/cambia en vivo (una nota). No suena en la primera carga.
-  useEffect(() => {
-    if (!tournament) return;
-    const live = Array.isArray(tournament.live_match) ? tournament.live_match : [];
-    const liveKeys = live
-      .filter((m) => m.startedAt != null)
-      .map((m) => `${m.team1Label}|${m.team2Label}|${m.court}|${m.phase}`)
-      .sort();
-    const finished = countPlayed(tournament);
-    const prev = soundSigRef.current;
-    soundSigRef.current = { liveKeys, finished };
-    if (!prev || !soundOn) return;
-    if (finished > prev.finished) playTone([660, 990]);            // resultado nuevo
-    else if (liveKeys.some((k) => !prev.liveKeys.includes(k))) playTone([990]); // nuevo en vivo
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournament, soundOn]);
+  // Las novedades entre refrescos las detecta useTournamentAlerts, que también
+  // sabe cuáles involucran a quien mira. Acá sólo se les pone sonido.
+  function handleAlerts(list) {
+    if (!soundOn) return;
+    const kinds = list.map((a) => a.kind);
+    if (kinds.includes('champion'))                                  playTone([660, 880, 1320], 0.18);
+    else if (kinds.some((k) => k === 'your_match' || k === 'bracket_spot')) playTone([880, 1320]);
+    else if (kinds.includes('result'))                               playTone([660, 990]);
+    else                                                             playTone([990]);
+  }
+
+  const { alerts, dismiss: dismissAlert } = alertsApi;
 
   // Secuencia de pantallas del modo TV (depende del formato y de si hay cuadro)
   const hasBracketTv = tournament?.format === 'americano' && !!tournament?.bracket;
@@ -705,6 +708,8 @@ export default function ReadonlyView() {
           joinBanner={joinBanner}
         />
       )}
+
+      <LiveAlert alerts={alerts} onDismiss={dismissAlert} />
 
       {shareOpen && (
         <ShareModal

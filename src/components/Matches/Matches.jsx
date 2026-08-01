@@ -45,6 +45,8 @@ export default function Matches({ tournament, isOwner, categoryName, onAddMatch,
 
   // Sincronizar live_match: incluye partidos "cargados" (equipos elegidos) aunque
   // el cronómetro no haya arrancado — el espectador separa EN VIVO / PRÓXIMOS.
+  // Los ids viajan junto a los labels: el aviso de "te toca jugar" no puede
+  // deducirse parseando nombres (se repiten y llevan "&").
   function resolveTeamLabels(form) {
     const { mode, players, pairs } = tournament;
     const court = form.court ?? null;
@@ -52,11 +54,19 @@ export default function Matches({ tournament, isOwner, categoryName, onAddMatch,
       return {
         team1Label: getPairLabel(form.team1Pair, pairs, players),
         team2Label: getPairLabel(form.team2Pair, pairs, players),
+        team1Ids: expandPair(form.team1Pair, pairs),
+        team2Ids: expandPair(form.team2Pair, pairs),
         court,
       };
     }
     const res = (ids) => ids.map((id) => players.find((p) => p.id === id)?.name ?? "?").join(" & ");
-    return { team1Label: res(form.team1), team2Label: res(form.team2), court };
+    return {
+      team1Label: res(form.team1),
+      team2Label: res(form.team2),
+      team1Ids: form.team1.filter(Boolean),
+      team2Ids: form.team2.filter(Boolean),
+      court,
+    };
   }
   function teamsComplete(form) {
     if (isPairs) return !!(form.team1Pair && form.team2Pair);
