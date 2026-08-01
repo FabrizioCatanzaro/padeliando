@@ -8,7 +8,7 @@ import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, UserCheck, ArrowLeftRight, Link2, LogOut, Copy, Unlink } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, Star, ArrowLeftRight, Link2, LogOut, Copy, Unlink } from 'lucide-react';
 import Btn from '../shared/Btn';
 import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
@@ -37,10 +37,7 @@ export default function GroupView() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [allTournaments, setAllTournaments] = useState([]);
   const [showShareModal,   setShowShareModal]   = useState(false);
-  const [followBusy,       setFollowBusy]       = useState(false);
-  const [showFollowersModal, setShowFollowersModal] = useState(false);
-  const [followers,        setFollowers]        = useState([]);
-  const [followersLoading, setFollowersLoading] = useState(false);
+  const [favBusy,          setFavBusy]          = useState(false);
   const [visibleCount,     setVisibleCount]     = useState(5);
   const [filters,          setFilters]          = useState(EMPTY_FILTERS);
   const [filtersOpen,      setFiltersOpen]      = useState(false);
@@ -90,39 +87,30 @@ export default function GroupView() {
     return api.groups.get(groupId).then(setGroup);
   }
 
-  async function toggleFollow() {
-    if (followBusy || !group) return;
-    const wasFollowing = !!group.is_following;
-    setFollowBusy(true);
-    // Optimista: el contador y el botón responden sin esperar el round-trip.
+  async function toggleFavorite() {
+    if (favBusy || !group) return;
+    const wasFavorite = !!group.is_favorite;
+    setFavBusy(true);
+    // Optimista: la estrella y el contador responden sin esperar el round-trip.
     setGroup(prev => ({
       ...prev,
-      is_following: !wasFollowing,
-      followers_count: Math.max(0, (prev.followers_count ?? 0) + (wasFollowing ? -1 : 1)),
+      is_favorite: !wasFavorite,
+      favorites_count: Math.max(0, (prev.favorites_count ?? 0) + (wasFavorite ? -1 : 1)),
     }));
     try {
-      if (wasFollowing) await api.groups.unfollow(groupId);
-      else              await api.groups.follow(groupId);
-      showToast(wasFollowing ? 'Dejaste de seguir la categoría.' : 'Ahora seguís esta categoría.');
+      if (wasFavorite) await api.groups.unfavorite(groupId);
+      else             await api.groups.favorite(groupId);
+      showToast(wasFavorite ? 'Sacaste la categoría de favoritas.' : 'Categoría agregada a favoritas.');
     } catch (e) {
       setGroup(prev => ({
         ...prev,
-        is_following: wasFollowing,
-        followers_count: Math.max(0, (prev.followers_count ?? 0) + (wasFollowing ? 1 : -1)),
+        is_favorite: wasFavorite,
+        favorites_count: Math.max(0, (prev.favorites_count ?? 0) + (wasFavorite ? 1 : -1)),
       }));
       showToast(e.message, 'error');
     } finally {
-      setFollowBusy(false);
+      setFavBusy(false);
     }
-  }
-
-  function openFollowers() {
-    setShowFollowersModal(true);
-    setFollowersLoading(true);
-    api.groups.followers(groupId)
-      .then(setFollowers)
-      .catch((e) => showToast(e.message, 'error'))
-      .finally(() => setFollowersLoading(false));
   }
 
   async function respondInvitation(action) {
@@ -376,6 +364,34 @@ export default function GroupView() {
     navigate('/');
   }
 
+  // Estrella + cantidad de favoritos. Sólo se puede marcar desde afuera: el dueño
+  // y los co-organizadores ven el número, pero no la marcan.
+  const canFavorite = !!user && !isOwner && !isCollaborator && group.is_public;
+  const favCount    = group.favorites_count ?? 0;
+  const favoriteControl = !group.is_public ? null : canFavorite ? (
+    <button
+      onClick={toggleFavorite}
+      disabled={favBusy}
+      title={group.is_favorite ? 'Sacar de favoritas' : 'Agregar a favoritas'}
+      className={`flex items-center gap-1.5 border rounded-sm px-2.5 py-1.5 text-xs font-mono transition-colors ${favBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
+        group.is_favorite
+          ? 'text-brand border-brand/40 hover:bg-brand/10'
+          : 'text-content border-border-strong hover:bg-border-mid hover:text-white'
+      }`}
+    >
+      <Star size={14} className="shrink-0" fill={group.is_favorite ? 'currentColor' : 'none'} />
+      {favCount > 0 && favCount}
+    </button>
+  ) : favCount > 0 ? (
+    <span
+      title={`${favCount} ${favCount === 1 ? 'persona la tiene' : 'personas la tienen'} en favoritas`}
+      className="flex items-center gap-1.5 border border-border-strong rounded-sm px-2.5 py-1.5 text-xs font-mono text-content"
+    >
+      <Star size={14} className="shrink-0 text-brand" fill="currentColor" />
+      {favCount}
+    </span>
+  ) : null;
+
   return (
     <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex flex-col gap-3 border-b border-border">
@@ -384,6 +400,7 @@ export default function GroupView() {
 
           {isOwner && !editingGroup && (
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              {favoriteControl}
               {group.is_public && (
                 <Btn size="sm" icon={Share2} onClick={() => setShowShareModal(true)} title="Compartir" />
               )}
@@ -398,18 +415,7 @@ export default function GroupView() {
 
           {!isOwner && (
             <div className="flex items-center gap-2">
-              {user && !isCollaborator && group.is_public && (
-                <Btn
-                  size="sm"
-                  variant={group.is_following ? 'secondary' : 'primary'}
-                  icon={group.is_following ? UserCheck : UserPlus}
-                  loading={followBusy}
-                  onClick={toggleFollow}
-                  title={group.is_following ? 'Dejar de seguir' : 'Seguir categoría'}
-                >
-                  {group.is_following ? 'SIGUIENDO' : 'SEGUIR'}
-                </Btn>
-              )}
+              {favoriteControl}
               <Btn size="sm" icon={Share2} onClick={() => setShowShareModal(true)} />
               {isDeletedAccount(group.owner_username) ? (
                 <span className="flex gap-2 items-center border border-border-strong rounded-full pl-1 pr-3 py-1">
@@ -531,8 +537,8 @@ export default function GroupView() {
           )}
         </div>
 
-        {/* Privacidad (solo dueño), club y seguidores — justo encima de la línea divisoria */}
-        {!editingGroup && (isOwner || group.club_id || (group.is_public && group.followers_count > 0)) && (
+        {/* Privacidad (solo dueño) y club — justo encima de la línea divisoria */}
+        {!editingGroup && (isOwner || group.club_id) && (
           <div className="flex flex-wrap items-center gap-2">
             {isOwner && (
               <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border ${group.is_public ? 'text-cyan border-cyan/40' : 'text-yellow-400 border-yellow-400/40'}`}>
@@ -550,15 +556,6 @@ export default function GroupView() {
                 <Building2 size={12} className="shrink-0" />
                 <span className="truncate">{group.pending_club_name} · pendiente</span>
               </span>
-            )}
-            {group.is_public && group.followers_count > 0 && (
-              <button
-                onClick={openFollowers}
-                className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border text-content border-border-strong hover:bg-border-mid hover:text-white cursor-pointer transition-colors"
-              >
-                <UserCheck size={12} className="shrink-0" />
-                {group.followers_count} {group.followers_count === 1 ? 'seguidor' : 'seguidores'}
-              </button>
             )}
           </div>
         )}
@@ -960,46 +957,6 @@ export default function GroupView() {
           url={`${window.location.origin}/cat/${groupId}`}
           onClose={() => setShowShareModal(false)}
         />
-      )}
-
-      {showFollowersModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.7)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowFollowersModal(false); }}>
-          <div className="bg-surface border border-border-mid rounded-t-2xl sm:rounded-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div className="font-condensed font-bold text-lg text-white tracking-wide">Seguidores</div>
-              <button type="button" onClick={() => setShowFollowersModal(false)}
-                className="bg-transparent border-none text-[#555] hover:text-white cursor-pointer transition-colors">
-                <X size={18} />
-              </button>
-            </div>
-
-            {followersLoading ? (
-              <div className="flex flex-col gap-2">
-                {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : followers.length === 0 ? (
-              <p className="text-secondary text-[13px] font-sans">Todavía no la sigue nadie.</p>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {followers.map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => navigate(`/u/${f.username}`)}
-                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-border-mid cursor-pointer transition-colors text-left"
-                  >
-                    <PlayerAvatar name={f.name ?? f.username} src={f.avatar_url} size={32} premium={!!f.is_premium} />
-                    <span className="min-w-0">
-                      <span className="block text-[13px] text-white font-sans truncate">{f.name}</span>
-                      <span className="block text-[11px] text-muted font-mono truncate">@{f.username}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
       )}
 
       {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}

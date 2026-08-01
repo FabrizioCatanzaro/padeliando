@@ -52,7 +52,7 @@ export default function HomeView() {
   const [groups,       setGroups]       = useState([]);
   const [partGroups,   setPartGroups]   = useState([]);
   const [coorgGroups,  setCoorgGroups]  = useState([]);
-  const [followedGroups, setFollowedGroups] = useState([]);
+  const [favGroups,    setFavGroups]    = useState([]);
   // Sólo hay algo que esperar si hay sesión: un visitante no dispara ninguna
   // petición para pintar la portada. Arrancando en true, el primer render
   // devolvía el esqueleto de la vista con sesión y al apagarse se insertaba el
@@ -105,9 +105,9 @@ export default function HomeView() {
 
   useEffect(() => {
     if (!isLoggedIn) { setLoading(false); return; }
-    Promise.all([api.groups.list(), api.groups.participating(), api.groups.collaborating(), api.groups.following()])
-      .then(([owned, part, coorg, followed]) => {
-        setGroups(owned); setPartGroups(part); setCoorgGroups(coorg); setFollowedGroups(followed);
+    Promise.all([api.groups.list(), api.groups.participating(), api.groups.collaborating(), api.groups.favorites()])
+      .then(([owned, part, coorg, favs]) => {
+        setGroups(owned); setPartGroups(part); setCoorgGroups(coorg); setFavGroups(favs);
       })
       .catch(() => { navigate('/login'); })
       .finally(() => setLoading(false));
@@ -781,16 +781,16 @@ export default function HomeView() {
               </>
             )}
 
-            {/* Categorías que sigo */}
-            {followedGroups.length > 0 && (
+            {/* Categorías favoritas */}
+            {favGroups.length > 0 && (
               <>
                 <div className="flex items-center gap-3 mb-4">
-                  <h2 className="font-condensed font-bold text-sm tracking-widest text-muted">SIGUIENDO</h2>
-                  <span className="font-mono text-xs text-secondary border border-dim px-2 py-0.5 rounded-full">{followedGroups.length}</span>
+                  <h2 className="font-condensed font-bold text-sm tracking-widest text-muted">FAVORITAS</h2>
+                  <span className="font-mono text-xs text-secondary border border-dim px-2 py-0.5 rounded-full">{favGroups.length}</span>
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
-                  {followedGroups.map((g, i) => (
-                    <GroupCard key={g.id} g={g} delay={i * 60} badge="siguiendo" onClick={() => navigate(`/cat/${g.id}`)} />
+                  {favGroups.map((g, i) => (
+                    <GroupCard key={g.id} g={g} delay={i * 60} badge="favorita" onClick={() => navigate(`/cat/${g.id}`)} />
                   ))}
                 </div>
               </>
