@@ -18,7 +18,8 @@ import { adaptTournament } from '../../utils/helpers';
 import { AuthContext } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useTournamentAlerts } from '../../hooks/useTournamentAlerts';
-import LiveAlert from './LiveAlert';
+import { useAlerts } from '../../context/useAlerts';
+import { playTone, TONES } from '../../utils/sound';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin, Hourglass, Timer } from "lucide-react";
 import courtSvg from "../../assets/padel-court.svg";
 import appLogo from "../../assets/padeleando.svg";
@@ -236,12 +237,13 @@ export default function ReadonlyView() {
   const [tvStep, setTvStep]     = useState(0);
   const [soundOn, setSoundOn]   = useState(false);
   const [club, setClub]         = useState(null);
-  const audioRef  = useRef(null);
 
-  // Novedades del torneo entre refrescos (el sonido se engancha más abajo, en
-  // handleAlerts, que necesita playTone).
-  const alertsApi = useTournamentAlerts(user?.username, { onAlert: (list) => handleAlerts(list) });
-  const trackAlerts = alertsApi.track;
+  // Novedades del torneo entre refrescos. La pila de avisos es global (la
+  // comparte con la campana), acá sólo se empujan y se les pone sonido.
+  const { pushAlert } = useAlerts();
+  const trackAlerts = useTournamentAlerts(user?.username, {
+    onAlert: (list) => { list.forEach(pushAlert); handleAlerts(list); },
+  });
 
   // Sólo el torneo: es lo único que cambia entre ciclos de refresco.
   const load = useCallback(async () => {
@@ -287,36 +289,10 @@ export default function ReadonlyView() {
     api.clubs.get(cid).then(setClub).catch(() => setClub(null));
   }, [tournament?.club_id]);
 
-  // ── Sonido (Web Audio, sin assets) ─────────────────────────────────────────
-  function ensureAudio() {
-    if (!audioRef.current) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) audioRef.current = new AC();
-    }
-    if (audioRef.current?.state === 'suspended') audioRef.current.resume();
-    return audioRef.current;
-  }
-  function playTone(freqs, step = 0.16) {
-    const ac = ensureAudio();
-    if (!ac) return;
-    const t0 = ac.currentTime;
-    freqs.forEach((f, i) => {
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = 'sine';
-      o.frequency.value = f;
-      const start = t0 + i * step;
-      g.gain.setValueAtTime(0.0001, start);
-      g.gain.exponentialRampToValueAtTime(0.16, start + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, start + step);
-      o.connect(g); g.connect(ac.destination);
-      o.start(start); o.stop(start + step + 0.02);
-    });
-  }
   function toggleSound() {
     setSoundOn((v) => {
       const next = !v;
-      if (next) playTone([880]); // blip de confirmación (gesto del usuario habilita el audio)
+      if (next) playTone(TONES.confirm); // el gesto del usuario habilita el audio
       return next;
     });
   }
@@ -326,13 +302,11 @@ export default function ReadonlyView() {
   function handleAlerts(list) {
     if (!soundOn) return;
     const kinds = list.map((a) => a.kind);
-    if (kinds.includes('champion'))                                  playTone([660, 880, 1320], 0.18);
-    else if (kinds.some((k) => k === 'your_match' || k === 'bracket_spot')) playTone([880, 1320]);
-    else if (kinds.includes('result'))                               playTone([660, 990]);
-    else                                                             playTone([990]);
+    if (kinds.includes('champion'))                                        playTone(TONES.champion, 0.18);
+    else if (kinds.some((k) => k === 'your_match' || k === 'bracket_spot')) playTone(TONES.personal);
+    else if (kinds.includes('result'))                                     playTone(TONES.result);
+    else                                                                   playTone(TONES.live);
   }
-
-  const { alerts, dismiss: dismissAlert } = alertsApi;
 
   // Secuencia de pantallas del modo TV (depende del formato y de si hay cuadro)
   const hasBracketTv = tournament?.format === 'americano' && !!tournament?.bracket;
@@ -708,8 +682,6 @@ export default function ReadonlyView() {
           joinBanner={joinBanner}
         />
       )}
-
-      <LiveAlert alerts={alerts} onDismiss={dismissAlert} />
 
       {shareOpen && (
         <ShareModal

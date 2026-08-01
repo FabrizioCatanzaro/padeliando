@@ -332,6 +332,11 @@ File uploads use `reqMultipart()` (no `Content-Type` header; browser sets multip
 - `respond(id, action)` — PATCH /invitations/:id
 - `cancel(id)` — DELETE /invitations/:id
 
+**notifications**
+- `list(limit, offset)` — GET /notifications
+- `count()` — GET /notifications/count → `{ count, latest }`; `latest` es la última no leída (para el aviso flotante), `null` si no hay
+- `markAllRead()` / `markRead(id)` — PATCH /notifications/read-all · /notifications/:id/read
+
 **photos**
 - `list(tournamentId)` — GET /tournaments/:id/photos
 - `upload(tournamentId, file, caption)` — POST /tournaments/:id/photos (multipart, premium only)

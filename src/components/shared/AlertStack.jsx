@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { Play, Trophy, Flag, ListTree, X, Bell } from 'lucide-react';
 
-// Aviso flotante de novedades del torneo. Va aparte de la campana del header:
-// es efímero, no queda registrado en ningún lado.
+// Avisos flotantes y efímeros: novedades del torneo y notificaciones que llegan
+// mientras usás la app. Las de la campana además quedan registradas ahí; éstas
+// no dejan rastro.
 
 const META = {
   your_match:   { icon: Play,     accent: 'brand',  personal: true },
@@ -11,6 +12,7 @@ const META = {
   live_started: { icon: Play,     accent: 'cyan',   personal: false },
   result:       { icon: Flag,     accent: 'cyan',   personal: false },
   bracket:      { icon: ListTree, accent: 'cyan',   personal: false },
+  notification: { icon: Bell,     accent: 'brand',  personal: true },
 };
 
 const ACCENTS = {
@@ -20,7 +22,7 @@ const ACCENTS = {
 
 const AUTO_DISMISS_MS = 9000;
 
-export default function LiveAlert({ alerts, onDismiss }) {
+export default function AlertStack({ alerts, onDismiss }) {
   if (!alerts.length) return null;
   return (
     <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] w-[min(92vw,30rem)] flex flex-col gap-2 pointer-events-none">
@@ -42,7 +44,7 @@ function AlertCard({ alert, onDismiss }) {
 
   return (
     <div
-      onClick={() => onDismiss(alert.id)}
+      onClick={() => { alert.onClick?.(); onDismiss(alert.id); }}
       className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border backdrop-blur-md bg-surface/70 shadow-2xl cursor-pointer animate-alert-in ${ACCENTS[meta.accent]} ${meta.personal ? 'ring-1 ring-brand/25' : ''}`}
     >
       <Icon size={18} className="shrink-0 mt-0.5" />

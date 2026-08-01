@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { getAllMatches, playedMatches } from '../utils/helpers';
 
 // Novedades de un torneo entre dos refrescos. Compara una firma del estado
@@ -106,31 +106,20 @@ export function detectAlerts(prev, tournament, username) {
   return { sig, alerts: next };
 }
 
+// Devuelve `track`, que se llama con cada torneo que llega del servidor: la
+// novedad es un evento de datos, no una consecuencia del render. Los avisos se
+// entregan a `onAlert` — la pila vive en el AlertContext, compartida con la campana.
 export function useTournamentAlerts(username, { onAlert } = {}) {
-  const [alerts, setAlerts] = useState([]);
   const sigRef = useRef(null);
-  const seqRef = useRef(0);
-  // El callback se guarda en un ref para que cambiar de handler (por ejemplo al
+  // El callback va en un ref para que cambiar de handler (por ejemplo al
   // togglear el sonido) no obligue a rehacer `track`.
   const onAlertRef = useRef(onAlert);
   useEffect(() => { onAlertRef.current = onAlert; });
 
-  const dismiss = useCallback((id) => {
-    setAlerts((prev) => prev.filter((a) => a.id !== id));
-  }, []);
-
-  // Se llama con cada torneo que llega del servidor, no en un effect: la novedad
-  // es un evento de datos, no una consecuencia del render.
-  const track = useCallback((tournament) => {
+  return useCallback((tournament) => {
     if (!tournament) return;
     const { sig, alerts: found } = detectAlerts(sigRef.current, tournament, username);
     sigRef.current = sig;
-    if (!found.length) return;
-
-    const stamped = found.map((a) => ({ ...a, id: `${Date.now()}-${seqRef.current++}` }));
-    setAlerts((prevAlerts) => [...prevAlerts, ...stamped].slice(-3));
-    onAlertRef.current?.(stamped);
+    if (found.length) onAlertRef.current?.(found);
   }, [username]);
-
-  return { alerts, dismiss, track };
 }

@@ -6,6 +6,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
+import { AlertProvider } from './context/AlertContext'
 import App from './App'
 import './index.css'
 
@@ -21,9 +22,11 @@ createRoot(document.getElementById('root')).render(
       <ThemeProvider>
         <ToastProvider>
           <AuthProvider>
-            <App />
-            <Analytics />
-            <SpeedInsights />
+            <AlertProvider>
+              <App />
+              <Analytics />
+              <SpeedInsights />
+            </AlertProvider>
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>
