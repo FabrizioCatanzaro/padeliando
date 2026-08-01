@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
 import { renderRichText } from '../../utils/richText';
+import { notifSummary } from '../../utils/notifText';
 import PlayerAvatar from '../shared/PlayerAvatar';
 import Loader from '../Loader/Loader';
 
@@ -381,7 +382,8 @@ function NotifText({ n, navigate }) {
       </div>
     );
   }
-  return null;
+  // Un tipo sin rama propia se leía como una notificación en blanco.
+  return <div className="text-[13px] text-secondary">{notifSummary(n)}</div>;
 }
 
 function NotifActions({ n, onFollow, onInvitation, onJoinRequest, onCollabInvite, onTransfer }) {

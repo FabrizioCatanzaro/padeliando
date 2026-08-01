@@ -52,7 +52,27 @@ function NotifItemText({ n, onNavigate }) {
   );
   if (n.type === 'join_request') return (
     <>{actor} solicitó unirse al torneo{' '}
-      <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span></>
+      <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span>
+      {n.requested_player_name ? <> como <span className="text-brand">{n.requested_player_name}</span></> : null}</>
+  );
+  if (n.type === 'new_tournament') return (
+    <>{actor} creó{' '}
+      {n.tournament_id && n.group_id ? (
+        <span
+          onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}/torneo/${n.tournament_id}`); }}
+          className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+        >{n.tournament_name ?? 'una jornada'}</span>
+      ) : (
+        <span className="text-white font-semibold">{n.tournament_name ?? 'una jornada'}</span>
+      )}{' '}en{' '}
+      {n.group_id ? (
+        <span
+          onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}`); }}
+          className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+        >{n.group_name ?? 'una categoría'}</span>
+      ) : (
+        <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+      )}</>
   );
   if (n.type === 'collab_invite') return (
     <>{actor} te invitó a co-organizar{' '}
@@ -92,7 +112,8 @@ function NotifItemText({ n, onNavigate }) {
   );
   if (n.type === 'club_request') return <>{actor} {n.body}</>;
   if (n.type === 'premium_claim') return <>{actor} {n.body}</>;
-  return null;
+  // Un tipo sin rama propia se leía como una notificación en blanco.
+  return <>{notifSummary(n)}</>;
 }
 
 export default function Header() {
