@@ -96,6 +96,20 @@ export function calcStandings(players, matches) {
   });
 }
 
+/**
+ * Desempate de la tabla de posiciones: victorias, diferencia, games a favor y,
+ * si todo empata, el id. Sin ese último criterio el orden quedaba a merced del
+ * orden en que Postgres devolvía las filas, que difiere entre queries: dos
+ * parejas empatadas en todo salían #8/#9 en la tabla y #9/#8 en el cuadro.
+ * Debe coincidir con computeStandings del backend, que asigna los seeds.
+ */
+export function compareStandingRows(a, b) {
+  return b.pg - a.pg
+      || (b.sf - b.sc) - (a.sf - a.sc)
+      || b.sf - a.sf
+      || String(a.id).localeCompare(String(b.id));
+}
+
 /** Returns the pair label for a given pair ID, or "?" */
 export function getPairLabel(pairId, pairs, players) {
   const pair = pairs?.find((p) => p.id === pairId);
@@ -194,7 +208,7 @@ export function getTournamentWinners(t) {
       })
     : standings.map((s) => ({ ...s, ids: [s.id], name: s.name }));
 
-  const byWins  = [...rows].sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+  const byWins  = [...rows].sort(compareStandingRows);
   const topPg   = byWins[0]?.pg ?? 0;
   const topDiff = byWins[0] ? byWins[0].sf - byWins[0].sc : 0;
   return byWins

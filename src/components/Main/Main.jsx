@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fmt, calcStandings, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, managementWarnings } from "../../utils/helpers";
+import { fmt, calcStandings, compareStandingRows, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, managementWarnings } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import { useAuth } from "../../context/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -133,7 +133,7 @@ export default function Main() {
         const p1Name = tournament.players.find((p) => p.id === pair.p1)?.name ?? '?';
         const p2Name = tournament.players.find((p) => p.id === pair.p2)?.name ?? '?';
         return { ...stats, id: pair.id, name: `${p1Name} & ${p2Name}` };
-      }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+      }).sort(compareStandingRows);
       const topPg   = pairRows[0]?.pg ?? 0;
       const topDiff = pairRows[0] ? pairRows[0].sf - pairRows[0].sc : 0;
       const top     = pairRows.filter((r) => r.pj > 0 && r.pg === topPg && (r.sf - r.sc) === topDiff);

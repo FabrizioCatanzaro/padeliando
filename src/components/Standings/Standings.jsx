@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Trophy } from "lucide-react";
-import { calcStandings } from "../../utils/helpers";
+import { calcStandings, compareStandingRows } from "../../utils/helpers";
 import PlayerAvatar, { PairAvatar } from "../shared/PlayerAvatar";
 import ShareStoryButton from "../Snapshot/ShareStoryButton";
 import SnapshotModal from "../Snapshot/SnapshotModal";
@@ -84,12 +84,12 @@ export default function Standings({ tournament }) {
         src2: p2?.linked_avatar_url ?? null,
         playerIds: [pair.p1, pair.p2],
       };
-    }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc) || b.sf - a.sf);
+    }).sort(compareStandingRows);
   } else {
     displayRows = individualRows.map((r) => {
       const p = playerById[String(r.id)];
       return { ...r, src: p?.linked_avatar_url ?? null, is_premium: p?.is_premium ?? false, playerIds: [r.id] };
-    }).sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc) || b.sf - a.sf);
+    }).sort(compareStandingRows);
   }
 
   const topPg   = displayRows[0]?.pg ?? 0;
