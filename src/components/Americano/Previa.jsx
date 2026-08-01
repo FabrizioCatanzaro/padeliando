@@ -275,6 +275,23 @@ export default function Previa({
   // ¿Hay algún partido con el cronómetro corriendo? → bloquea regenerar el calendario
   const anyLiveRunning = liveMatches.some(m => m.timer.startedAt !== null && m.timer.stoppedAt === null);
 
+  // La previa se agota cuando quedan menos de 2 parejas con cupo: un partido
+  // necesita dos, así que con una sola libre tampoco hay nada que generar.
+  const pairsWithSlot  = tournament.pairs.filter(p => pairMatchCounts[p.id] < MAX_PREVIA_MATCHES);
+  const previaComplete = tournament.pairs.length > 0 && pairsWithSlot.length < 2;
+
+  // Va dentro del aviso de previa completa o al final de la lista, nunca en los
+  // dos: en el aviso al tamaño de los botones de acción, al final como CTA.
+  const bracketButton = (cls) => (
+    <button
+      onClick={handleGenerateBracket}
+      disabled={generatingBracket}
+      className={`bg-brand text-base border-0 font-condensed rounded-sm cursor-pointer disabled:opacity-60 ${cls}`}
+    >
+      {generatingBracket ? 'GENERANDO...' : 'GENERAR CUADRO'}
+    </button>
+  );
+
   // Borrador: todavía no hay parejas suficientes para jugar el americano.
   // No se puede generar calendario, cargar partidos ni generar el cuadro.
   const pairCount   = tournament.pairs.length;
@@ -329,8 +346,10 @@ export default function Previa({
             <>
               <button
                 onClick={handleGenerateSchedule}
-                disabled={generating || anyLiveRunning}
-                title={anyLiveRunning ? 'No se puede regenerar el calendario con un partido en vivo' : 'Generar calendario al azar'}
+                disabled={generating || anyLiveRunning || previaComplete}
+                title={previaComplete ? 'Todas las parejas ya jugaron sus partidos de la fase previa'
+                     : anyLiveRunning ? 'No se puede regenerar el calendario con un partido en vivo'
+                     : 'Generar calendario al azar'}
                 aria-label="Generar calendario al azar"
                 className="bg-transparent text-muted border border-border-strong px-3 py-2.5 cursor-pointer rounded-sm hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -338,7 +357,9 @@ export default function Previa({
               </button>
               <button
                 onClick={() => addNewMatch()}
-                className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap"
+                disabled={previaComplete}
+                title={previaComplete ? 'Todas las parejas ya jugaron sus partidos de la fase previa' : undefined}
+                className="bg-brand text-base border-0 px-5 py-2.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer rounded-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 + NUEVO PARTIDO
               </button>
@@ -361,6 +382,23 @@ export default function Previa({
               ? 'Sumá los jugadores y armá las parejas desde GESTIÓN. Al llegar al mínimo se habilitan el calendario, los partidos y el cuadro.'
               : 'El organizador todavía está armando las parejas.'}
           </p>
+        </div>
+      )}
+
+      {/* Previa agotada — el siguiente paso es el cuadro */}
+      {previaComplete && !isDraft && !tournament.bracket && (
+        <div className="bg-surface border border-brand/30 rounded-lg p-4 mb-5">
+          <div className="font-condensed font-bold text-[13px] tracking-[2px] text-brand mb-1.5">FASE PREVIA COMPLETA</div>
+          <p className="text-soft font-sans text-[13px] leading-relaxed">
+            Las <strong className="text-white">{tournament.pairs.length} parejas</strong> ya jugaron
+            sus {MAX_PREVIA_MATCHES} partidos: no quedan cruces por generar.
+          </p>
+          <p className="text-muted font-mono text-[12px] leading-relaxed mt-2">
+            {isOwner
+              ? 'Las posiciones de esta fase definen los cruces del cuadro eliminatorio.'
+              : 'El organizador ya puede generar el cuadro eliminatorio.'}
+          </p>
+          {isOwner && bracketButton('mt-4 px-5 py-2.5 font-bold text-[13px] tracking-wide')}
         </div>
       )}
 
@@ -496,15 +534,8 @@ export default function Previa({
       )}
 
       {/* Generate bracket */}
-      {isOwner && !isDraft && !tournament.bracket && (allSchedulePlayed || !schedule) && tournament.matches.length > 0 && (
-        <button
-          onClick={handleGenerateBracket}
-          disabled={generatingBracket}
-          className="w-full bg-brand text-base border-0 py-3.5 font-condensed font-black text-[16px] tracking-[2px] rounded-sm mt-6 cursor-pointer disabled:opacity-60"
-        >
-          {generatingBracket ? 'GENERANDO...' : 'GENERAR CUADRO'}
-        </button>
-      )}
+      {isOwner && !isDraft && !tournament.bracket && !previaComplete && (allSchedulePlayed || !schedule) && tournament.matches.length > 0 &&
+        bracketButton('mt-6 w-full py-3.5 font-black text-[16px] tracking-[2px]')}
       {tournament.bracket && (
         <div className="bg-surface-alt border border-border-strong rounded-md px-3.5 py-2.5 text-[12px] text-brand font-mono mt-4 text-center">
           ✓ Cuadro de eliminación generado — miralo en la pestaña CUADRO

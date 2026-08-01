@@ -96,6 +96,112 @@ export function calcStandings(players, matches) {
   });
 }
 
+/**
+ * Todos los partidos de un torneo, incluidos los del cuadro del americano, que
+ * no son filas de `matches` sino nodos del bracket. Cualquier estadística que
+ * cuente partidos tiene que pasar por acá.
+ */
+export function getAllMatches(tournament) {
+  const { matches: previaMatches, format, bracket, pairs: tournamentPairs } = tournament;
+  if (format !== 'americano' || !bracket || !tournamentPairs?.length) return previaMatches;
+  const bracketMatches = [];
+  [
+    ...(bracket.octavos ?? []),
+    ...(bracket.cuartos ?? []),
+    ...(bracket.semis   ?? []),
+    ...(bracket.final   ? [bracket.final] : []),
+  ].forEach(m => {
+    if (m.winner_id == null) return;
+    const pair1 = tournamentPairs.find(p => p.id === m.pair1_id);
+    const pair2 = tournamentPairs.find(p => p.id === m.pair2_id);
+    if (!pair1 || !pair2) return;
+    bracketMatches.push({
+      id: m.id,
+      team1: [pair1.p1, pair1.p2],
+      team2: [pair2.p1, pair2.p2],
+      score1: String(m.score1),
+      score2: String(m.score2),
+      duration_seconds: m.duration_seconds ?? 0,
+    });
+  });
+  return [...previaMatches, ...bracketMatches];
+}
+
+/** Partidos con resultado cargado. Un marcador igualado no es un partido válido. */
+export function playedMatches(matches) {
+  return matches.filter((m) => {
+    const s1 = +m.score1, s2 = +m.score2;
+    return m.score1 !== '' && m.score1 != null && m.score2 !== '' && m.score2 != null
+      && !Number.isNaN(s1) && !Number.isNaN(s2) && s1 !== s2;
+  });
+}
+
+/**
+ * Duplas que jugaron juntas, ordenadas por efectividad. En modo libre son las
+ * combinaciones que se dieron; en parejas fijas, las parejas del torneo.
+ */
+export function calcPartnerships(players, played) {
+  const byKey = {};
+  played.forEach((m) => {
+    const s1 = +m.score1, s2 = +m.score2;
+    [[m.team1, s1, s2], [m.team2, s2, s1]].forEach(([team, gf, gc]) => {
+      const key = [...team].sort().join('-');
+      if (!byKey[key]) byKey[key] = { wins: 0, played: 0, sf: 0, sc: 0, ids: team };
+      byKey[key].played++;
+      byKey[key].sf += gf;
+      byKey[key].sc += gc;
+      if (gf > gc) byKey[key].wins++;
+    });
+  });
+  return Object.entries(byKey)
+    .map(([key, v]) => ({
+      key,
+      label: v.ids.map((id) => players.find((p) => p.id === id)?.name ?? '?').join(' & '),
+      winRate: v.played > 0 ? Math.round((v.wins / v.played) * 100) : 0,
+      wins: v.wins, played: v.played, diff: v.sf - v.sc,
+    }))
+    .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins || b.diff - a.diff);
+}
+
+/**
+ * Nombres de un empate, recortados para que entren en una tarjeta: los primeros
+ * `maxNames` y el resto resumido. Una pareja ocupa el doble que un jugador.
+ */
+export const TIED_NAMES_PLAYERS = 3;
+export const TIED_NAMES_PAIRS   = 2;
+
+export function tiedLabel(names, maxNames = TIED_NAMES_PLAYERS) {
+  const rest = names.length - maxNames;
+  return names.slice(0, maxNames).join(' / ') + (rest > 0 ? ` y ${rest} más` : '');
+}
+
+/** mm:ss a partir de segundos. */
+export function fmtMMSS(segundos) {
+  const total = Math.round(segundos);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/** Duración larga: "45 m", "2 h 05 m". */
+export function fmtDuracion(segundos) {
+  const min = Math.round(segundos / 60);
+  if (min < 60) return `${min} m`;
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} m`;
+}
+
+/**
+ * Desempate de la tabla de posiciones: victorias, diferencia, games a favor y,
+ * si todo empata, el id. Sin ese último criterio el orden quedaba a merced del
+ * orden en que Postgres devolvía las filas, que difiere entre queries: dos
+ * parejas empatadas en todo salían #8/#9 en la tabla y #9/#8 en el cuadro.
+ * Debe coincidir con computeStandings del backend, que asigna los seeds.
+ */
+export function compareStandingRows(a, b) {
+  return b.pg - a.pg
+      || (b.sf - b.sc) - (a.sf - a.sc)
+      || b.sf - a.sf
+      || String(a.id).localeCompare(String(b.id));
+}
+
 /** Returns the pair label for a given pair ID, or "?" */
 export function getPairLabel(pairId, pairs, players) {
   const pair = pairs?.find((p) => p.id === pairId);
@@ -194,7 +300,7 @@ export function getTournamentWinners(t) {
       })
     : standings.map((s) => ({ ...s, ids: [s.id], name: s.name }));
 
-  const byWins  = [...rows].sort((a, b) => b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc));
+  const byWins  = [...rows].sort(compareStandingRows);
   const topPg   = byWins[0]?.pg ?? 0;
   const topDiff = byWins[0] ? byWins[0].sf - byWins[0].sc : 0;
   return byWins
