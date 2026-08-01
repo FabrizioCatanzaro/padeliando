@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, tournamentDate, normalize, fmt } from "../../utils/helpers";
+import { calcStandings, adaptTournament, getTournamentWinnerLabel, getTournamentWinners, tournamentDate, normalize, fmt,
+  getAllMatches, calcPartnerships, tiedLabel, fmtMMSS, fmtDuracion, TIED_NAMES_PAIRS, TIED_NAMES_PLAYERS } from "../../utils/helpers";
 import { Bomb, CalendarDays, Clock, Crown, Flame, Gem, Handshake, Hourglass, Scale, Swords, Target, Timer, Trophy } from "lucide-react";
 import { api } from "../../utils/api";
 import {
@@ -64,47 +65,11 @@ export default function Stats({ tournament, ownerIsPremium = false }) {
   );
 }
 
-function fmtDuracion(segundos) {
-  const min = Math.round(segundos / 60);
-  if (min < 60) return `${min} m`;
-  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} m`;
-}
-
 function fmtHorasCorto(segundos) {
   const horas = segundos / 3600;
   return horas >= 1 ? `${Math.round(horas)} h` : `${Math.round(segundos / 60)} m`;
 }
 
-function fmtMMSS(segundos) {
-  const total = Math.round(segundos);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-}
-
-function getAllMatches(tournament) {
-  const { matches: previaMatches, format, bracket, pairs: tournamentPairs } = tournament;
-  if (format !== 'americano' || !bracket || !tournamentPairs?.length) return previaMatches;
-  const bracketMatches = [];
-  [
-    ...(bracket.octavos ?? []),
-    ...(bracket.cuartos ?? []),
-    ...(bracket.semis   ?? []),
-    ...(bracket.final   ? [bracket.final] : []),
-  ].forEach(m => {
-    if (m.winner_id == null) return;
-    const pair1 = tournamentPairs.find(p => p.id === m.pair1_id);
-    const pair2 = tournamentPairs.find(p => p.id === m.pair2_id);
-    if (!pair1 || !pair2) return;
-    bracketMatches.push({
-      id: m.id,
-      team1: [pair1.p1, pair1.p2],
-      team2: [pair2.p1, pair2.p2],
-      score1: String(m.score1),
-      score2: String(m.score2),
-      duration_seconds: m.duration_seconds ?? 0,
-    });
-  });
-  return [...previaMatches, ...bracketMatches];
-}
 
 function CurrentStats({ tournament }) {
   const navigate = useNavigate();
@@ -117,26 +82,7 @@ function CurrentStats({ tournament }) {
   const standings = useMemo(() => calcStandings(players, matches), [players, matches]);
   const isAmericano = tournament.format === 'americano';
 
-  const partnerMap = {};
-  played.forEach((m) => {
-    const s1 = +m.score1, s2 = +m.score2;
-    [[m.team1, s1, s2], [m.team2, s2, s1]].forEach(([team, gf, gc]) => {
-      const key = [...team].sort().join("-");
-      if (!partnerMap[key]) partnerMap[key] = { wins: 0, played: 0, sf: 0, sc: 0, ids: team };
-      partnerMap[key].played++;
-      partnerMap[key].sf += gf;
-      partnerMap[key].sc += gc;
-      if (gf > gc) partnerMap[key].wins++;
-    });
-  });
-
-  const partnerships = Object.values(partnerMap)
-    .map((v) => ({
-      label: v.ids.map((id) => players.find((p) => p.id === id)?.name ?? "?").join(" & "),
-      winRate: v.played > 0 ? Math.round((v.wins / v.played) * 100) : 0,
-      wins: v.wins, played: v.played, diff: v.sf - v.sc,
-    }))
-    .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins || b.diff - a.diff);
+  const partnerships = calcPartnerships(players, played);
 
   let biggestWin = null, biggestDiff = -1;
   played.forEach((m) => {
@@ -205,11 +151,11 @@ function CurrentStats({ tournament }) {
       const n1 = players.find((p) => p.id === topFixedPair.p1)?.name ?? "?";
       const n2 = players.find((p) => p.id === topFixedPair.p2)?.name ?? "?";
       const key1 = [topFixedPair.p1, topFixedPair.p2].sort().join("-");
-      const pairStats = partnerMap[key1];
+      const pairStats = partnerships.find((p) => p.key === key1);
       topPairLabel   = `${n1} & ${n2}`;
-      topPairWinRate = pairStats ? Math.round((pairStats.wins / pairStats.played) * 100) : 0;
+      topPairWinRate = pairStats ? pairStats.winRate : 0;
       topPairRecord  = pairStats ? `${pairStats.wins}/${pairStats.played}` : "0/0";
-      topPairDiffVal = pairStats ? pairStats.sf - pairStats.sc : 0;
+      topPairDiffVal = pairStats ? pairStats.diff : 0;
     }
   }
   const fmtDiff = (d) => `${d > 0 ? "+" : ""}${d}`;
@@ -359,6 +305,9 @@ function CurrentStats({ tournament }) {
                 <div className="text-[13px] text-secondary font-mono">
                   <span className="text-white">{winnerNames}</span> vs {loserNames}
                 </div>
+                {biggestWin.duration_seconds > 0 && (
+                  <div className="text-[12px] text-muted font-mono">en {fmtMMSS(biggestWin.duration_seconds)}</div>
+                )}
               </div>
             </div>
           );
@@ -481,17 +430,6 @@ function sortRows(rows, sortBy = 'wins') {
     if (sortBy === 'wins') return b.pg - a.pg || pctB - pctA || (b.sf - b.sc) - (a.sf - a.sc);
     return rankedWinRate(b, mean) - rankedWinRate(a, mean) || b.pg - a.pg || (b.sf - b.sc) - (a.sf - a.sc);
   });
-}
-
-// Un empate grande no entra en la tarjeta: se muestran los primeros nombres y
-// el resto se resume. Una pareja ocupa el doble que un jugador, así que en las
-// tarjetas de parejas se listan menos.
-const TIED_NAMES_PLAYERS = 3;
-const TIED_NAMES_PAIRS   = 2;
-
-function tiedLabel(names, maxNames = TIED_NAMES_PLAYERS) {
-  const rest = names.length - maxNames;
-  return names.slice(0, maxNames).join(' / ') + (rest > 0 ? ` y ${rest} más` : '');
 }
 
 // Líder de un conjunto según un criterio, con los empates exactos agrupados.

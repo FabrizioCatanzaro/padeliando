@@ -1,6 +1,10 @@
 import { useState, useEffect, useContext, useCallback, useMemo, useRef, useSyncExternalStore, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { calcStandings, compareStandingRows, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META } from "../../utils/helpers";
+import { calcStandings, compareStandingRows, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META,
+  getAllMatches, playedMatches, calcPartnerships, tiedLabel, fmtMMSS, fmtDuracion, TIED_NAMES_PAIRS } from "../../utils/helpers";
+
+// Mínimo de partidos para que la pantalla de estadísticas entre en el Modo TV.
+const TV_STATS_MIN_MATCHES = 3;
 import Standings from "../Standings/Standings";
 // Sólo se monta al abrir la pestaña: importarlo estático arrastraba los
 // 111 KB de Recharts a toda visita del modo espectador.
@@ -13,7 +17,7 @@ import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
 import { AuthContext } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin } from "lucide-react";
+import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin, Hourglass, Timer } from "lucide-react";
 import courtSvg from "../../assets/padel-court.svg";
 import appLogo from "../../assets/padeleando.svg";
 import Badge from "../shared/Badge";
@@ -329,14 +333,21 @@ export default function ReadonlyView() {
 
   // Secuencia de pantallas del modo TV (depende del formato y de si hay cuadro)
   const hasBracketTv = tournament?.format === 'americano' && !!tournament?.bracket;
+  // Con uno o dos partidos los destacados son ruido (un MVP con una victoria),
+  // así que la pantalla de stats entra en la rotación recién a partir de 3.
+  const tvPlayedCount = useMemo(
+    () => (tournament ? playedMatches(getAllMatches(tournament)).length : 0),
+    [tournament]
+  );
   const tvSequence = useMemo(() => {
     const seq = [
       { screen: 'standings', label: 'TABLA DE POSICIONES', duration: 10000 },
       { screen: 'live',      label: 'PARTIDOS EN VIVO',    duration: 10000 },
     ];
+    if (tvPlayedCount >= TV_STATS_MIN_MATCHES) seq.push({ screen: 'stats', label: 'ESTADÍSTICAS', duration: 12000 });
     if (hasBracketTv) seq.push({ screen: 'bracket', label: 'CUADRO', duration: 20000 });
     return seq;
-  }, [hasBracketTv]);
+  }, [hasBracketTv, tvPlayedCount]);
 
   // Mantener el índice dentro del rango si cambia la secuencia (p.ej. aparece el cuadro)
   useEffect(() => {
@@ -1074,6 +1085,125 @@ function TvLiveScreen({ tournament, isAmericano }) {
   );
 }
 
+// ── Pantalla: ESTADÍSTICAS ─────────────────────────────────────────────────────
+// Los mismos destacados que la pestaña STATS, en tamaño scoreboard. Los números
+// salen de las primitivas de helpers para no abrir una cuarta forma de contar.
+// El tamaño sale del largo del valor: un contador entra enorme, un nombre de
+// pareja a ese cuerpo ocupa cuatro renglones y empuja las tarjetas de abajo
+// fuera de la pantalla.
+function mainSizeFor(main) {
+  const len = String(main).length;
+  if (len <= 4)  return 'text-[44px] lg:text-[76px]';
+  if (len <= 16) return 'text-[26px] lg:text-[44px]';
+  if (len <= 28) return 'text-[22px] lg:text-[34px]';
+  return 'text-[19px] lg:text-[27px]';
+}
+
+function TvStatCard({ icon, label, main, sub, tone = 'text-brand' }) {
+  const Icon = icon;
+  return (
+    <div className="flex flex-col justify-center bg-surface border border-border-mid rounded-xl px-5 py-4 lg:px-7 lg:py-5 min-h-0 overflow-hidden">
+      <div className="flex items-center gap-2 mb-1.5 lg:mb-2.5">
+        <Icon size={16} className={`${tone} shrink-0`} />
+        <span className="font-condensed font-bold text-[11px] lg:text-[13px] tracking-[2px] text-muted">{label}</span>
+      </div>
+      <div className={`font-condensed font-black leading-[1.05] ${tone} ${mainSizeFor(main)} break-words`}>
+        {main}
+      </div>
+      {sub && <div className="font-mono text-[11px] lg:text-[14px] text-soft mt-1.5 lg:mt-2.5">{sub}</div>}
+    </div>
+  );
+}
+
+function TvStatsScreen({ tournament }) {
+  const { players } = tournament;
+  const matches = getAllMatches(tournament);
+  const played  = playedMatches(matches);
+
+  // MVP — mismo criterio que la pestaña STATS: la cima por victorias y diferencia.
+  const standings = calcStandings(players, matches);
+  const topPg     = standings[0]?.pg ?? 0;
+  const topDiff   = standings[0] ? standings[0].sf - standings[0].sc : 0;
+  const leaders   = standings.filter((p) => p.pg === topPg && (p.sf - p.sc) === topDiff);
+
+  const partnerships = calcPartnerships(players, played);
+  const best         = partnerships[0];
+  const tiedBest     = best
+    ? partnerships.filter((p) => p.winRate === best.winRate && p.wins === best.wins && p.played === best.played && p.diff === best.diff)
+    : [];
+
+  const games    = played.reduce((acc, m) => acc + (+m.score1) + (+m.score2), 0);
+  const tight    = played.filter((m) => Math.abs(+m.score1 - +m.score2) === 1).length;
+  const timed    = played.filter((m) => (m.duration_seconds ?? 0) > 0);
+  const totalSec = timed.reduce((acc, m) => acc + m.duration_seconds, 0);
+  const avgSec   = timed.length > 0 ? totalSec / timed.length : 0;
+
+  // Mismo criterio que la pestaña STATS: el más rápido descarta los cronómetros
+  // de menos de un minuto (arrancados por error) y no se repite con el más largo.
+  const longest  = timed.reduce((max, m) => (m.duration_seconds > (max?.duration_seconds ?? 0) ? m : max), null);
+  const shortest = timed.reduce(
+    (min, m) => (m.duration_seconds > 60 && (!min || m.duration_seconds < min.duration_seconds) ? m : min), null);
+  const sidesOf = (m) => {
+    const win1 = +m.score1 > +m.score2;
+    const name = (ids) => ids.map((id) => players.find((p) => p.id === id)?.name ?? '?').join(' & ');
+    return `${name(win1 ? m.team1 : m.team2)} vs ${name(win1 ? m.team2 : m.team1)}`;
+  };
+
+  // En un torneo por parejas el MVP es siempre la mejor pareja: mostrar las dos
+  // tarjetas repetía el mismo nombre. Cuando coinciden, va la mayor diferencia.
+  const mvpLabel  = tiedLabel(leaders.map((p) => p.name));
+  const bestLabel = best ? tiedLabel(tiedBest.map((p) => p.label), TIED_NAMES_PAIRS) : null;
+  // Por ids, no por el label: los nombres pueden traer un "&" adentro.
+  const leaderIds = leaders.map((p) => p.id).sort().join('-');
+  const showMvp   = !(tiedBest.length === 1 && leaderIds === tiedBest[0].key);
+
+  const biggest = played.reduce((max, m) =>
+    Math.abs(+m.score1 - +m.score2) > Math.abs(+(max?.score1 ?? 0) - +(max?.score2 ?? 0)) ? m : max, null);
+  const biggestWinner = biggest
+    ? (+biggest.score1 > +biggest.score2 ? biggest.team1 : biggest.team2)
+        .map((id) => players.find((p) => p.id === id)?.name ?? '?').join(' & ')
+    : null;
+  const biggestScore = biggest
+    ? `${Math.max(+biggest.score1, +biggest.score2)}-${Math.min(+biggest.score1, +biggest.score2)}`
+    : null;
+  const biggestSub = biggest
+    ? `ganó ${biggestScore}${biggest.duration_seconds > 0 ? ` en ${fmtMMSS(biggest.duration_seconds)}` : ''}`
+    : null;
+
+  // Las tarjetas de tiempo sólo existen si alguien cronometró. Sin ellas la
+  // pantalla cae en los games jugados, que salen de los marcadores.
+  const cards = [
+    showMvp
+      ? { icon: Trophy, label: leaders.length > 1 ? 'MVP · EMPATE' : 'MVP', main: mvpLabel,
+          sub: `${topPg} ${topPg === 1 ? 'victoria' : 'victorias'}` }
+      : biggestWinner && { icon: Trophy, label: 'MAYOR DIFERENCIA', main: biggestWinner, sub: biggestSub },
+    best && { icon: Flame, label: tiedBest.length > 1 ? 'MEJOR PAREJA · EMPATE' : 'MEJOR PAREJA',
+              main: bestLabel, sub: `${best.winRate}% · ${best.wins} de ${best.played}`, tone: 'text-cyan' },
+    { icon: Zap, label: 'PARTIDOS JUGADOS', main: played.length,
+      sub: tight > 0 ? `${tight} ${tight === 1 ? 'ajustado' : 'ajustados'} por 1 game` : null },
+    timed.length > 0
+      ? { icon: Hourglass, label: 'TIEMPO DE JUEGO', main: fmtDuracion(totalSec),
+          sub: `${fmtMMSS(avgSec)} promedio · ${timed.length} de ${played.length} con tiempo`, tone: 'text-cyan' }
+      : { icon: Clock, label: 'GAMES JUGADOS', main: games, tone: 'text-cyan' },
+    longest && { icon: Clock, label: 'PARTIDO MÁS LARGO', main: fmtMMSS(longest.duration_seconds),
+                 sub: sidesOf(longest), tone: 'text-green' },
+    shortest && shortest !== longest && { icon: Timer, label: 'PARTIDO MÁS RÁPIDO',
+                 main: fmtMMSS(shortest.duration_seconds), sub: sidesOf(shortest), tone: 'text-secondary' },
+  ].filter(Boolean);
+
+  // Con seis tarjetas la grilla pasa a 3 columnas para que sigan entrando sin scroll.
+  const cols = cards.length > 4 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2';
+
+  return (
+    <AutoScrollY resetKey={`stats-${played.length}`} className="px-4 lg:px-8 py-4 lg:py-6">
+      {/* En una TV entran sin scroll; en mobile se apilan. */}
+      <div className={`max-w-6xl mx-auto grid grid-cols-1 ${cols} gap-3 lg:gap-5 lg:h-full lg:grid-rows-2`}>
+        {cards.map((c) => <TvStatCard key={c.label} {...c} />)}
+      </div>
+    </AutoScrollY>
+  );
+}
+
 // ── Pantalla: CUADRO ───────────────────────────────────────────────────────────
 function TvBracketScreen({ tournament }) {
   return (
@@ -1137,6 +1267,7 @@ function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq,
         <TvHint onExit={onExit} />
         {screen === 'standings' && <TvStandingsScreen tournament={tournament} />}
         {screen === 'live'      && <TvLiveScreen tournament={tournament} isAmericano={isAmericano} />}
+        {screen === 'stats'     && <TvStatsScreen tournament={tournament} />}
         {screen === 'bracket'   && <TvBracketScreen tournament={tournament} />}
       </main>
 
