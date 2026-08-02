@@ -599,6 +599,7 @@ padeliando-api/
 | `migration_user_social_links.sql` | `social_links` JSONB on `users` |
 | `migration_collaborators.sql` | `group_collaborators`, `collaborator_invitations`, `ownership_transfers` tables; extends `notifications.type` CHECK with `collab_invite`/`ownership_transfer` |
 | `migration_group_favorites.sql` | `group_favorites` table (renames `group_follows` if present); extends `notifications.type` CHECK with `new_tournament` |
+| `migration_event_time.sql` | `event_time` (TIME) on `tournaments` |
 | `migration_signup_info.sql` | `signup_open`/`signup_price`/`signup_price_unit`/`signup_contacts` on `groups` and `tournaments` |
 
 ---

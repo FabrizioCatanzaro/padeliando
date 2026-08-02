@@ -42,6 +42,9 @@ export const fmt = (d) => {
   });
 };
 
+// Postgres devuelve TIME como 'HH:MM:SS'; se muestra sin los segundos.
+export const fmtHora = (t) => (t ? String(t).slice(0, 5) : '');
+
 export const normalize = (s) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 /**

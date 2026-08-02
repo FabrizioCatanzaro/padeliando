@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fmt, calcStandings, compareStandingRows, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, managementWarnings } from "../../utils/helpers";
+import { fmt, fmtHora, calcStandings, compareStandingRows, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, managementWarnings } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import { useAuth } from "../../context/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -231,6 +231,7 @@ export default function Main() {
           <span className="inline-flex items-center gap-1.5">
             <Calendar size={11} className="text-dim" />
             {fmt(tournament.event_date ?? tournament.createdAt)}
+            {tournament.event_time && <span className="text-brand">{fmtHora(tournament.event_time)}</span>}
           </span>
           <span className="inline-flex items-center gap-1.5">
             {isPairs ? <Users size={11} className="text-dim" /> : <User size={11} className="text-dim" />}

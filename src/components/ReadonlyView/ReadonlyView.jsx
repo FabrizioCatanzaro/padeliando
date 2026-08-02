@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useCallback, useMemo, useRef, useSyncExternalStore, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { calcStandings, compareStandingRows, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META,
+import { calcStandings, compareStandingRows, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, fmtHora, tournamentDisplayStatus, TOURNAMENT_STATUS_META,
   getAllMatches, playedMatches, calcPartnerships, tiedLabel, fmtMMSS, fmtDuracion, TIED_NAMES_PAIRS } from "../../utils/helpers";
 
 // Mínimo de partidos para que la pantalla de estadísticas entre en el Modo TV.
@@ -587,6 +587,7 @@ export default function ReadonlyView() {
           <span className="inline-flex items-center gap-1.5">
             <Calendar size={11} className="text-dim" />
             {fmt(tournament.event_date ?? tournament.createdAt)}
+            {tournament.event_time && <span className="text-brand">{fmtHora(tournament.event_time)}</span>}
           </span>
           <span className="inline-flex items-center gap-1.5">
             {isPairs ? <Users size={11} className="text-dim" /> : <User size={11} className="text-dim" />}
@@ -931,6 +932,7 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
           )}
           <span className="inline-flex items-center gap-1.5 text-[10px] font-mono tracking-wide text-muted">
             <Calendar size={11} />{dateLabel}
+            {tournament.event_time && <span className="text-brand">{fmtHora(tournament.event_time)}</span>}
           </span>
         </div>
       </div>

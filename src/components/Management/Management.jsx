@@ -6,12 +6,13 @@ import ClubSelector from "../shared/ClubSelector";
 import SignupEditor from "../shared/SignupEditor";
 import { profileContacts } from "../../utils/signup";
 import Btn from "../shared/Btn";
-import { clubCourts, entityClub } from "../../utils/helpers";
+import { clubCourts, entityClub, fmtHora } from "../../utils/helpers";
 import { Play, RotateCcw, TicketCheck, Trash2, Check } from "lucide-react";
 
 function ClubEventEditor({ tournament, onSave }) {
   const [club, setClub]   = useState(() => entityClub(tournament));
   const [date, setDate]   = useState(tournament.event_date ? String(tournament.event_date).slice(0, 10) : "");
+  const [time, setTime]   = useState(fmtHora(tournament.event_time));
   const [saving, setSaving] = useState(false);
 
   const clubId      = club?.pending ? null : (club?.id ?? null);
@@ -19,12 +20,13 @@ function ClubEventEditor({ tournament, onSave }) {
   const clubChanged = clubId !== (tournament.club_id ?? null)
     || requestId !== (tournament.pending_club_request_id ?? null);
   const dirty = clubChanged
-    || (date || null) !== (tournament.event_date ? String(tournament.event_date).slice(0, 10) : null);
+    || (date || null) !== (tournament.event_date ? String(tournament.event_date).slice(0, 10) : null)
+    || (time || null) !== (fmtHora(tournament.event_time) || null);
 
   async function save() {
     setSaving(true);
     try {
-      const payload = { club_id: clubId, pending_club_request_id: requestId, event_date: date || null };
+      const payload = { club_id: clubId, pending_club_request_id: requestId, event_date: date || null, event_time: time || null };
       // Al cambiar de club, las canchas del torneo pasan a ser las del nuevo club.
       if (clubChanged) payload.number_of_courts = clubCourts(club);
       await onSave(payload);
@@ -41,14 +43,25 @@ function ClubEventEditor({ tournament, onSave }) {
           <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">CLUB</label>
           <ClubSelector value={club} onChange={setClub} />
         </div>
-        <div>
-          <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">FECHA DEL EVENTO</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full bg-surface border border-border-mid text-white px-3 py-2 rounded-sm text-sm outline-none font-sans"
-          />
+        <div className="flex gap-3">
+          <div className="flex-1 min-w-0">
+            <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">FECHA DEL EVENTO</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-surface border border-border-mid text-white px-3 py-2 rounded-sm text-sm outline-none font-sans"
+            />
+          </div>
+          <div className="w-28 shrink-0">
+            <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">HORA</label>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="w-full bg-surface border border-border-mid text-white px-3 py-2 rounded-sm text-sm outline-none font-sans"
+            />
+          </div>
         </div>
         <Btn variant="primary" size="sm" icon={Check} onClick={save} loading={saving} disabled={!dirty}>GUARDAR</Btn>
       </div>

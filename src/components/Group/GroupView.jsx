@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount, entityClub } from '../../utils/helpers';
+import { adaptTournament, fmt, fmtHora, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount, entityClub } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
@@ -757,7 +757,10 @@ export default function GroupView() {
                         {t.mode === 'pairs' ? '(en parejas)' : '(equipos libres)'}
                       </span>
                     )}
-                    <span className="font-mono text-sm text-dim ml-auto">{fmt(t.event_date ?? t.created_at)}</span>
+                    <span className="font-mono text-sm text-dim ml-auto">
+                      {fmt(t.event_date ?? t.created_at)}
+                      {t.event_time && <span className="text-brand ml-1.5">{fmtHora(t.event_time)}</span>}
+                    </span>
                   </div>
                   {t.club_name && (
                     <div className="flex items-center gap-1.5 text-sm text-secondary font-mono mt-2">
