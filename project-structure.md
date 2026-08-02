@@ -39,6 +39,8 @@ padeliando/
     │   │   ├── AdBanner.jsx        # Ad banner container (desktop sidebar)
     │   │   ├── PlayerAvatar.jsx    # User avatar with premium ring; PairAvatar for two players
     │   │   ├── AvatarCropper.jsx   # Crop/preview image before uploading avatar
+    │   │   ├── AlertStack.jsx      # Floating blurred alerts (tournament news + bell); fed by AlertContext
+    │   │   ├── ShareAppModal.jsx   # "Invitar amigos": shares the app link (header menu + footer)
     │   │   └── MapPicker.jsx       # Location picker for group address (Google Maps embed)
     │   │
     │   ├── Loader/

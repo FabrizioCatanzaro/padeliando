@@ -1,6 +1,8 @@
-import { Phone, UserRoundSearch } from 'lucide-react'
+import { useState } from 'react'
+import { Phone, UserRoundSearch, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import logoTxtUrl from '../../assets/padeleando-txt.webp'
+import ShareAppModal from './ShareAppModal'
 
 const legalLinks = [
   { to: '/sobre-nosotros', label: 'Sobre nosotros' },
@@ -11,6 +13,7 @@ const legalLinks = [
 ]
 
 export default function Footer() {
+  const [shareOpen, setShareOpen] = useState(false)
 
   return (
     <footer className="border-t border-border bg-base px-6 py-6 flex flex-col items-center gap-4 mt-6">
@@ -36,7 +39,16 @@ export default function Footer() {
             {label}
           </Link>
         ))}
+        <button
+          onClick={() => setShareOpen(true)}
+          className="flex items-center gap-1.5 text-[11px] font-mono text-brand hover:text-white transition-colors cursor-pointer bg-transparent border-0 p-0"
+        >
+          <UserPlus size={12} className="shrink-0" />
+          Invitar amigos
+        </button>
       </div>
+
+      {shareOpen && <ShareAppModal onClose={() => setShareOpen(false)} />}
     </footer>
   )
 }

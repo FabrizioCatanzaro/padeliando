@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { User, CircleHelp, Bell, Download, Volume2, VolumeX } from 'lucide-react'
+import { User, CircleHelp, Bell, Download, Volume2, VolumeX, UserPlus } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 import { usePwaInstall } from '../../hooks/usePwaInstall'
 import { openInstallPrompt } from '../../utils/pwa'
@@ -12,6 +12,7 @@ import PlayerAvatar from './PlayerAvatar'
 import { useAlerts } from '../../context/useAlerts'
 import { playTone, TONES } from '../../utils/sound'
 import { notifTitle, notifSummary } from '../../utils/notifText'
+import ShareAppModal from './ShareAppModal'
 
 // Preferencia de sonido de la campana, apagada por defecto.
 const SOUND_KEY = 'notif_sound'
@@ -123,6 +124,7 @@ export default function Header() {
   const [notifs,        setNotifs]        = useState([])
   const [notifLoading,  setNotifLoading]  = useState(false)
   const [notifSound,    setNotifSound]    = useState(() => localStorage.getItem(SOUND_KEY) === '1')
+  const [shareAppOpen,  setShareAppOpen]  = useState(false)
 
   const { user, isLoggedIn, logout } = useAuth()
   const { pushAlert } = useAlerts()
@@ -400,6 +402,11 @@ export default function Header() {
                       className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
                       Mi plan
                     </button>
+                    <button onClick={() => { setMenuOpen(false); setShareAppOpen(true); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans flex items-center gap-2">
+                      <UserPlus size={14} className="shrink-0" />
+                      Invitar amigos
+                    </button>
                     <Link
                       to="/tutorial"
                       onClick={() => setMenuOpen(false)}
@@ -445,6 +452,8 @@ export default function Header() {
           )}
         </div>
       </div>
+
+      {shareAppOpen && <ShareAppModal onClose={() => setShareAppOpen(false)} />}
     </div>
   )
 }
