@@ -16,8 +16,8 @@ const SUBJECTS = {
 
 // 404 se lee 40-40 en un tanteador de pádel: el punto de oro.
 const marcador = (hits) => {
-  if (hits >= 10) return { t: '¡JUEGO!', s: 'Ganaste el punto de oro. Sigue sin aparecer, pero qué manera de defender.' }
-  if (hits >= 5)  return { t: 'VENTAJA', s: 'Cinco devoluciones seguidas. Esto ya es mérito tuyo.' }
+  if (hits >= 30) return { t: '¡JUEGO!', s: 'Ganaste el Star Point. Ya podés ponerte Tapia en el DNI.' }
+  if (hits >= 10)  return { t: 'VENTAJA', s: 'Diez bandejas seguidas. Esto ya es mérito tuyo.' }
   return null
 }
 
@@ -41,9 +41,6 @@ export default function NotFoundView({ subject = 'page' }) {
     <div className="bg-base text-content font-sans min-h-[80vh] pb-16">
       <div className="px-6 pt-6 pb-5 border-b border-border">
         <p className="text-[11px] font-mono text-muted uppercase tracking-widest mb-1">{eyebrow}</p>
-        <h1 className="font-condensed font-bold text-[30px] text-content leading-tight">
-          Punto de oro
-        </h1>
       </div>
 
       <div className="max-w-md mx-auto px-6">
