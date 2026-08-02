@@ -28,6 +28,7 @@ import appLogo from "../../assets/padeleando.svg";
 import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
+import LazyNotFound from "../NotFound/LazyNotFound";
 import ShareModal from "../shared/ShareModal";
 import ShareFixtureModal from "../shared/ShareFixtureModal";
 import QrModal from "../shared/QrModal";
@@ -254,8 +255,8 @@ export default function ReadonlyView() {
       setTournament(adapted);
       trackAlerts(adapted);
       setRefreshTick((x) => x + 1);
-    } catch {
-      setError(true);
+    } catch (e) {
+      setError(e.status === 404 ? 'notfound' : true);
     }
   }, [id, trackAlerts]);
 
@@ -384,7 +385,9 @@ export default function ReadonlyView() {
     }
   }
 
-  useDocumentTitle(tournament?.name);
+  useDocumentTitle(error === 'notfound' ? 'Jornada no encontrada' : tournament?.name);
+
+  if (error === 'notfound') return <LazyNotFound subject="tournament" />;
 
   if (error) {
     return (

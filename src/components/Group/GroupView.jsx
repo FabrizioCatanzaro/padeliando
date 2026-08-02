@@ -28,12 +28,14 @@ import ShareCategoryModal from '../shared/ShareCategoryModal';
 import SignupEditor from '../shared/SignupEditor';
 import { profileContacts } from '../../utils/signup';
 import PlayerAvatar from '../shared/PlayerAvatar';
+import LazyNotFound from '../NotFound/LazyNotFound';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
 export default function GroupView() {
   const { groupId } = useParams();
   const [group, setGroup] = useState(null);
+  const [notFound, setNotFound] = useState(false);
   const [deleteModal,      setDeleteModal]      = useState(false);
   const [deleteInput,      setDeleteInput]      = useState('');
   const [editingGroup,     setEditingGroup]     = useState(false);
@@ -83,8 +85,8 @@ export default function GroupView() {
     try {
       const data = await api.groups.history(groupId);
       setAllTournaments(data.map(adaptTournament));
-    } finally {
-      //
+    } catch {
+      // El historial es accesorio: si falla, la categoría se muestra igual.
     }
   }
 
@@ -136,7 +138,11 @@ export default function GroupView() {
   }
 
   useEffect(() => {
-    api.groups.get(groupId).then(setGroup);
+    setNotFound(false);
+    // Sin este catch un id inexistente dejaba el esqueleto girando para siempre.
+    api.groups.get(groupId)
+      .then(setGroup)
+      .catch((e) => { if (e.status === 404) setNotFound(true); else showToast(e.message, 'error'); });
     handleAllTournaments();
     setVisibleCount(5);
     setFilters(EMPTY_FILTERS);
@@ -320,7 +326,7 @@ export default function GroupView() {
     }
   }
 
-  useDocumentTitle(group?.name);
+  useDocumentTitle(notFound ? 'Categoría no encontrada' : group?.name);
 
   const allT = group?.tournaments;
   const filtered = useMemo(() => filterTournaments(allT ?? [], filters), [allT, filters]);
@@ -335,6 +341,8 @@ export default function GroupView() {
   // que rinde 1547, así que el pie quedaba visible en y=760 y el contenido real
   // lo expulsaba de la pantalla. Ese salto solo valía 0,75 de CLS. Reservando
   // el alto de la pantalla el pie arranca bajo el pliegue y no se mueve.
+  if (notFound) return <LazyNotFound subject="category" />;
+
   if (!group) return (
     <div className="bg-base text-content font-sans pb-15 min-h-screen">
       <div className="px-6 pt-6 pb-5 border-b border-border flex flex-col gap-3">

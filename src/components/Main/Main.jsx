@@ -17,6 +17,7 @@ import { Check, Pencil, Share2, Eye, Trophy, Settings, Flame, ChartNoAxesCombine
 import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
+import LazyNotFound from "../NotFound/LazyNotFound";
 import ShareModal from "../shared/ShareModal";
 import QrModal from "../shared/QrModal";
 import SignupPricePill from "../shared/SignupPricePill";
@@ -59,7 +60,7 @@ export default function Main() {
   
   const isPremium = user?.subscription?.plan === 'premium';
   const {
-    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, isOwner,
+    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, notFound, isOwner,
     handleAddMatch, handleEditMatch, handleDeleteMatch,
     handleAddPlayer, handleEditPlayer, handleDeletePlayer,
     handleAddPair, handleEditPair, handleDeletePair,
@@ -84,7 +85,7 @@ export default function Main() {
     }
   }, [loading, tournament, isOwner, tournamentId, navigate]);
 
-  useDocumentTitle(tournament?.name);
+  useDocumentTitle(notFound ? 'Jornada no encontrada' : tournament?.name);
 
   if (loading) return (
     <div className="bg-base text-content font-sans pb-24 sm:pb-15">
@@ -97,6 +98,7 @@ export default function Main() {
       </div>
     </div>
   );
+  if (notFound) return <LazyNotFound subject="tournament" />;
   if (error || !tournament) return (
     <div className="bg-base text-content font-sans flex items-center justify-center">
       <div className="text-danger p-10">{error ?? "Error cargando torneo"}</div>

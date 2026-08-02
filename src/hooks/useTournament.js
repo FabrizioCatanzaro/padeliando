@@ -16,6 +16,7 @@ export function useTournament(groupId, tournamentId) {
   const [groupIdResolved, setGroupIdResolved] = useState(groupId ?? null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
+  const [notFound,   setNotFound]   = useState(false);
   const [saved,      setSaved]      = useState(false);
 
   // Carga el torneo al montar (o cuando cambia tournamentId).
@@ -42,6 +43,7 @@ export function useTournament(groupId, tournamentId) {
       setGroupIdResolved(groupId ?? t.group_id ?? null);
     } catch (e) {
       setError(e.message);
+      setNotFound(e.status === 404);
     } finally {
       setLoading(false);
     }
@@ -337,7 +339,7 @@ export function useTournament(groupId, tournamentId) {
   const isOwner = !!user && !!tournament && canManage;
 
   return {
-    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, saved, isOwner,
+    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, notFound, saved, isOwner,
     handleCreate,
     handleAddMatch,    handleEditMatch,    handleDeleteMatch,
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
