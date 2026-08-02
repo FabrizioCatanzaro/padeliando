@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useCallback, useMemo, useRef, useSyncExternalStore, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { calcStandings, compareStandingRows, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META,
+import { calcStandings, compareStandingRows, courtLabel, getPairLabel, isAmericanoDraft, isDeletedAccount, fmt, fmtHora, tournamentDisplayStatus, TOURNAMENT_STATUS_META,
   getAllMatches, playedMatches, calcPartnerships, tiedLabel, fmtMMSS, fmtDuracion, TIED_NAMES_PAIRS } from "../../utils/helpers";
 
 // Mínimo de partidos para que la pantalla de estadísticas entre en el Modo TV.
@@ -17,12 +17,18 @@ import { api } from '../../utils/api';
 import { adaptTournament } from '../../utils/helpers';
 import { AuthContext } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useTournamentAlerts } from '../../hooks/useTournamentAlerts';
+import { useAlerts } from '../../context/useAlerts';
+import SignupBanner from './SignupBanner';
+import SignupPricePill from '../shared/SignupPricePill';
+import { playTone, TONES } from '../../utils/sound';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin, Hourglass, Timer } from "lucide-react";
 import courtSvg from "../../assets/padel-court.svg";
 import appLogo from "../../assets/padeleando.svg";
 import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
+import LazyNotFound from "../NotFound/LazyNotFound";
 import ShareModal from "../shared/ShareModal";
 import ShareFixtureModal from "../shared/ShareFixtureModal";
 import QrModal from "../shared/QrModal";
@@ -234,19 +240,25 @@ export default function ReadonlyView() {
   const [tvStep, setTvStep]     = useState(0);
   const [soundOn, setSoundOn]   = useState(false);
   const [club, setClub]         = useState(null);
-  const audioRef  = useRef(null);
-  const soundSigRef = useRef(null);
+
+  // La pila de avisos es global: la comparte con la campana.
+  const { pushAlert } = useAlerts();
+  const trackAlerts = useTournamentAlerts(user?.username, {
+    onAlert: (list) => { list.forEach(pushAlert); handleAlerts(list); },
+  });
 
   // Sólo el torneo: es lo único que cambia entre ciclos de refresco.
   const load = useCallback(async () => {
     try {
       const t = await api.readonly.get(id);
-      setTournament(adaptTournament(t));
+      const adapted = adaptTournament(t);
+      setTournament(adapted);
+      trackAlerts(adapted);
       setRefreshTick((x) => x + 1);
-    } catch {
-      setError(true);
+    } catch (e) {
+      setError(e.status === 404 ? 'notfound' : true);
     }
-  }, [id]);
+  }, [id, trackAlerts]);
 
   const REFRESH_MS = 30_000;
   useEffect(() => {
@@ -279,57 +291,23 @@ export default function ReadonlyView() {
     api.clubs.get(cid).then(setClub).catch(() => setClub(null));
   }, [tournament?.club_id]);
 
-  // ── Sonido (Web Audio, sin assets) ─────────────────────────────────────────
-  function ensureAudio() {
-    if (!audioRef.current) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) audioRef.current = new AC();
-    }
-    if (audioRef.current?.state === 'suspended') audioRef.current.resume();
-    return audioRef.current;
-  }
-  function playTone(freqs, step = 0.16) {
-    const ac = ensureAudio();
-    if (!ac) return;
-    const t0 = ac.currentTime;
-    freqs.forEach((f, i) => {
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = 'sine';
-      o.frequency.value = f;
-      const start = t0 + i * step;
-      g.gain.setValueAtTime(0.0001, start);
-      g.gain.exponentialRampToValueAtTime(0.16, start + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, start + step);
-      o.connect(g); g.connect(ac.destination);
-      o.start(start); o.stop(start + step + 0.02);
-    });
-  }
   function toggleSound() {
     setSoundOn((v) => {
       const next = !v;
-      if (next) playTone([880]); // blip de confirmación (gesto del usuario habilita el audio)
+      if (next) playTone(TONES.confirm); // el gesto del usuario habilita el audio
       return next;
     });
   }
 
-  // Detecta cambios entre refrescos y dispara sonidos: resultado nuevo (dos notas)
-  // o partido que entra/cambia en vivo (una nota). No suena en la primera carga.
-  useEffect(() => {
-    if (!tournament) return;
-    const live = Array.isArray(tournament.live_match) ? tournament.live_match : [];
-    const liveKeys = live
-      .filter((m) => m.startedAt != null)
-      .map((m) => `${m.team1Label}|${m.team2Label}|${m.court}|${m.phase}`)
-      .sort();
-    const finished = countPlayed(tournament);
-    const prev = soundSigRef.current;
-    soundSigRef.current = { liveKeys, finished };
-    if (!prev || !soundOn) return;
-    if (finished > prev.finished) playTone([660, 990]);            // resultado nuevo
-    else if (liveKeys.some((k) => !prev.liveKeys.includes(k))) playTone([990]); // nuevo en vivo
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournament, soundOn]);
+  // La detección vive en useTournamentAlerts; acá sólo se les pone sonido.
+  function handleAlerts(list) {
+    if (!soundOn) return;
+    const kinds = list.map((a) => a.kind);
+    if (kinds.includes('champion'))                                        playTone(TONES.champion, 0.18);
+    else if (kinds.some((k) => k === 'your_match' || k === 'bracket_spot')) playTone(TONES.personal);
+    else if (kinds.includes('result'))                                     playTone(TONES.result);
+    else                                                                   playTone(TONES.live);
+  }
 
   // Secuencia de pantallas del modo TV (depende del formato y de si hay cuadro)
   const hasBracketTv = tournament?.format === 'americano' && !!tournament?.bracket;
@@ -407,7 +385,9 @@ export default function ReadonlyView() {
     }
   }
 
-  useDocumentTitle(tournament?.name);
+  useDocumentTitle(error === 'notfound' ? 'Jornada no encontrada' : tournament?.name);
+
+  if (error === 'notfound') return <LazyNotFound subject="tournament" />;
 
   if (error) {
     return (
@@ -505,6 +485,10 @@ export default function ReadonlyView() {
 
   // Cartel de "¿Jugás en este torneo?" — se muestra en la vista normal y también
   // dentro del Modo TV. Para invitados (sin cuenta) ofrece iniciar sesión.
+  const signupBanner = (
+    <SignupBanner signup={tournament.signup} tournamentName={tournament.name} />
+  );
+
   const joinBanner = (
     <JoinBanner
       user={user}
@@ -606,6 +590,7 @@ export default function ReadonlyView() {
           <span className="inline-flex items-center gap-1.5">
             <Calendar size={11} className="text-dim" />
             {fmt(tournament.event_date ?? tournament.createdAt)}
+            {tournament.event_time && <span className="text-brand">{fmtHora(tournament.event_time)}</span>}
           </span>
           <span className="inline-flex items-center gap-1.5">
             {isPairs ? <Users size={11} className="text-dim" /> : <User size={11} className="text-dim" />}
@@ -615,6 +600,7 @@ export default function ReadonlyView() {
             <Flame size={11} className="text-dim" />
             {playedCount} jugados
           </span>
+          <SignupPricePill signup={tournament.signup} />
           {tournament.club_id && (
             <button
               onClick={() => navigate(`/club/${tournament.club_id}`)}
@@ -644,6 +630,7 @@ export default function ReadonlyView() {
       </div>
 
       {/* Banner de solicitud de unión */}
+      {signupBanner}
       {joinBanner}
 
       <LiveTicker tournament={tournament} isAmericano={isAmericano} />
@@ -703,6 +690,7 @@ export default function ReadonlyView() {
           onToggleSound={toggleSound}
           playedCount={playedCount}
           joinBanner={joinBanner}
+          signupBanner={signupBanner}
         />
       )}
 
@@ -947,6 +935,7 @@ function TvHeader({ tournament, club, groupName, groupEmojis, paused, onPrev, on
           )}
           <span className="inline-flex items-center gap-1.5 text-[10px] font-mono tracking-wide text-muted">
             <Calendar size={11} />{dateLabel}
+            {tournament.event_time && <span className="text-brand">{fmtHora(tournament.event_time)}</span>}
           </span>
         </div>
       </div>
@@ -1215,7 +1204,7 @@ function TvBracketScreen({ tournament }) {
   );
 }
 
-function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq, step, paused, onTogglePause, onPrev, onNext, onBarEnd, onExit, soundOn, onToggleSound, playedCount, joinBanner }) {
+function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq, step, paused, onTogglePause, onPrev, onNext, onBarEnd, onExit, soundOn, onToggleSound, playedCount, joinBanner, signupBanner }) {
   const current = seq[step] ?? seq[0];
   const screen  = current?.screen ?? 'standings';
 
@@ -1272,6 +1261,7 @@ function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq,
       </main>
 
       {/* Cartel de "¿Jugás en este torneo?" (invitados y espectadores logueados) */}
+      {signupBanner && <div className="shrink-0">{signupBanner}</div>}
       {joinBanner && <div className="shrink-0">{joinBanner}</div>}
 
       {/* Live ticker (parte inferior) */}

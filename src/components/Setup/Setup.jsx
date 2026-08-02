@@ -6,10 +6,12 @@ import { useTournament } from "../../hooks/useTournament";
 import PlayerInput from "./PlayerInput";
 import PairBuilder from "./PairBuilder";
 import ClubSelector from "../shared/ClubSelector";
+import SignupEditor from "../shared/SignupEditor";
+import { profileContacts } from "../../utils/signup";
 import { ChevronLeft, Check } from "lucide-react";
 import Btn from "../shared/Btn";
 
-function EventMeta({ club, setClub, eventDate, setEventDate }) {
+function EventMeta({ club, setClub, eventDate, setEventDate, eventTime, setEventTime, signup, setSignup, inheritedSignup, profile }) {
   const courts = club ? clubCourts(club) : null;
   return (
     <div className="mt-5 flex flex-col gap-5">
@@ -24,14 +26,33 @@ function EventMeta({ club, setClub, eventDate, setEventDate }) {
           </p>
         )}
       </div>
+      <div className="flex gap-3">
+        <div className="flex-1 min-w-0">
+          <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">FECHA DEL EVENTO (opcional)</label>
+          <input
+            type="date"
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
+            className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[14px] rounded-sm outline-none"
+          />
+        </div>
+        <div className="w-32 shrink-0">
+          <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">HORA</label>
+          <input
+            type="time"
+            value={eventTime}
+            onChange={(e) => setEventTime(e.target.value)}
+            className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[14px] rounded-sm outline-none"
+          />
+        </div>
+      </div>
+
       <div>
-        <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">FECHA DEL EVENTO (opcional)</label>
-        <input
-          type="date"
-          value={eventDate}
-          onChange={(e) => setEventDate(e.target.value)}
-          className="w-full bg-surface border border-border-mid text-white px-3.5 py-2.5 font-sans text-[14px] rounded-sm outline-none"
-        />
+        <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">INSCRIPCIÓN (opcional)</label>
+        <SignupEditor value={signup} onChange={setSignup} inherited={inheritedSignup} profile={profile} />
+        <p className="text-[11px] font-mono mt-2 text-dim">
+          Lo que cargues vale sólo para esta jornada; lo que dejes vacío se hereda de la categoría.
+        </p>
       </div>
     </div>
   );
@@ -82,14 +103,21 @@ export default function Setup() {
   const [error, setError]         = useState(false);
   const [club, setClub]           = useState(null);
   const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [group, setGroup]         = useState(null);
+  // Vacío a propósito: lo que no se cargue queda en null y se hereda.
+  const [signup, setSignup]       = useState({ open: false, price: null, unit: 'player', contacts: [] });
   const [creating, setCreating]   = useState(false);
 
   // Heredar el club de la categoría como default (editable por torneo).
   // Si la categoría no tiene club, se usa el de la última jornada que sí lo tenga.
   useEffect(() => {
     api.groups.get(groupId).then((g) => {
+      setGroup(g);
       const inherited = entityClub(g) ?? entityClub((g.tournaments ?? []).find((t) => t.club_id));
       if (inherited) setClub(inherited);
+      // Sólo el interruptor; precio y contactos quedan vacíos para heredarse.
+      setSignup((prev) => ({ ...prev, open: g.signup_open ?? false, unit: g.signup_price_unit ?? 'player' }));
     }).catch(() => {});
   }, [groupId]);
 
@@ -170,7 +198,12 @@ export default function Setup() {
       const tId = await createTournament(tournamentName, players, pairsInput, fmt, clubCourts(club), {
         club_id: club?.pending ? null : (club?.id ?? null),
         event_date: eventDate || null,
+        event_time: eventTime || null,
         pending_club_request_id: club?.pending ? club.request_id : null,
+        signup_open:       signup.open,
+        signup_price:      signup.price,
+        signup_price_unit: signup.unit,
+        signup_contacts:   signup.contacts.filter((c) => c.value.trim()),
       });
       navigate(`/cat/${groupId}/torneo/${tId}`);
     } finally {
@@ -261,7 +294,19 @@ export default function Setup() {
               autoFocus
             />
 
-            <EventMeta club={club} setClub={setClub} eventDate={eventDate} setEventDate={setEventDate} />
+            <EventMeta
+              club={club} setClub={setClub}
+              eventDate={eventDate} setEventDate={setEventDate}
+              eventTime={eventTime} setEventTime={setEventTime}
+              signup={signup} setSignup={setSignup}
+              inheritedSignup={{
+                open:     group?.signup_open ?? false,
+                price:    group?.signup_price ?? null,
+                unit:     group?.signup_price_unit ?? 'player',
+                contacts: group?.signup_contacts ?? [],
+              }}
+              profile={profileContacts(group?.owner_social_links)}
+            />
 
             {error && <p className="text-danger text-xs font-mono mt-3">El nombre del torneo debe tener entre 2 y 30 caracteres</p>}
             <Btn

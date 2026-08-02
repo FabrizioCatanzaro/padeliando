@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { User, CircleHelp, Bell, Download } from 'lucide-react'
+import { User, CircleHelp, Bell, Download, Volume2, VolumeX, UserPlus } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 import { usePwaInstall } from '../../hooks/usePwaInstall'
 import { openInstallPrompt } from '../../utils/pwa'
@@ -9,6 +9,13 @@ import { renderRichText } from '../../utils/richText'
 import logoUrl from '../../assets/padeleando-logo.webp'
 import logoTxtUrl from '../../assets/padeleando-txt.webp'
 import PlayerAvatar from './PlayerAvatar'
+import { useAlerts } from '../../context/useAlerts'
+import { playTone, TONES } from '../../utils/sound'
+import { notifTitle, notifSummary } from '../../utils/notifText'
+import ShareAppModal from './ShareAppModal'
+
+// Preferencia de sonido de la campana, apagada por defecto.
+const SOUND_KEY = 'notif_sound'
 
 
 function timeAgo(dateStr) {
@@ -46,7 +53,27 @@ function NotifItemText({ n, onNavigate }) {
   );
   if (n.type === 'join_request') return (
     <>{actor} solicitó unirse al torneo{' '}
-      <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span></>
+      <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span>
+      {n.requested_player_name ? <> como <span className="text-brand">{n.requested_player_name}</span></> : null}</>
+  );
+  if (n.type === 'new_tournament') return (
+    <>{actor} creó{' '}
+      {n.tournament_id && n.group_id ? (
+        <span
+          onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}/torneo/${n.tournament_id}`); }}
+          className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+        >{n.tournament_name ?? 'una jornada'}</span>
+      ) : (
+        <span className="text-white font-semibold">{n.tournament_name ?? 'una jornada'}</span>
+      )}{' '}en{' '}
+      {n.group_id ? (
+        <span
+          onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}`); }}
+          className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+        >{n.group_name ?? 'una categoría'}</span>
+      ) : (
+        <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+      )}</>
   );
   if (n.type === 'collab_invite') return (
     <>{actor} te invitó a co-organizar{' '}
@@ -86,7 +113,8 @@ function NotifItemText({ n, onNavigate }) {
   );
   if (n.type === 'club_request') return <>{actor} {n.body}</>;
   if (n.type === 'premium_claim') return <>{actor} {n.body}</>;
-  return null;
+  // Un tipo sin rama propia se leía como una notificación en blanco.
+  return <>{notifSummary(n)}</>;
 }
 
 export default function Header() {
@@ -95,8 +123,16 @@ export default function Header() {
   const [notifCount,    setNotifCount]    = useState(0)
   const [notifs,        setNotifs]        = useState([])
   const [notifLoading,  setNotifLoading]  = useState(false)
+  const [notifSound,    setNotifSound]    = useState(() => localStorage.getItem(SOUND_KEY) === '1')
+  const [shareAppOpen,  setShareAppOpen]  = useState(false)
 
   const { user, isLoggedIn, logout } = useAuth()
+  const { pushAlert } = useAlerts()
+  // El intervalo lee el toggle por ref: no queremos reiniciarlo al cambiarlo.
+  const soundOnRef  = useRef(notifSound)
+  soundOnRef.current = notifSound
+  // Contador del ciclo anterior; null hasta la primera respuesta.
+  const lastCountRef = useRef(null)
   const { available: canInstallApp } = usePwaInstall()
   const navigate  = useNavigate()
   const location  = useLocation()
@@ -112,28 +148,49 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // El contador se refresca al montar y cada 2 minutos, sólo con la pestaña
-  // visible. Antes dependía de location.pathname, así que cada navegación
-  // interna del SPA disparaba una petición al backend.
+  // Cada 45 s y sólo con la pestaña visible.
   useEffect(() => {
-    if (!isLoggedIn) { setNotifCount(0); return; }
+    if (!isLoggedIn) { setNotifCount(0); lastCountRef.current = null; return; }
 
     const fetchCount = () => {
       if (document.hidden) return;
       api.notifications.count()
-        .then(d => setNotifCount(d.count ?? 0))
+        .then(d => {
+          const count = d.count ?? 0;
+          const prev  = lastCountRef.current;
+          lastCountRef.current = count;
+          setNotifCount(count);
+          // Sólo cuando sube: si no, cada recarga repetiría la última pendiente.
+          if (prev == null || count <= prev || !d.latest) return;
+          if (soundOnRef.current) playTone(TONES.notification);
+          pushAlert({
+            kind: 'notification',
+            title: notifTitle(d.latest),
+            body: notifSummary(d.latest),
+            onClick: () => navigate('/notifications'),
+          });
+        })
         .catch(() => {});
     };
 
     fetchCount();
-    const id = setInterval(fetchCount, 120_000);
+    const id = setInterval(fetchCount, 45_000);
     // Al volver a la pestaña, ponerse al día sin esperar al próximo intervalo.
     document.addEventListener('visibilitychange', fetchCount);
     return () => {
       clearInterval(id);
       document.removeEventListener('visibilitychange', fetchCount);
     };
-  }, [isLoggedIn])
+  }, [isLoggedIn, pushAlert, navigate])
+
+  function toggleNotifSound() {
+    setNotifSound(v => {
+      const next = !v;
+      localStorage.setItem(SOUND_KEY, next ? '1' : '0');
+      if (next) playTone(TONES.confirm); // el gesto habilita el audio del navegador
+      return next;
+    });
+  }
 
   const openNotifications = useCallback(async () => {
     if (notifOpen) { setNotifOpen(false); return; }
@@ -249,13 +306,24 @@ export default function Header() {
               <div className="absolute right-0 top-full mt-2 bg-surface border border-border-strong rounded-xl z-50 overflow-hidden shadow-2xl" style={{ width: 340 }}>
                 <div className="px-4 py-3 flex items-center justify-between border-b border-border-mid">
                   <span className="text-[10px] font-mono tracking-widest text-muted">NOTIFICACIONES</span>
-                  <Link
-                    to="/notifications"
-                    onClick={() => setNotifOpen(false)}
-                    className="text-[10px] font-mono text-dim hover:text-soft transition-colors"
-                  >
-                    Ver todas
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={toggleNotifSound}
+                      title={notifSound ? 'Silenciar avisos' : 'Avisar con sonido'}
+                      aria-label={notifSound ? 'Silenciar avisos' : 'Avisar con sonido'}
+                      className={`bg-transparent border-none cursor-pointer transition-colors ${notifSound ? 'text-brand' : 'text-dim hover:text-soft'}`}
+                    >
+                      {notifSound ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                    </button>
+                    <Link
+                      to="/notifications"
+                      onClick={() => setNotifOpen(false)}
+                      className="text-[10px] font-mono text-dim hover:text-soft transition-colors"
+                    >
+                      Ver todas
+                    </Link>
+                  </div>
                 </div>
 
                 <div className="max-h-80 overflow-y-auto">
@@ -331,6 +399,11 @@ export default function Header() {
                       className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans">
                       Mi plan
                     </button>
+                    <button onClick={() => { setMenuOpen(false); setShareAppOpen(true); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-content hover:bg-border-mid hover:text-white transition-colors cursor-pointer bg-transparent border-0 font-sans flex items-center gap-2">
+                      <UserPlus size={14} className="shrink-0" />
+                      Invitar amigos
+                    </button>
                     <Link
                       to="/tutorial"
                       onClick={() => setMenuOpen(false)}
@@ -376,6 +449,8 @@ export default function Header() {
           )}
         </div>
       </div>
+
+      {shareAppOpen && <ShareAppModal onClose={() => setShareAppOpen(false)} />}
     </div>
   )
 }

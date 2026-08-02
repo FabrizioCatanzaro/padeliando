@@ -2,13 +2,13 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount, entityClub } from '../../utils/helpers';
+import { adaptTournament, fmt, fmtHora, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount, entityClub } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, ArrowLeftRight, Link2, LogOut, Copy, Unlink } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, Star, ArrowLeftRight, Link2, LogOut, Copy, Unlink } from 'lucide-react';
 import Btn from '../shared/Btn';
 import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
@@ -22,14 +22,20 @@ import TournamentFilters from './TournamentFilters';
 import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../utils/tournamentFilters';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
+import ActionMenu from '../shared/ActionMenu';
+import SignupPricePill from '../shared/SignupPricePill';
 import ShareCategoryModal from '../shared/ShareCategoryModal';
+import SignupEditor from '../shared/SignupEditor';
+import { profileContacts } from '../../utils/signup';
 import PlayerAvatar from '../shared/PlayerAvatar';
+import LazyNotFound from '../NotFound/LazyNotFound';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
 export default function GroupView() {
   const { groupId } = useParams();
   const [group, setGroup] = useState(null);
+  const [notFound, setNotFound] = useState(false);
   const [deleteModal,      setDeleteModal]      = useState(false);
   const [deleteInput,      setDeleteInput]      = useState('');
   const [editingGroup,     setEditingGroup]     = useState(false);
@@ -37,6 +43,7 @@ export default function GroupView() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [allTournaments, setAllTournaments] = useState([]);
   const [showShareModal,   setShowShareModal]   = useState(false);
+  const [favBusy,          setFavBusy]          = useState(false);
   const [visibleCount,     setVisibleCount]     = useState(5);
   const [filters,          setFilters]          = useState(EMPTY_FILTERS);
   const [filtersOpen,      setFiltersOpen]      = useState(false);
@@ -47,6 +54,7 @@ export default function GroupView() {
   const [editIsPublic, setEditIsPublic] = useState(true);
   const [editEmojis,   setEditEmojis]   = useState([]);
   const [editClub,     setEditClub]     = useState(null);
+  const [editSignup,   setEditSignup]   = useState({ open: false, price: null, unit: 'player', contacts: [] });
 
   // modals
   const [showEmojiModal, setShowEmojiModal] = useState(false);
@@ -77,13 +85,39 @@ export default function GroupView() {
     try {
       const data = await api.groups.history(groupId);
       setAllTournaments(data.map(adaptTournament));
-    } finally {
-      //
+    } catch {
+      // El historial es accesorio: si falla, la categoría se muestra igual.
     }
   }
 
   function refreshGroup() {
     return api.groups.get(groupId).then(setGroup);
+  }
+
+  async function toggleFavorite() {
+    if (favBusy || !group) return;
+    const wasFavorite = !!group.is_favorite;
+    setFavBusy(true);
+    // Optimista: la estrella y el contador responden sin esperar el round-trip.
+    setGroup(prev => ({
+      ...prev,
+      is_favorite: !wasFavorite,
+      favorites_count: Math.max(0, (prev.favorites_count ?? 0) + (wasFavorite ? -1 : 1)),
+    }));
+    try {
+      if (wasFavorite) await api.groups.unfavorite(groupId);
+      else             await api.groups.favorite(groupId);
+      showToast(wasFavorite ? 'Sacaste la categoría de favoritas.' : 'Categoría agregada a favoritas.');
+    } catch (e) {
+      setGroup(prev => ({
+        ...prev,
+        is_favorite: wasFavorite,
+        favorites_count: Math.max(0, (prev.favorites_count ?? 0) + (wasFavorite ? 1 : -1)),
+      }));
+      showToast(e.message, 'error');
+    } finally {
+      setFavBusy(false);
+    }
   }
 
   async function respondInvitation(action) {
@@ -104,7 +138,11 @@ export default function GroupView() {
   }
 
   useEffect(() => {
-    api.groups.get(groupId).then(setGroup);
+    setNotFound(false);
+    // Sin este catch un id inexistente dejaba el esqueleto girando para siempre.
+    api.groups.get(groupId)
+      .then(setGroup)
+      .catch((e) => { if (e.status === 404) setNotFound(true); else showToast(e.message, 'error'); });
     handleAllTournaments();
     setVisibleCount(5);
     setFilters(EMPTY_FILTERS);
@@ -123,6 +161,12 @@ export default function GroupView() {
     setEditIsPublic(group.is_public);
     setEditEmojis(group.emojis ?? []);
     setEditClub(entityClub(group));
+    setEditSignup({
+      open:     group.signup_open ?? false,
+      price:    group.signup_price ?? null,
+      unit:     group.signup_price_unit ?? 'player',
+      contacts: group.signup_contacts ?? [],
+    });
     setEditingGroup(true);
   }
 
@@ -136,6 +180,11 @@ export default function GroupView() {
         emojis:        editEmojis,
         club_id:       editClub?.pending ? null : (editClub?.id ?? null),
         pending_club_request_id: editClub?.pending ? editClub.request_id : null,
+        signup_open:       editSignup.open,
+        signup_price:      editSignup.price,
+        signup_price_unit: editSignup.unit,
+        // Los vacíos no viajan: el backend rechaza un contacto sin valor.
+        signup_contacts:   editSignup.contacts.filter((c) => c.value.trim()),
       });
       // El PUT devuelve sólo las columnas de groups: los datos del club los
       // aporta el que ya está elegido, así se evita releer la categoría.
@@ -277,7 +326,7 @@ export default function GroupView() {
     }
   }
 
-  useDocumentTitle(group?.name);
+  useDocumentTitle(notFound ? 'Categoría no encontrada' : group?.name);
 
   const allT = group?.tournaments;
   const filtered = useMemo(() => filterTournaments(allT ?? [], filters), [allT, filters]);
@@ -292,6 +341,8 @@ export default function GroupView() {
   // que rinde 1547, así que el pie quedaba visible en y=760 y el contenido real
   // lo expulsaba de la pantalla. Ese salto solo valía 0,75 de CLS. Reservando
   // el alto de la pantalla el pie arranca bajo el pliegue y no se mueve.
+  if (notFound) return <LazyNotFound subject="category" />;
+
   if (!group) return (
     <div className="bg-base text-content font-sans pb-15 min-h-screen">
       <div className="px-6 pt-6 pb-5 border-b border-border flex flex-col gap-3">
@@ -337,6 +388,50 @@ export default function GroupView() {
     navigate('/');
   }
 
+  // El dueño y los co-organizadores ven el número, pero no la marcan.
+  const canFavorite = !!user && !isOwner && !isCollaborator && group.is_public;
+  const favCount    = group.favorites_count ?? 0;
+  const favoriteControl = !group.is_public ? null : canFavorite ? (
+    <button
+      onClick={toggleFavorite}
+      disabled={favBusy}
+      title={group.is_favorite ? 'Sacar de favoritas' : 'Agregar a favoritas'}
+      className={`flex items-center gap-1.5 border rounded-sm px-2.5 py-1.5 text-xs font-mono transition-colors ${favBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
+        group.is_favorite
+          ? 'text-brand border-brand/40 hover:bg-brand/10'
+          : 'text-content border-border-strong hover:bg-border-mid hover:text-white'
+      }`}
+    >
+      <Star size={14} className="shrink-0" fill={group.is_favorite ? 'currentColor' : 'none'} />
+      {favCount > 0 && favCount}
+    </button>
+  ) : favCount > 0 ? (
+    <span
+      title={`${favCount} ${favCount === 1 ? 'persona la tiene' : 'personas la tienen'} en favoritas`}
+      className="flex items-center gap-1.5 border border-border-strong rounded-sm px-2.5 py-1.5 text-xs font-mono text-content"
+    >
+      <Star size={14} className="shrink-0 text-brand" fill="currentColor" />
+      {favCount}
+    </span>
+  ) : null;
+
+  const collabCount = group.collaborators?.length ?? 0;
+  const ownerActions = [
+    {
+      label: collabCount ? `Co-organizadores (${collabCount})` : 'Co-organizadores',
+      icon: <Users size={15} />,
+      onClick: () => setShowCollabModal(true),
+    },
+    { label: 'Transferir propiedad', icon: <ArrowLeftRight size={15} />, onClick: () => setShowTransferModal(true) },
+    { label: 'Editar categoría',     icon: <Pencil size={15} />,        onClick: startEdit },
+    {
+      label: 'Eliminar categoría',
+      icon: <Trash2 size={15} />,
+      danger: true,
+      onClick: () => { setDeleteModal(true); setDeleteInput(''); },
+    },
+  ];
+
   return (
     <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex flex-col gap-3 border-b border-border">
@@ -345,20 +440,17 @@ export default function GroupView() {
 
           {isOwner && !editingGroup && (
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              {favoriteControl}
               {group.is_public && (
                 <Btn size="sm" icon={Share2} onClick={() => setShowShareModal(true)} title="Compartir" />
               )}
-              <Btn size="sm" icon={Users} onClick={() => setShowCollabModal(true)} title="Co-organizadores">
-                {group.collaborators?.length ? String(group.collaborators.length) : ''}
-              </Btn>
-              <Btn size="sm" icon={ArrowLeftRight} onClick={() => setShowTransferModal(true)} title="Transferir propiedad" />
-              <Btn size="sm" icon={Pencil} onClick={startEdit} title="Editar categoría" />
-              <Btn variant="danger" size="sm" icon={Trash2} onClick={() => { setDeleteModal(true); setDeleteInput(''); }} title="Eliminar categoría" />
+              <ActionMenu label="Acciones de la categoría" items={ownerActions} />
             </div>
           )}
 
           {!isOwner && (
             <div className="flex items-center gap-2">
+              {favoriteControl}
               <Btn size="sm" icon={Share2} onClick={() => setShowShareModal(true)} />
               {isDeletedAccount(group.owner_username) ? (
                 <span className="flex gap-2 items-center border border-border-strong rounded-full pl-1 pr-3 py-1">
@@ -433,6 +525,16 @@ export default function GroupView() {
                 <p className="text-[10px] text-dim font-mono mt-1.5">Se usa como club por defecto en las jornadas nuevas.</p>
               </div>
 
+              <div className="border-t border-border-mid pt-4">
+                <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-2.5">INSCRIPCIÓN</label>
+                <SignupEditor
+                  value={editSignup}
+                  onChange={setEditSignup}
+                  profile={profileContacts(group.owner_social_links)}
+                />
+                <p className="text-[10px] text-dim font-mono mt-2">Cada jornada lo hereda y puede cambiarlo.</p>
+              </div>
+
               {/* Íconos */}
               <div>
                 <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">ÍCONOS (opcional · máx. 2)</label>
@@ -480,8 +582,8 @@ export default function GroupView() {
           )}
         </div>
 
-        {/* Privacidad (solo dueño) y club — justo encima de la línea divisoria */}
-        {!editingGroup && (isOwner || group.club_id) && (
+        {/* Privacidad (solo dueño), club y precio — justo encima de la línea divisoria */}
+        {!editingGroup && (isOwner || group.club_id || group.signup_open) && (
           <div className="flex flex-wrap items-center gap-2">
             {isOwner && (
               <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border ${group.is_public ? 'text-cyan border-cyan/40' : 'text-yellow-400 border-yellow-400/40'}`}>
@@ -489,6 +591,11 @@ export default function GroupView() {
                 {group.is_public ? 'Categoría pública' : 'Categoría privada'}
               </span>
             )}
+            <SignupPricePill signup={{
+              open:  group.signup_open ?? false,
+              price: group.signup_price,
+              unit:  group.signup_price_unit ?? 'player',
+            }} />
             {group.club_id ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border text-brand border-brand/40 max-w-full">
                 <Building2 size={12} className="shrink-0" />
@@ -658,7 +765,10 @@ export default function GroupView() {
                         {t.mode === 'pairs' ? '(en parejas)' : '(equipos libres)'}
                       </span>
                     )}
-                    <span className="font-mono text-sm text-dim ml-auto">{fmt(t.event_date ?? t.created_at)}</span>
+                    <span className="font-mono text-sm text-dim ml-auto">
+                      {fmt(t.event_date ?? t.created_at)}
+                      {t.event_time && <span className="text-brand ml-1.5">{fmtHora(t.event_time)}</span>}
+                    </span>
                   </div>
                   {t.club_name && (
                     <div className="flex items-center gap-1.5 text-sm text-secondary font-mono mt-2">

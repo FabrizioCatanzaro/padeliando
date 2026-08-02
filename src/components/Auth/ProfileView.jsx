@@ -15,6 +15,7 @@ import ClaimPremiumRequest from '../shared/ClaimPremiumRequest';
 import Modal from '../shared/Modal';
 import statsPreview from '../../assets/advanced-stats-preview.svg';
 import Loader from '../Loader/Loader';
+import LazyNotFound from '../NotFound/LazyNotFound';
 import PlayerAvatar from '../shared/PlayerAvatar';
 import ClubLogo from '../shared/ClubLogo';
 import AvatarCropper from '../shared/AvatarCropper';
@@ -304,11 +305,11 @@ export default function ProfileView() {
         setFollowersCount(d.owner.followers_count ?? 0);
         setFollowingCount(d.owner.following_count ?? 0);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(e.status === 404 ? 'notfound' : e.message))
       .finally(() => setLoading(false));
   }, [username]);
 
-  useDocumentTitle(data?.owner?.name);
+  useDocumentTitle(error === 'notfound' ? 'Perfil no encontrado' : data?.owner?.name);
 
   useEffect(() => {
     if (!avatarZoom) return;
@@ -320,6 +321,7 @@ export default function ProfileView() {
   // El perfil siempre rinde más alto que la pantalla, así que el hueco de carga
   // debe empujar el pie fuera del viewport en vez de dejarlo asomar.
   if (loading) return <Loader minHeight="100vh" />;
+  if (error === 'notfound') return <LazyNotFound subject="profile" />;
   if (error)   return <div className="text-danger p-10">{error}</div>;
 
   const { owner, groups, stats, recent_matches, frequent_partners, monthly_stats, club_stats, follow_ranking } = data;

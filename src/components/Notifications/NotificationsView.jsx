@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
 import { renderRichText } from '../../utils/richText';
+import { notifSummary } from '../../utils/notifText';
 import PlayerAvatar from '../shared/PlayerAvatar';
 import Loader from '../Loader/Loader';
 
@@ -260,6 +261,34 @@ function NotifText({ n, navigate }) {
       </div>
     );
   }
+  if (n.type === 'new_tournament') {
+    return (
+      <div className="text-[13px] text-secondary">
+        {actorEl} creó la jornada{' '}
+        {n.tournament_id && n.group_id ? (
+          <span
+            onClick={() => navigate(`/cat/${n.group_id}/torneo/${n.tournament_id}`)}
+            className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+          >
+            {n.tournament_name ?? 'una jornada'}
+          </span>
+        ) : (
+          <span className="text-white font-semibold">{n.tournament_name ?? 'una jornada'}</span>
+        )}
+        {' '}en{' '}
+        {n.group_id ? (
+          <span
+            onClick={() => navigate(`/cat/${n.group_id}`)}
+            className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
+          >
+            {n.group_name ?? 'una categoría'}
+          </span>
+        ) : (
+          <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
+        )}
+      </div>
+    );
+  }
   if (n.type === 'join_request') {
     return (
       <div className="text-[13px] text-secondary">
@@ -353,7 +382,8 @@ function NotifText({ n, navigate }) {
       </div>
     );
   }
-  return null;
+  // Un tipo sin rama propia se leía como una notificación en blanco.
+  return <div className="text-[13px] text-secondary">{notifSummary(n)}</div>;
 }
 
 function NotifActions({ n, onFollow, onInvitation, onJoinRequest, onCollabInvite, onTransfer }) {

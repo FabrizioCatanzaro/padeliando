@@ -48,7 +48,7 @@ export default function ActionMenu({ items, label = "Acciones" }) {
               type="button"
               role="menuitem"
               onClick={() => { setOpen(false); item.onClick(); }}
-              className={`flex items-center gap-2.5 w-full text-left bg-transparent border-0 px-3.5 py-2.5 font-sans text-[13px] cursor-pointer hover:bg-base transition-colors ${item.danger ? "text-danger" : "text-content"}`}
+              className={`flex items-center gap-2.5 w-full text-left bg-transparent border-0 px-3.5 py-2.5 font-sans text-[13px] whitespace-nowrap cursor-pointer hover:bg-base transition-colors ${item.danger ? "text-danger" : "text-content"}`}
             >
               {item.icon}
               {item.label}

@@ -11,6 +11,7 @@ import { fmt, TOURNAMENT_STATUS_META } from '../../utils/helpers'
 import { scheduleLines, whatsappLink, socialUrl, socialLabel } from './clubForm'
 import courtBg from '../../assets/padelcourt.webp'
 import Loader from '../Loader/Loader'
+import LazyNotFound from '../NotFound/LazyNotFound'
 import Badge from '../shared/Badge'
 import FadeInCard from '../shared/FadeInCard'
 import ClubRequestModal from './ClubRequestModal'
@@ -97,7 +98,7 @@ export default function ClubProfileView() {
       // Seleccionar por defecto la primera pestaña con eventos
       setActiveTab(e.ongoing.length ? 'ongoing' : e.upcoming.length ? 'upcoming' : e.past.length ? 'past' : 'ongoing')
     } catch (err) {
-      setError(err.message)
+      setError(err.status === 404 ? 'notfound' : err.message)
     } finally {
       setLoading(false)
     }
@@ -105,9 +106,10 @@ export default function ClubProfileView() {
 
   useEffect(() => { fetchData(id) }, [id, fetchData])
 
-  useDocumentTitle(club?.name)
+  useDocumentTitle(error === 'notfound' ? 'Club no encontrado' : club?.name)
 
   if (loading) return <Loader />
+  if (error === 'notfound') return <LazyNotFound subject="club" />
   if (error)   return <p className="text-danger text-sm font-mono p-6">{error}</p>
   if (!club)   return null
 

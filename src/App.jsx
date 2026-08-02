@@ -37,6 +37,7 @@ const SubscriptionSuccess = lazy(() => import('./components/Subscription/Subscri
 const SubscriptionFailure = lazy(() => import('./components/Subscription/SubscriptionFailure'))
 const SubscriptionPending = lazy(() => import('./components/Subscription/SubscriptionPending'))
 const SubscriptionManage  = lazy(() => import('./components/Subscription/SubscriptionManage'))
+const NotFoundView = lazy(() => import('./components/NotFound/NotFoundView'))
 const FAQView      = lazy(() => import('./components/Legal/FAQView'))
 const AboutView    = lazy(() => import('./components/Legal/AboutView'))
 const ContactView  = lazy(() => import('./components/Legal/ContactView'))
@@ -146,7 +147,7 @@ export default function App() {
         <Route path="/subscription/failure"                      element={<PrivateRoute><Titled title="Suscripción"><SubscriptionFailure /></Titled></PrivateRoute>} />
         <Route path="/subscription/pending"                      element={<PrivateRoute><Titled title="Suscripción"><SubscriptionPending /></Titled></PrivateRoute>} />
         <Route path="/subscription/manage"                       element={<PrivateRoute><Titled title="Suscripción"><SubscriptionManage /></Titled></PrivateRoute>} />
-        <Route path="*"                                          element={<Navigate to="/" replace />} />
+        <Route path="*"                                          element={<Titled title="Página no encontrada"><NotFoundView /></Titled>} />
       </Route>
     </Routes>
   )

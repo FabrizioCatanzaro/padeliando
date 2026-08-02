@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fmt, calcStandings, compareStandingRows, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, managementWarnings } from "../../utils/helpers";
+import { fmt, fmtHora, calcStandings, compareStandingRows, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, managementWarnings } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
 import { useAuth } from "../../context/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -17,8 +17,11 @@ import { Check, Pencil, Share2, Eye, Trophy, Settings, Flame, ChartNoAxesCombine
 import Badge from "../shared/Badge";
 import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/Skeleton";
 import Btn from "../shared/Btn";
+import LazyNotFound from "../NotFound/LazyNotFound";
 import ShareModal from "../shared/ShareModal";
 import QrModal from "../shared/QrModal";
+import SignupPricePill from "../shared/SignupPricePill";
+import { resolveSignup } from "../../utils/signup";
 
 const LIGA_TABS = [
   { id: "standings",  label: "TABLA",         icon: Trophy              },
@@ -57,12 +60,12 @@ export default function Main() {
   
   const isPremium = user?.subscription?.plan === 'premium';
   const {
-    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, isOwner,
+    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, notFound, isOwner,
     handleAddMatch, handleEditMatch, handleDeleteMatch,
     handleAddPlayer, handleEditPlayer, handleDeletePlayer,
     handleAddPair, handleEditPair, handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
+    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleUpdateSignup, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleClearBracketMatch, handleSetBracket, handleDeleteBracket,
     handleUpdateMode, refresh,
   } = useTournament(groupId, tournamentId);
@@ -82,7 +85,7 @@ export default function Main() {
     }
   }, [loading, tournament, isOwner, tournamentId, navigate]);
 
-  useDocumentTitle(tournament?.name);
+  useDocumentTitle(notFound ? 'Jornada no encontrada' : tournament?.name);
 
   if (loading) return (
     <div className="bg-base text-content font-sans pb-24 sm:pb-15">
@@ -95,6 +98,7 @@ export default function Main() {
       </div>
     </div>
   );
+  if (notFound) return <LazyNotFound subject="tournament" />;
   if (error || !tournament) return (
     <div className="bg-base text-content font-sans flex items-center justify-center">
       <div className="text-danger p-10">{error ?? "Error cargando torneo"}</div>
@@ -229,6 +233,7 @@ export default function Main() {
           <span className="inline-flex items-center gap-1.5">
             <Calendar size={11} className="text-dim" />
             {fmt(tournament.event_date ?? tournament.createdAt)}
+            {tournament.event_time && <span className="text-brand">{fmtHora(tournament.event_time)}</span>}
           </span>
           <span className="inline-flex items-center gap-1.5">
             {isPairs ? <Users size={11} className="text-dim" /> : <User size={11} className="text-dim" />}
@@ -240,6 +245,11 @@ export default function Main() {
             <Flame size={11} className="text-dim" />
             {playedCount} jugados
           </span>
+          <SignupPricePill signup={resolveSignup(tournament, {
+            signup_open:       tournament.group_signup_open,
+            signup_price:      tournament.group_signup_price,
+            signup_price_unit: tournament.group_signup_price_unit,
+          })} />
           {tournament.club_id && (
             <button
               onClick={() => navigate(`/club/${tournament.club_id}`)}
@@ -346,6 +356,7 @@ export default function Main() {
             onToggleStatus={handleToggleStatus}
             onUpdateMode={handleUpdateMode}
             onUpdateClubEvent={handleUpdateClubEvent}
+            onUpdateSignup={handleUpdateSignup}
             onRefresh={refresh}
           />
         )}

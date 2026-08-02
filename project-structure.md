@@ -39,6 +39,9 @@ padeliando/
     │   │   ├── AdBanner.jsx        # Ad banner container (desktop sidebar)
     │   │   ├── PlayerAvatar.jsx    # User avatar with premium ring; PairAvatar for two players
     │   │   ├── AvatarCropper.jsx   # Crop/preview image before uploading avatar
+    │   │   ├── AlertStack.jsx      # Floating blurred alerts (tournament news + bell); fed by AlertContext
+    │   │   ├── ShareAppModal.jsx   # "Invitar amigos": shares the app link (header menu + footer)
+    │   │   ├── SignupEditor.jsx    # Price + contact channels for signing up (category and jornada)
     │   │   └── MapPicker.jsx       # Location picker for group address (Google Maps embed)
     │   │
     │   ├── Loader/
@@ -94,6 +97,10 @@ padeliando/
     │   ├── Invitations/
     │   │   ├── InvitationsView.jsx # Pending invitations inbox for logged-in user
     │   │   └── InviteAccept.jsx    # Landing /invitacion/:token — aceptar co-organización o transferencia por link
+    │   │
+    │   ├── NotFound/
+    │   │   ├── NotFoundView.jsx    # 404 (ruta `*`) — marcador 40-40 que avanza con los golpes
+    │   │   └── Fronton.jsx         # Easter egg: peloteo contra la pared en canvas 2D, sin librerías
     │   │
     │   ├── Management/
     │   │   ├── Management.jsx      # Admin panel: reset scores, finalize tournament
@@ -160,6 +167,7 @@ padeliando/
 | `ReadonlyView` | `/view/:id` | Public shareable view (old `/readonly/:id` redirects here) |
 | `InvitationsView` | `/invitations` | Pending invitations |
 | `TutorialView` | `/tutorial` | Help/onboarding guide |
+| `NotFoundView` | `*` | 404 con easter egg jugable (`Fronton`) |
 | `AdminDashboard` | `/admin` | Site stats — admin only |
 | `AdminUsers` | `/admin/users` | User management — admin only |
 | `AdminTournaments` | `/admin/tournaments` | Tournament list — admin only |
@@ -182,6 +190,7 @@ padeliando/
 | `/tutorial` | TutorialView |
 | `/cat/:groupId` | GroupView |
 | `/cat/:groupId/torneo/:tournamentId` | Main (public — no RequireAuth) |
+| `*` | NotFoundView (404 con el frontón jugable) |
 
 ### Protected Routes (require auth via `<PrivateRoute>`)
 | Path | Component |
@@ -275,6 +284,8 @@ File uploads use `reqMultipart()` (no `Content-Type` header; browser sets multip
 - `update(id, data)` — PUT /groups/:id
 - `delete(id)` — DELETE /groups/:id
 - `byUsername(username)` — GET /groups/user/:username (public profile + stats)
+- `favorites()` — GET /groups/favorites (categories the user starred)
+- `favorite(id)` / `unfavorite(id)` — POST/DELETE /groups/:id/favorite (public categories only)
 
 **players**
 - `search(query, groupId, mine)` — GET /players
@@ -329,6 +340,11 @@ File uploads use `reqMultipart()` (no `Content-Type` header; browser sets multip
 - `send(playerId, groupId, identifier)` — POST /invitations
 - `respond(id, action)` — PATCH /invitations/:id
 - `cancel(id)` — DELETE /invitations/:id
+
+**notifications**
+- `list(limit, offset)` — GET /notifications
+- `count()` — GET /notifications/count → `{ count, latest }`; `latest` es la última no leída (para el aviso flotante), `null` si no hay
+- `markAllRead()` / `markRead(id)` — PATCH /notifications/read-all · /notifications/:id/read
 
 **photos**
 - `list(tournamentId)` — GET /tournaments/:id/photos
@@ -541,6 +557,13 @@ padeliando-api/
 | added_by | TEXT FK → users | nullable; who added them |
 | added_at | TIMESTAMPTZ | |
 
+### `group_favorites`
+| Column | Type | Notes |
+|--------|------|-------|
+| user_id | TEXT FK → users | composite PK; who starred it |
+| group_id | TEXT FK → groups | composite PK; public categories only |
+| created_at | TIMESTAMPTZ | |
+
 ### `collaborator_invitations`
 | Column | Type | Notes |
 |--------|------|-------|
@@ -581,6 +604,9 @@ padeliando-api/
 | `migration_groups_location.sql` | `location_name`, `place_id`, `lat`, `lon` on `groups` |
 | `migration_user_social_links.sql` | `social_links` JSONB on `users` |
 | `migration_collaborators.sql` | `group_collaborators`, `collaborator_invitations`, `ownership_transfers` tables; extends `notifications.type` CHECK with `collab_invite`/`ownership_transfer` |
+| `migration_group_favorites.sql` | `group_favorites` table (renames `group_follows` if present); extends `notifications.type` CHECK with `new_tournament` |
+| `migration_event_time.sql` | `event_time` (TIME) on `tournaments` |
+| `migration_signup_info.sql` | `signup_open`/`signup_price`/`signup_price_unit`/`signup_contacts` on `groups` and `tournaments` |
 
 ---
 

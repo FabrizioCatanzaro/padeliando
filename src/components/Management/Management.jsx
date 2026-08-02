@@ -3,13 +3,16 @@ import Modal from "../shared/Modal";
 import PlayerManager from "./PlayerManager";
 import PairManager from "./PairManager";
 import ClubSelector from "../shared/ClubSelector";
+import SignupEditor from "../shared/SignupEditor";
+import { profileContacts } from "../../utils/signup";
 import Btn from "../shared/Btn";
-import { clubCourts, entityClub } from "../../utils/helpers";
+import { clubCourts, entityClub, fmtHora } from "../../utils/helpers";
 import { Play, RotateCcw, TicketCheck, Trash2, Check } from "lucide-react";
 
 function ClubEventEditor({ tournament, onSave }) {
   const [club, setClub]   = useState(() => entityClub(tournament));
   const [date, setDate]   = useState(tournament.event_date ? String(tournament.event_date).slice(0, 10) : "");
+  const [time, setTime]   = useState(fmtHora(tournament.event_time));
   const [saving, setSaving] = useState(false);
 
   const clubId      = club?.pending ? null : (club?.id ?? null);
@@ -17,12 +20,13 @@ function ClubEventEditor({ tournament, onSave }) {
   const clubChanged = clubId !== (tournament.club_id ?? null)
     || requestId !== (tournament.pending_club_request_id ?? null);
   const dirty = clubChanged
-    || (date || null) !== (tournament.event_date ? String(tournament.event_date).slice(0, 10) : null);
+    || (date || null) !== (tournament.event_date ? String(tournament.event_date).slice(0, 10) : null)
+    || (time || null) !== (fmtHora(tournament.event_time) || null);
 
   async function save() {
     setSaving(true);
     try {
-      const payload = { club_id: clubId, pending_club_request_id: requestId, event_date: date || null };
+      const payload = { club_id: clubId, pending_club_request_id: requestId, event_date: date || null, event_time: time || null };
       // Al cambiar de club, las canchas del torneo pasan a ser las del nuevo club.
       if (clubChanged) payload.number_of_courts = clubCourts(club);
       await onSave(payload);
@@ -39,17 +43,64 @@ function ClubEventEditor({ tournament, onSave }) {
           <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">CLUB</label>
           <ClubSelector value={club} onChange={setClub} />
         </div>
-        <div>
-          <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">FECHA DEL EVENTO</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full bg-surface border border-border-mid text-white px-3 py-2 rounded-sm text-sm outline-none font-sans"
-          />
+        <div className="flex gap-3">
+          <div className="flex-1 min-w-0">
+            <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">FECHA DEL EVENTO</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-surface border border-border-mid text-white px-3 py-2 rounded-sm text-sm outline-none font-sans"
+            />
+          </div>
+          <div className="w-28 shrink-0">
+            <label className="block text-[10px] font-mono tracking-widest text-muted mb-1.5">HORA</label>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="w-full bg-surface border border-border-mid text-white px-3 py-2 rounded-sm text-sm outline-none font-sans"
+            />
+          </div>
         </div>
         <Btn variant="primary" size="sm" icon={Check} onClick={save} loading={saving} disabled={!dirty}>GUARDAR</Btn>
       </div>
+    </div>
+  );
+}
+
+// Precio y contacto de esta jornada. Lo que quede vacío lo hereda de la categoría.
+function SignupSection({ tournament, onSave }) {
+  const inherited = {
+    open:     tournament.group_signup_open ?? false,
+    price:    tournament.group_signup_price ?? null,
+    unit:     tournament.group_signup_price_unit ?? 'player',
+    contacts: tournament.group_signup_contacts ?? [],
+  };
+  // Sólo lo propio: precargar lo heredado lo copiaría al guardar.
+  const [value, setValue] = useState(() => ({
+    open:     tournament.signup_open ?? inherited.open,
+    price:    tournament.signup_price ?? null,
+    unit:     tournament.signup_price_unit ?? inherited.unit,
+    contacts: tournament.signup_contacts ?? [],
+  }));
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try { await onSave(value); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
+      <div className="font-condensed font-bold text-[11px] tracking-[2px] text-muted mb-3">INSCRIPCIÓN</div>
+      <SignupEditor
+        value={value}
+        onChange={setValue}
+        inherited={inherited}
+        profile={profileContacts(tournament.owner_social_links)}
+      />
+      <Btn variant="primary" size="sm" icon={Check} onClick={save} loading={saving} className="mt-4">GUARDAR</Btn>
     </div>
   );
 }
@@ -58,7 +109,7 @@ export default function Management({
   tournament, isOwner,
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
-  onResetScores, onDeleteTournament, onToggleStatus, onUpdateMode, onUpdateClubEvent,
+  onResetScores, onDeleteTournament, onToggleStatus, onUpdateMode, onUpdateClubEvent, onUpdateSignup,
   onRefresh,
 }) {
   const [resetModal, setResetModal]   = useState(false);
@@ -77,6 +128,7 @@ export default function Management({
       </div>
 
       {isOwner && <ClubEventEditor tournament={tournament} onSave={onUpdateClubEvent} />}
+      {isOwner && <SignupSection tournament={tournament} onSave={onUpdateSignup} />}
 
       <PlayerManager
         tournament={tournament}

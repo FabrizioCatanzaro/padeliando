@@ -16,6 +16,7 @@ export function useTournament(groupId, tournamentId) {
   const [groupIdResolved, setGroupIdResolved] = useState(groupId ?? null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
+  const [notFound,   setNotFound]   = useState(false);
   const [saved,      setSaved]      = useState(false);
 
   // Carga el torneo al montar (o cuando cambia tournamentId).
@@ -42,6 +43,7 @@ export function useTournament(groupId, tournamentId) {
       setGroupIdResolved(groupId ?? t.group_id ?? null);
     } catch (e) {
       setError(e.message);
+      setNotFound(e.status === 404);
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,12 @@ export function useTournament(groupId, tournamentId) {
       number_of_courts: numberOfCourts ?? 1,
       club_id:          extra.club_id ?? null,
       event_date:       extra.event_date ?? null,
+      event_time:       extra.event_time ?? null,
       pending_club_request_id: extra.pending_club_request_id ?? null,
+      signup_open:       extra.signup_open ?? null,
+      signup_price:      extra.signup_price ?? null,
+      signup_price_unit: extra.signup_price_unit ?? null,
+      signup_contacts:   extra.signup_contacts?.length ? extra.signup_contacts : null,
     });
     setTournament(adaptTournament(t));
     return t.id; // para que App.js pueda navegar al torneo
@@ -249,10 +256,21 @@ export function useTournament(groupId, tournamentId) {
 
   // Acá sí hace falta recargar: club_name y club_courts salen de un JOIN con
   // clubs que el PATCH no devuelve.
-  async function handleUpdateClubEvent({ club_id, pending_club_request_id, event_date, number_of_courts }) {
-    await api.tournaments.update(tournament.id, { club_id, pending_club_request_id, event_date, number_of_courts });
+  async function handleUpdateClubEvent({ club_id, pending_club_request_id, event_date, event_time, number_of_courts }) {
+    await api.tournaments.update(tournament.id, { club_id, pending_club_request_id, event_date, event_time, number_of_courts });
     await reload(true);
     showToast('Club y fecha actualizados');
+  }
+
+  async function handleUpdateSignup({ open, price, unit, contacts }) {
+    const updated = await api.tournaments.update(tournament.id, {
+      signup_open:       open,
+      signup_price:      price,
+      signup_price_unit: unit,
+      signup_contacts:   (contacts ?? []).filter((c) => c.value.trim()),
+    });
+    setTournament((prev) => (prev ? { ...prev, ...updated } : prev));
+    showToast('Inscripción actualizada');
   }
 
   async function handleSetLiveMatch(data) {
@@ -321,13 +339,13 @@ export function useTournament(groupId, tournamentId) {
   const isOwner = !!user && !!tournament && canManage;
 
   return {
-    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, saved, isOwner,
+    tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, notFound, saved, isOwner,
     handleCreate,
     handleAddMatch,    handleEditMatch,    handleDeleteMatch,
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
+    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleUpdateSignup, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleClearBracketMatch, handleSetBracket, handleDeleteBracket,
     handleUpdateMode,
     refresh: () => reload(true),
