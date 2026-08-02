@@ -98,6 +98,10 @@ padeliando/
     │   │   ├── InvitationsView.jsx # Pending invitations inbox for logged-in user
     │   │   └── InviteAccept.jsx    # Landing /invitacion/:token — aceptar co-organización o transferencia por link
     │   │
+    │   ├── NotFound/
+    │   │   ├── NotFoundView.jsx    # 404 (ruta `*`) — marcador 40-40 que avanza con los golpes
+    │   │   └── Fronton.jsx         # Easter egg: peloteo contra la pared en canvas 2D, sin librerías
+    │   │
     │   ├── Management/
     │   │   ├── Management.jsx      # Admin panel: reset scores, finalize tournament
     │   │   ├── PlayerManager.jsx   # Add / rename / remove players
@@ -163,6 +167,7 @@ padeliando/
 | `ReadonlyView` | `/view/:id` | Public shareable view (old `/readonly/:id` redirects here) |
 | `InvitationsView` | `/invitations` | Pending invitations |
 | `TutorialView` | `/tutorial` | Help/onboarding guide |
+| `NotFoundView` | `*` | 404 con easter egg jugable (`Fronton`) |
 | `AdminDashboard` | `/admin` | Site stats — admin only |
 | `AdminUsers` | `/admin/users` | User management — admin only |
 | `AdminTournaments` | `/admin/tournaments` | Tournament list — admin only |
@@ -185,6 +190,7 @@ padeliando/
 | `/tutorial` | TutorialView |
 | `/cat/:groupId` | GroupView |
 | `/cat/:groupId/torneo/:tournamentId` | Main (public — no RequireAuth) |
+| `*` | NotFoundView (404 con el frontón jugable) |
 
 ### Protected Routes (require auth via `<PrivateRoute>`)
 | Path | Component |
