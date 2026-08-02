@@ -4,7 +4,7 @@ import PlayerManager from "./PlayerManager";
 import PairManager from "./PairManager";
 import ClubSelector from "../shared/ClubSelector";
 import SignupEditor from "../shared/SignupEditor";
-import { resolveSignup } from "../../utils/signup";
+import { profileContacts } from "../../utils/signup";
 import Btn from "../shared/Btn";
 import { clubCourts, entityClub } from "../../utils/helpers";
 import { Play, RotateCcw, TicketCheck, Trash2, Check } from "lucide-react";
@@ -64,11 +64,13 @@ function SignupSection({ tournament, onSave }) {
     unit:     tournament.group_signup_price_unit ?? 'player',
     contacts: tournament.group_signup_contacts ?? [],
   };
-  const [value, setValue] = useState(() => resolveSignup(tournament, {
-    signup_open:       tournament.group_signup_open,
-    signup_price:      tournament.group_signup_price,
-    signup_price_unit: tournament.group_signup_price_unit,
-    signup_contacts:   tournament.group_signup_contacts,
+  // Arranca sólo con lo propio de la jornada: precargar lo heredado lo copiaría
+  // al guardar y la jornada dejaría de seguir a la categoría.
+  const [value, setValue] = useState(() => ({
+    open:     tournament.signup_open ?? inherited.open,
+    price:    tournament.signup_price ?? null,
+    unit:     tournament.signup_price_unit ?? inherited.unit,
+    contacts: tournament.signup_contacts ?? [],
   }));
   const [saving, setSaving] = useState(false);
 
@@ -80,7 +82,12 @@ function SignupSection({ tournament, onSave }) {
   return (
     <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
       <div className="font-condensed font-bold text-[11px] tracking-[2px] text-muted mb-3">INSCRIPCIÓN</div>
-      <SignupEditor value={value} onChange={setValue} inherited={inherited} />
+      <SignupEditor
+        value={value}
+        onChange={setValue}
+        inherited={inherited}
+        profile={profileContacts(tournament.owner_social_links)}
+      />
       <Btn variant="primary" size="sm" icon={Check} onClick={save} loading={saving} className="mt-4">GUARDAR</Btn>
     </div>
   );

@@ -24,6 +24,7 @@ import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
 import ShareCategoryModal from '../shared/ShareCategoryModal';
 import SignupEditor from '../shared/SignupEditor';
+import { profileContacts } from '../../utils/signup';
 import PlayerAvatar from '../shared/PlayerAvatar';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
@@ -505,7 +506,11 @@ export default function GroupView() {
 
               <div className="border-t border-border-mid pt-4">
                 <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-2.5">INSCRIPCIÓN</label>
-                <SignupEditor value={editSignup} onChange={setEditSignup} />
+                <SignupEditor
+                  value={editSignup}
+                  onChange={setEditSignup}
+                  profile={profileContacts(group.owner_social_links)}
+                />
                 <p className="text-[10px] text-dim font-mono mt-2">Cada jornada lo hereda y puede cambiarlo.</p>
               </div>
 

@@ -8,11 +8,13 @@ import { CONTACT_META, CONTACT_TYPES, formatPrice } from '../../utils/signup';
  *
  * value: { open, price, unit, contacts } — price/unit/contacts en null = heredar.
  */
-export default function SignupEditor({ value, onChange, inherited = null }) {
+export default function SignupEditor({ value, onChange, inherited = null, profile = [] }) {
   const set = (patch) => onChange({ ...value, ...patch });
   const contacts = value.contacts ?? [];
   const usedTypes = new Set(contacts.map((c) => c.type));
   const freeType  = CONTACT_TYPES.find((t) => !usedTypes.has(t));
+  // Los del perfil se muestran solos; cargar el mismo canal a mano los reemplaza.
+  const fromProfile = profile.filter((p) => !usedTypes.has(p.type));
 
   const setContact = (i, patch) =>
     set({ contacts: contacts.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) });
@@ -64,6 +66,18 @@ export default function SignupEditor({ value, onChange, inherited = null }) {
           <div>
             <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">CONTACTO</label>
             <div className="flex flex-col gap-2">
+              {fromProfile.map((p) => {
+                const meta = CONTACT_META[p.type] ?? {};
+                const Icon = meta.icon;
+                return (
+                  <div key={`profile-${p.type}`} className="flex items-center gap-2 px-2.5 py-1.5 rounded-sm border border-dashed border-border-strong">
+                    {Icon && <Icon size={13} className="text-brand shrink-0" />}
+                    <span className="text-[12px] text-content font-sans truncate flex-1 min-w-0">{p.value}</span>
+                    <span className="text-[10px] font-mono text-dim shrink-0">de tu perfil</span>
+                  </div>
+                );
+              })}
+
               {contacts.map((c, i) => {
                 const meta = CONTACT_META[c.type] ?? {};
                 return (
@@ -111,6 +125,11 @@ export default function SignupEditor({ value, onChange, inherited = null }) {
               {contacts.length === 0 && inherited?.contacts?.length > 0 && (
                 <span className="text-[11px] font-mono text-dim">
                   Sin contactos propios se usan los de la categoría.
+                </span>
+              )}
+              {contacts.length === 0 && !inherited?.contacts?.length && fromProfile.length === 0 && (
+                <span className="text-[11px] font-mono text-dim">
+                  Cargá tus redes en el perfil y aparecen acá solas.
                 </span>
               )}
             </div>

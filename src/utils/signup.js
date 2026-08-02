@@ -13,13 +13,39 @@ export const CONTACT_META = {
 
 export const CONTACT_TYPES = Object.keys(CONTACT_META);
 
-export function resolveSignup(tournament, group) {
+// Contactos que aporta el perfil del organizador: sólo WhatsApp e Instagram, con
+// la url normalizada (el perfil la guarda como wa.me/..., como número suelto o
+// como url de Instagram). No se inventa el código de país que falte.
+export function profileContacts(socialLinks) {
+  if (!Array.isArray(socialLinks)) return [];
+  const out = [];
+  for (const link of socialLinks) {
+    const url = String(link?.url ?? '').trim();
+    if (!url) continue;
+    if (link.network === 'whatsapp') {
+      const digits = (url.match(/wa\.me\/(\d+)/)?.[1] ?? url).replace(/\D/g, '');
+      if (digits) out.push({ type: 'whatsapp', value: `+${digits}`, from_profile: true });
+    } else if (link.network === 'instagram') {
+      const handle = url.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/[/?#].*$/, '').replace(/^@/, '');
+      if (handle) out.push({ type: 'instagram', value: `@${handle}`, from_profile: true });
+    }
+  }
+  return out;
+}
+
+// Los del perfil primero; los cargados a mano pisan su canal.
+export function mergeContacts(profile, own) {
+  const ownTypes = new Set((own ?? []).map((c) => c.type));
+  return [...(profile ?? []).filter((c) => !ownTypes.has(c.type)), ...(own ?? [])];
+}
+
+export function resolveSignup(tournament, group, ownerSocialLinks = null) {
   const pick = (k) => (tournament?.[k] ?? group?.[k] ?? null);
   return {
     open:     pick('signup_open') ?? false,
     price:    pick('signup_price'),
     unit:     pick('signup_price_unit') ?? 'player',
-    contacts: pick('signup_contacts') ?? [],
+    contacts: mergeContacts(profileContacts(ownerSocialLinks), pick('signup_contacts') ?? []),
   };
 }
 

@@ -82,6 +82,10 @@ export function useTournament(groupId, tournamentId) {
       club_id:          extra.club_id ?? null,
       event_date:       extra.event_date ?? null,
       pending_club_request_id: extra.pending_club_request_id ?? null,
+      signup_open:       extra.signup_open ?? null,
+      signup_price:      extra.signup_price ?? null,
+      signup_price_unit: extra.signup_price_unit ?? null,
+      signup_contacts:   extra.signup_contacts?.length ? extra.signup_contacts : null,
     });
     setTournament(adaptTournament(t));
     return t.id; // para que App.js pueda navegar al torneo
