@@ -45,9 +45,11 @@ export default function NotFoundView({ subject = 'page' }) {
 
       <div className="max-w-md mx-auto px-6">
         <div className="mt-8 text-center">
-          <p className="font-condensed font-bold text-brand text-[40px] leading-none tracking-widest">
+          {/* Es el h1 de la página: sin él un lector de pantalla se queda sin
+              encabezado. El rótulo de arriba queda como antetítulo. */}
+          <h1 className="font-condensed font-bold text-brand text-[40px] leading-none tracking-widest">
             {rally ? rally.t : '40 – 40'}
-          </p>
+          </h1>
           {/* La altura está reservada para que el texto más largo no empuje el
               lienzo hacia abajo al cambiar el marcador. */}
           <p className="text-[13px] text-soft mt-3 min-h-[3.25rem]">{rally ? rally.s : desc}</p>
