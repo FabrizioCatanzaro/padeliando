@@ -41,6 +41,7 @@ padeliando/
     │   │   ├── AvatarCropper.jsx   # Crop/preview image before uploading avatar
     │   │   ├── AlertStack.jsx      # Floating blurred alerts (tournament news + bell); fed by AlertContext
     │   │   ├── ShareAppModal.jsx   # "Invitar amigos": shares the app link (header menu + footer)
+    │   │   ├── SignupEditor.jsx    # Price + contact channels for signing up (category and jornada)
     │   │   └── MapPicker.jsx       # Location picker for group address (Google Maps embed)
     │   │
     │   ├── Loader/
@@ -598,6 +599,7 @@ padeliando-api/
 | `migration_user_social_links.sql` | `social_links` JSONB on `users` |
 | `migration_collaborators.sql` | `group_collaborators`, `collaborator_invitations`, `ownership_transfers` tables; extends `notifications.type` CHECK with `collab_invite`/`ownership_transfer` |
 | `migration_group_favorites.sql` | `group_favorites` table (renames `group_follows` if present); extends `notifications.type` CHECK with `new_tournament` |
+| `migration_signup_info.sql` | `signup_open`/`signup_price`/`signup_price_unit`/`signup_contacts` on `groups` and `tournaments` |
 
 ---
 

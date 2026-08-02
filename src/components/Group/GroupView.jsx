@@ -23,6 +23,7 @@ import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../util
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
 import ShareCategoryModal from '../shared/ShareCategoryModal';
+import SignupEditor from '../shared/SignupEditor';
 import PlayerAvatar from '../shared/PlayerAvatar';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
@@ -48,6 +49,7 @@ export default function GroupView() {
   const [editIsPublic, setEditIsPublic] = useState(true);
   const [editEmojis,   setEditEmojis]   = useState([]);
   const [editClub,     setEditClub]     = useState(null);
+  const [editSignup,   setEditSignup]   = useState({ open: false, price: null, unit: 'player', contacts: [] });
 
   // modals
   const [showEmojiModal, setShowEmojiModal] = useState(false);
@@ -150,6 +152,12 @@ export default function GroupView() {
     setEditIsPublic(group.is_public);
     setEditEmojis(group.emojis ?? []);
     setEditClub(entityClub(group));
+    setEditSignup({
+      open:     group.signup_open ?? false,
+      price:    group.signup_price ?? null,
+      unit:     group.signup_price_unit ?? 'player',
+      contacts: group.signup_contacts ?? [],
+    });
     setEditingGroup(true);
   }
 
@@ -163,6 +171,11 @@ export default function GroupView() {
         emojis:        editEmojis,
         club_id:       editClub?.pending ? null : (editClub?.id ?? null),
         pending_club_request_id: editClub?.pending ? editClub.request_id : null,
+        signup_open:       editSignup.open,
+        signup_price:      editSignup.price,
+        signup_price_unit: editSignup.unit,
+        // Los vacíos no viajan: el backend rechaza un contacto sin valor.
+        signup_contacts:   editSignup.contacts.filter((c) => c.value.trim()),
       });
       // El PUT devuelve sólo las columnas de groups: los datos del club los
       // aporta el que ya está elegido, así se evita releer la categoría.
@@ -488,6 +501,12 @@ export default function GroupView() {
                 <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">CLUB (opcional)</label>
                 <ClubSelector value={editClub} onChange={setEditClub} />
                 <p className="text-[10px] text-dim font-mono mt-1.5">Se usa como club por defecto en las jornadas nuevas.</p>
+              </div>
+
+              <div className="border-t border-border-mid pt-4">
+                <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-2.5">INSCRIPCIÓN</label>
+                <SignupEditor value={editSignup} onChange={setEditSignup} />
+                <p className="text-[10px] text-dim font-mono mt-2">Cada jornada lo hereda y puede cambiarlo.</p>
               </div>
 
               {/* Íconos */}

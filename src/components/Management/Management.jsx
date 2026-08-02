@@ -3,6 +3,8 @@ import Modal from "../shared/Modal";
 import PlayerManager from "./PlayerManager";
 import PairManager from "./PairManager";
 import ClubSelector from "../shared/ClubSelector";
+import SignupEditor from "../shared/SignupEditor";
+import { resolveSignup } from "../../utils/signup";
 import Btn from "../shared/Btn";
 import { clubCourts, entityClub } from "../../utils/helpers";
 import { Play, RotateCcw, TicketCheck, Trash2, Check } from "lucide-react";
@@ -54,11 +56,41 @@ function ClubEventEditor({ tournament, onSave }) {
   );
 }
 
+// Precio y contacto de esta jornada. Lo que quede vacío lo hereda de la categoría.
+function SignupSection({ tournament, onSave }) {
+  const inherited = {
+    open:     tournament.group_signup_open ?? false,
+    price:    tournament.group_signup_price ?? null,
+    unit:     tournament.group_signup_price_unit ?? 'player',
+    contacts: tournament.group_signup_contacts ?? [],
+  };
+  const [value, setValue] = useState(() => resolveSignup(tournament, {
+    signup_open:       tournament.group_signup_open,
+    signup_price:      tournament.group_signup_price,
+    signup_price_unit: tournament.group_signup_price_unit,
+    signup_contacts:   tournament.group_signup_contacts,
+  }));
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try { await onSave(value); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="bg-surface border border-border-mid rounded-lg p-4 mb-4">
+      <div className="font-condensed font-bold text-[11px] tracking-[2px] text-muted mb-3">INSCRIPCIÓN</div>
+      <SignupEditor value={value} onChange={setValue} inherited={inherited} />
+      <Btn variant="primary" size="sm" icon={Check} onClick={save} loading={saving} className="mt-4">GUARDAR</Btn>
+    </div>
+  );
+}
+
 export default function Management({
   tournament, isOwner,
   onAddPlayer, onEditPlayer, onDeletePlayer,
   onAddPair, onEditPair, onDeletePair,
-  onResetScores, onDeleteTournament, onToggleStatus, onUpdateMode, onUpdateClubEvent,
+  onResetScores, onDeleteTournament, onToggleStatus, onUpdateMode, onUpdateClubEvent, onUpdateSignup,
   onRefresh,
 }) {
   const [resetModal, setResetModal]   = useState(false);
@@ -77,6 +109,7 @@ export default function Management({
       </div>
 
       {isOwner && <ClubEventEditor tournament={tournament} onSave={onUpdateClubEvent} />}
+      {isOwner && <SignupSection tournament={tournament} onSave={onUpdateSignup} />}
 
       <PlayerManager
         tournament={tournament}

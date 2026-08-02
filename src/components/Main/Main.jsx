@@ -62,7 +62,7 @@ export default function Main() {
     handleAddPlayer, handleEditPlayer, handleDeletePlayer,
     handleAddPair, handleEditPair, handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
+    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleUpdateSignup, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleClearBracketMatch, handleSetBracket, handleDeleteBracket,
     handleUpdateMode, refresh,
   } = useTournament(groupId, tournamentId);
@@ -346,6 +346,7 @@ export default function Main() {
             onToggleStatus={handleToggleStatus}
             onUpdateMode={handleUpdateMode}
             onUpdateClubEvent={handleUpdateClubEvent}
+            onUpdateSignup={handleUpdateSignup}
             onRefresh={refresh}
           />
         )}

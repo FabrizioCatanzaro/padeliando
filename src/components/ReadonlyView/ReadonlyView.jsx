@@ -19,6 +19,7 @@ import { AuthContext } from '../../context/useAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useTournamentAlerts } from '../../hooks/useTournamentAlerts';
 import { useAlerts } from '../../context/useAlerts';
+import SignupBanner from './SignupBanner';
 import { playTone, TONES } from '../../utils/sound';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin, Hourglass, Timer } from "lucide-react";
 import courtSvg from "../../assets/padel-court.svg";
@@ -482,6 +483,10 @@ export default function ReadonlyView() {
 
   // Cartel de "¿Jugás en este torneo?" — se muestra en la vista normal y también
   // dentro del Modo TV. Para invitados (sin cuenta) ofrece iniciar sesión.
+  const signupBanner = (
+    <SignupBanner signup={tournament.signup} tournamentName={tournament.name} />
+  );
+
   const joinBanner = (
     <JoinBanner
       user={user}
@@ -621,6 +626,7 @@ export default function ReadonlyView() {
       </div>
 
       {/* Banner de solicitud de unión */}
+      {signupBanner}
       {joinBanner}
 
       <LiveTicker tournament={tournament} isAmericano={isAmericano} />
@@ -680,6 +686,7 @@ export default function ReadonlyView() {
           onToggleSound={toggleSound}
           playedCount={playedCount}
           joinBanner={joinBanner}
+          signupBanner={signupBanner}
         />
       )}
 
@@ -1192,7 +1199,7 @@ function TvBracketScreen({ tournament }) {
   );
 }
 
-function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq, step, paused, onTogglePause, onPrev, onNext, onBarEnd, onExit, soundOn, onToggleSound, playedCount, joinBanner }) {
+function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq, step, paused, onTogglePause, onPrev, onNext, onBarEnd, onExit, soundOn, onToggleSound, playedCount, joinBanner, signupBanner }) {
   const current = seq[step] ?? seq[0];
   const screen  = current?.screen ?? 'standings';
 
@@ -1249,6 +1256,7 @@ function TvOverlay({ tournament, isAmericano, club, groupName, groupEmojis, seq,
       </main>
 
       {/* Cartel de "¿Jugás en este torneo?" (invitados y espectadores logueados) */}
+      {signupBanner && <div className="shrink-0">{signupBanner}</div>}
       {joinBanner && <div className="shrink-0">{joinBanner}</div>}
 
       {/* Live ticker (parte inferior) */}

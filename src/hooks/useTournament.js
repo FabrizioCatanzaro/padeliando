@@ -255,6 +255,19 @@ export function useTournament(groupId, tournamentId) {
     showToast('Club y fecha actualizados');
   }
 
+  // El PATCH devuelve las columnas del torneo, así que alcanza con mezclarlas:
+  // no hay JOIN de por medio como en club y fecha.
+  async function handleUpdateSignup({ open, price, unit, contacts }) {
+    const updated = await api.tournaments.update(tournament.id, {
+      signup_open:       open,
+      signup_price:      price,
+      signup_price_unit: unit,
+      signup_contacts:   (contacts ?? []).filter((c) => c.value.trim()),
+    });
+    setTournament((prev) => (prev ? { ...prev, ...updated } : prev));
+    showToast('Inscripción actualizada');
+  }
+
   async function handleSetLiveMatch(data) {
     await api.tournaments.setLive(tournament.id, data ?? null);
     // Solo es metadata para los espectadores (ReadonlyView). No hace falta
@@ -327,7 +340,7 @@ export function useTournament(groupId, tournamentId) {
     handleAddPlayer,   handleEditPlayer,   handleDeletePlayer,
     handleAddPair,     handleEditPair,     handleDeletePair,
     handleResetScores, handleDeleteTournament,
-    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleSetLiveMatch,
+    getShareLink, handleToggleStatus, handleUpdateName, handleUpdateClubEvent, handleUpdateSignup, handleSetLiveMatch,
     handleGenerateSchedule, handleGenerateBracket, handleUpdateBracketMatch, handleClearBracketMatch, handleSetBracket, handleDeleteBracket,
     handleUpdateMode,
     refresh: () => reload(true),
