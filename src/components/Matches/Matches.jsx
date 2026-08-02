@@ -45,8 +45,6 @@ export default function Matches({ tournament, isOwner, categoryName, onAddMatch,
 
   // Sincronizar live_match: incluye partidos "cargados" (equipos elegidos) aunque
   // el cronómetro no haya arrancado — el espectador separa EN VIVO / PRÓXIMOS.
-  // Los ids viajan junto a los labels: el aviso de "te toca jugar" no puede
-  // deducirse parseando nombres (se repiten y llevan "&").
   function resolveTeamLabels(form) {
     const { mode, players, pairs } = tournament;
     const court = form.court ?? null;

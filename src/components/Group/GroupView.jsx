@@ -380,8 +380,7 @@ export default function GroupView() {
     navigate('/');
   }
 
-  // Estrella + cantidad de favoritos. Sólo se puede marcar desde afuera: el dueño
-  // y los co-organizadores ven el número, pero no la marcan.
+  // El dueño y los co-organizadores ven el número, pero no la marcan.
   const canFavorite = !!user && !isOwner && !isCollaborator && group.is_public;
   const favCount    = group.favorites_count ?? 0;
   const favoriteControl = !group.is_public ? null : canFavorite ? (

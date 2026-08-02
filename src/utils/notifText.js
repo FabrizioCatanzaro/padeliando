@@ -1,6 +1,4 @@
-// Frase corta de una notificación, para el aviso flotante. El panel de la
-// campana y /notifications siguen renderizando su versión rica con enlaces;
-// esto es texto plano y tiene que entenderse solo.
+// Texto plano para el aviso flotante; el panel y /notifications tienen el suyo.
 
 const actor = (n) => (n.actor_username ? `@${n.actor_username}` : n.actor_name ?? 'Alguien');
 const grupo = (n) => n.group_name ?? 'una categoría';

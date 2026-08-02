@@ -1,9 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { getAllMatches, playedMatches } from '../utils/helpers';
 
-// Novedades de un torneo entre dos refrescos. Compara una firma del estado
-// anterior contra la actual: nunca dispara en la primera carga, porque ahí todo
-// es "nuevo" y el visitante recibiría el historial entero de golpe.
+// Nunca dispara en la primera carga: ahí todo es "nuevo".
 
 const liveKey = (m) => `${m.team1Label}|${m.team2Label}|${m.court ?? ''}`;
 
@@ -18,8 +16,7 @@ function buildSignature(t) {
   };
 }
 
-// Ids de jugador de quien mira, si tiene un slot en este torneo. Se resuelve por
-// linked_username (la cuenta vinculada), nunca por nombre.
+// Por linked_username, nunca por nombre.
 function viewerPlayerIds(t, username) {
   if (!username) return [];
   return (t.players ?? [])
@@ -34,8 +31,7 @@ function pairHasViewer(pairId, t, playerIds) {
   return !!pair && (playerIds.includes(pair.p1) || playerIds.includes(pair.p2));
 }
 
-// Parejas que ya tienen lugar en el cuadro: las de la primera ronda más las que
-// fueron ganando. El bracket guarda ids de pareja, así que no hay labels de por medio.
+// El bracket guarda ids de pareja, así que no hay labels de por medio.
 function bracketPairIds(bracket) {
   if (!bracket) return [];
   const rounds = [
@@ -48,8 +44,7 @@ function bracketPairIds(bracket) {
   return [...new Set(ids)];
 }
 
-// Novedades entre `prev` (firma anterior) y el torneo actual. Pura a propósito:
-// es la única parte con reglas de negocio y así se puede ejercitar sin React.
+// Pura a propósito: se puede ejercitar sin React.
 export function detectAlerts(prev, tournament, username) {
   const sig = buildSignature(tournament);
   if (!prev) return { sig, alerts: [] };
@@ -106,13 +101,10 @@ export function detectAlerts(prev, tournament, username) {
   return { sig, alerts: next };
 }
 
-// Devuelve `track`, que se llama con cada torneo que llega del servidor: la
-// novedad es un evento de datos, no una consecuencia del render. Los avisos se
-// entregan a `onAlert` — la pila vive en el AlertContext, compartida con la campana.
+// `track` se llama con cada torneo que llega: la novedad es un evento de datos.
 export function useTournamentAlerts(username, { onAlert } = {}) {
   const sigRef = useRef(null);
-  // El callback va en un ref para que cambiar de handler (por ejemplo al
-  // togglear el sonido) no obligue a rehacer `track`.
+  // En un ref para que cambiar de handler no obligue a rehacer `track`.
   const onAlertRef = useRef(onAlert);
   useEffect(() => { onAlertRef.current = onAlert; });
 

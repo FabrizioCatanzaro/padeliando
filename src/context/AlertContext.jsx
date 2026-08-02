@@ -2,8 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import { AlertContext } from './useAlerts'
 import AlertStack from '../components/shared/AlertStack'
 
-// Un único stack para los avisos flotantes: los del torneo (ReadonlyView) y los
-// de la campana (Header) comparten pila, si no se pisarían en /view/:id.
+// Uno solo: dos stacks fijos se pisarían en /view/:id.
 const MAX_VISIBLE = 3
 
 export function AlertProvider({ children }) {

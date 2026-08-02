@@ -1,11 +1,7 @@
 import { Ticket } from 'lucide-react';
 import { CONTACT_META, contactHref, formatPrice, hasSignupInfo } from '../../utils/signup';
 
-/**
- * Precio y contactos para inscribirse, en la vista de espectador. Es público a
- * propósito: sirve para que se anote gente que todavía no tiene cuenta. Convive
- * con el banner de "solicitar unirse", que va debajo.
- */
+// Público a propósito: sirve para que se anote gente sin cuenta.
 export default function SignupBanner({ signup, tournamentName }) {
   if (!hasSignupInfo(signup)) return null;
 

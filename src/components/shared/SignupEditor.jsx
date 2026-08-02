@@ -1,13 +1,7 @@
 import { Plus, X } from 'lucide-react';
 import { CONTACT_META, CONTACT_TYPES, formatPrice } from '../../utils/signup';
 
-/**
- * Edita el precio y los contactos de inscripción. Se usa igual en la categoría y
- * en la jornada; en la jornada, `inherited` trae lo que hereda de la categoría
- * para poder mostrar qué pasa si se deja un campo vacío.
- *
- * value: { open, price, unit, contacts } — price/unit/contacts en null = heredar.
- */
+// `inherited` es lo que trae la categoría; null en un campo = heredarlo.
 export default function SignupEditor({ value, onChange, inherited = null, profile = [] }) {
   const set = (patch) => onChange({ ...value, ...patch });
   const contacts = value.contacts ?? [];

@@ -1,11 +1,6 @@
 import { User, Users } from 'lucide-react';
 import { formatPrice } from '../../utils/signup';
 
-/**
- * Precio de inscripción para las filas de metadata de las cabeceras. El icono
- * distingue por jugador (una persona) de por pareja (dos). Sin precio, o con la
- * inscripción cerrada, no renderiza nada.
- */
 export default function SignupPricePill({ signup }) {
   if (!signup?.open || signup.price == null) return null;
   const isPair = signup.unit === 'pair';

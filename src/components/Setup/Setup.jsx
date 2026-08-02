@@ -93,8 +93,7 @@ export default function Setup() {
   const [club, setClub]           = useState(null);
   const [eventDate, setEventDate] = useState("");
   const [group, setGroup]         = useState(null);
-  // Arranca vacío a propósito: lo que no se cargue queda en null y se hereda de
-  // la categoría en vez de copiarse a la jornada.
+  // Vacío a propósito: lo que no se cargue queda en null y se hereda.
   const [signup, setSignup]       = useState({ open: false, price: null, unit: 'player', contacts: [] });
   const [creating, setCreating]   = useState(false);
 
@@ -105,8 +104,7 @@ export default function Setup() {
       setGroup(g);
       const inherited = entityClub(g) ?? entityClub((g.tournaments ?? []).find((t) => t.club_id));
       if (inherited) setClub(inherited);
-      // El interruptor arranca como lo dejó la categoría; el precio y los
-      // contactos siguen vacíos para que se hereden.
+      // Sólo el interruptor; precio y contactos quedan vacíos para heredarse.
       setSignup((prev) => ({ ...prev, open: g.signup_open ?? false, unit: g.signup_price_unit ?? 'player' }));
     }).catch(() => {});
   }, [groupId]);

@@ -240,8 +240,7 @@ export default function ReadonlyView() {
   const [soundOn, setSoundOn]   = useState(false);
   const [club, setClub]         = useState(null);
 
-  // Novedades del torneo entre refrescos. La pila de avisos es global (la
-  // comparte con la campana), acá sólo se empujan y se les pone sonido.
+  // La pila de avisos es global: la comparte con la campana.
   const { pushAlert } = useAlerts();
   const trackAlerts = useTournamentAlerts(user?.username, {
     onAlert: (list) => { list.forEach(pushAlert); handleAlerts(list); },
@@ -299,8 +298,7 @@ export default function ReadonlyView() {
     });
   }
 
-  // Las novedades entre refrescos las detecta useTournamentAlerts, que también
-  // sabe cuáles involucran a quien mira. Acá sólo se les pone sonido.
+  // La detección vive en useTournamentAlerts; acá sólo se les pone sonido.
   function handleAlerts(list) {
     if (!soundOn) return;
     const kinds = list.map((a) => a.kind);

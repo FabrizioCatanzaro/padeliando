@@ -1,10 +1,6 @@
 import { useEffect } from 'react';
 import { Play, Trophy, Flag, ListTree, X, Bell } from 'lucide-react';
 
-// Avisos flotantes y efímeros: novedades del torneo y notificaciones que llegan
-// mientras usás la app. Las de la campana además quedan registradas ahí; éstas
-// no dejan rastro.
-
 const META = {
   your_match:   { icon: Play,     accent: 'brand',  personal: true },
   bracket_spot: { icon: ListTree, accent: 'brand',  personal: true },

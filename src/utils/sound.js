@@ -1,5 +1,4 @@
-// Tonos cortos con Web Audio, sin assets. El navegador exige un gesto previo
-// del usuario: hasta entonces el contexto queda suspendido y no suena nada.
+// El navegador exige un gesto del usuario antes de dejar sonar nada.
 
 let ctx = null;
 

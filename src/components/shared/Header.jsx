@@ -148,9 +148,7 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // El contador se refresca al montar y cada 45 segundos, sólo con la pestaña
-  // visible. Antes dependía de location.pathname, así que cada navegación
-  // interna del SPA disparaba una petición al backend.
+  // Cada 45 s y sólo con la pestaña visible.
   useEffect(() => {
     if (!isLoggedIn) { setNotifCount(0); lastCountRef.current = null; return; }
 
@@ -162,8 +160,7 @@ export default function Header() {
           const prev  = lastCountRef.current;
           lastCountRef.current = count;
           setNotifCount(count);
-          // Sólo cuando sube: al montar (prev null) no se avisa nada, si no cada
-          // recarga de la página repetiría la última notificación pendiente.
+          // Sólo cuando sube: si no, cada recarga repetiría la última pendiente.
           if (prev == null || count <= prev || !d.latest) return;
           if (soundOnRef.current) playTone(TONES.notification);
           pushAlert({

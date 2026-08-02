@@ -259,8 +259,6 @@ export function useTournament(groupId, tournamentId) {
     showToast('Club y fecha actualizados');
   }
 
-  // El PATCH devuelve las columnas del torneo, así que alcanza con mezclarlas:
-  // no hay JOIN de por medio como en club y fecha.
   async function handleUpdateSignup({ open, price, unit, contacts }) {
     const updated = await api.tournaments.update(tournament.id, {
       signup_open:       open,

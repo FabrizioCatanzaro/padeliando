@@ -2,10 +2,6 @@ import { useEffect, useState } from 'react';
 import { Check, Copy, MoreHorizontal, X } from 'lucide-react';
 import { Tile, WhatsAppIcon } from './ShareModal';
 
-/**
- * Invita a usar Padeleando: comparte el link de la app por WhatsApp, copiándolo
- * o con el menú del sistema. Mismo diseño que los demás modales de compartir.
- */
 export default function ShareAppModal({ onClose }) {
   const [copied, setCopied] = useState(false);
   const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share;

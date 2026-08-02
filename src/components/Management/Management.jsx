@@ -64,8 +64,7 @@ function SignupSection({ tournament, onSave }) {
     unit:     tournament.group_signup_price_unit ?? 'player',
     contacts: tournament.group_signup_contacts ?? [],
   };
-  // Arranca sólo con lo propio de la jornada: precargar lo heredado lo copiaría
-  // al guardar y la jornada dejaría de seguir a la categoría.
+  // Sólo lo propio: precargar lo heredado lo copiaría al guardar.
   const [value, setValue] = useState(() => ({
     open:     tournament.signup_open ?? inherited.open,
     price:    tournament.signup_price ?? null,

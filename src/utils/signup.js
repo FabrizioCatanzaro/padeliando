@@ -1,8 +1,6 @@
 import { MessageCircle, Phone, Mail, Instagram } from 'lucide-react';
 
-// Precio y contactos de inscripción. Los cuatro campos viven en la categoría y
-// en la jornada: la jornada hereda el que tenga en null. Espejo de lib/signup.js
-// del backend, que es el que manda.
+// Espejo de lib/signup.js del backend, que es el que manda.
 
 export const CONTACT_META = {
   whatsapp:  { label: 'WhatsApp',  icon: MessageCircle, placeholder: '+54 9 11 1234-5678' },
@@ -13,9 +11,7 @@ export const CONTACT_META = {
 
 export const CONTACT_TYPES = Object.keys(CONTACT_META);
 
-// Contactos que aporta el perfil del organizador: sólo WhatsApp e Instagram, con
-// la url normalizada (el perfil la guarda como wa.me/..., como número suelto o
-// como url de Instagram). No se inventa el código de país que falte.
+// El perfil guarda la url en formatos irregulares; no se inventa el país que falte.
 export function profileContacts(socialLinks) {
   if (!Array.isArray(socialLinks)) return [];
   const out = [];
