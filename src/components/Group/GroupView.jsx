@@ -22,6 +22,7 @@ import TournamentFilters from './TournamentFilters';
 import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../utils/tournamentFilters';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
+import ActionMenu from '../shared/ActionMenu';
 import ShareCategoryModal from '../shared/ShareCategoryModal';
 import SignupEditor from '../shared/SignupEditor';
 import { profileContacts } from '../../utils/signup';
@@ -406,6 +407,23 @@ export default function GroupView() {
     </span>
   ) : null;
 
+  const collabCount = group.collaborators?.length ?? 0;
+  const ownerActions = [
+    {
+      label: collabCount ? `Co-organizadores (${collabCount})` : 'Co-organizadores',
+      icon: <Users size={15} />,
+      onClick: () => setShowCollabModal(true),
+    },
+    { label: 'Transferir propiedad', icon: <ArrowLeftRight size={15} />, onClick: () => setShowTransferModal(true) },
+    { label: 'Editar categoría',     icon: <Pencil size={15} />,        onClick: startEdit },
+    {
+      label: 'Eliminar categoría',
+      icon: <Trash2 size={15} />,
+      danger: true,
+      onClick: () => { setDeleteModal(true); setDeleteInput(''); },
+    },
+  ];
+
   return (
     <div className="bg-base text-content font-sans pb-15">
       <div className="px-6 pt-6 pb-5 flex flex-col gap-3 border-b border-border">
@@ -418,12 +436,7 @@ export default function GroupView() {
               {group.is_public && (
                 <Btn size="sm" icon={Share2} onClick={() => setShowShareModal(true)} title="Compartir" />
               )}
-              <Btn size="sm" icon={Users} onClick={() => setShowCollabModal(true)} title="Co-organizadores">
-                {group.collaborators?.length ? String(group.collaborators.length) : ''}
-              </Btn>
-              <Btn size="sm" icon={ArrowLeftRight} onClick={() => setShowTransferModal(true)} title="Transferir propiedad" />
-              <Btn size="sm" icon={Pencil} onClick={startEdit} title="Editar categoría" />
-              <Btn variant="danger" size="sm" icon={Trash2} onClick={() => { setDeleteModal(true); setDeleteInput(''); }} title="Eliminar categoría" />
+              <ActionMenu label="Acciones de la categoría" items={ownerActions} />
             </div>
           )}
 
