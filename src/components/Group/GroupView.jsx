@@ -23,6 +23,7 @@ import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../util
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
 import ActionMenu from '../shared/ActionMenu';
+import SignupPricePill from '../shared/SignupPricePill';
 import ShareCategoryModal from '../shared/ShareCategoryModal';
 import SignupEditor from '../shared/SignupEditor';
 import { profileContacts } from '../../utils/signup';
@@ -574,8 +575,8 @@ export default function GroupView() {
           )}
         </div>
 
-        {/* Privacidad (solo dueño) y club — justo encima de la línea divisoria */}
-        {!editingGroup && (isOwner || group.club_id) && (
+        {/* Privacidad (solo dueño), club y precio — justo encima de la línea divisoria */}
+        {!editingGroup && (isOwner || group.club_id || group.signup_open) && (
           <div className="flex flex-wrap items-center gap-2">
             {isOwner && (
               <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border ${group.is_public ? 'text-cyan border-cyan/40' : 'text-yellow-400 border-yellow-400/40'}`}>
@@ -583,6 +584,11 @@ export default function GroupView() {
                 {group.is_public ? 'Categoría pública' : 'Categoría privada'}
               </span>
             )}
+            <SignupPricePill signup={{
+              open:  group.signup_open ?? false,
+              price: group.signup_price,
+              unit:  group.signup_price_unit ?? 'player',
+            }} />
             {group.club_id ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border text-brand border-brand/40 max-w-full">
                 <Building2 size={12} className="shrink-0" />

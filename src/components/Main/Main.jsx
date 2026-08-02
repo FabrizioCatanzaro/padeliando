@@ -19,6 +19,8 @@ import { TournamentHeaderSkeleton, TabsSkeleton, CardSkeleton } from "../shared/
 import Btn from "../shared/Btn";
 import ShareModal from "../shared/ShareModal";
 import QrModal from "../shared/QrModal";
+import SignupPricePill from "../shared/SignupPricePill";
+import { resolveSignup } from "../../utils/signup";
 
 const LIGA_TABS = [
   { id: "standings",  label: "TABLA",         icon: Trophy              },
@@ -240,6 +242,11 @@ export default function Main() {
             <Flame size={11} className="text-dim" />
             {playedCount} jugados
           </span>
+          <SignupPricePill signup={resolveSignup(tournament, {
+            signup_open:       tournament.group_signup_open,
+            signup_price:      tournament.group_signup_price,
+            signup_price_unit: tournament.group_signup_price_unit,
+          })} />
           {tournament.club_id && (
             <button
               onClick={() => navigate(`/club/${tournament.club_id}`)}

@@ -20,6 +20,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useTournamentAlerts } from '../../hooks/useTournamentAlerts';
 import { useAlerts } from '../../context/useAlerts';
 import SignupBanner from './SignupBanner';
+import SignupPricePill from '../shared/SignupPricePill';
 import { playTone, TONES } from '../../utils/sound';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Eye, Flame, Lock, Share2, QrCode, Split, List, Trophy, User, Users, Building2, Zap, Tv, Pause, Play, Volume2, VolumeX, Maximize, Minimize, Clock, X, Calendar, MapPin, Hourglass, Timer } from "lucide-react";
 import courtSvg from "../../assets/padel-court.svg";
@@ -597,6 +598,7 @@ export default function ReadonlyView() {
             <Flame size={11} className="text-dim" />
             {playedCount} jugados
           </span>
+          <SignupPricePill signup={tournament.signup} />
           {tournament.club_id && (
             <button
               onClick={() => navigate(`/club/${tournament.club_id}`)}
