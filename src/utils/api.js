@@ -92,11 +92,14 @@ export const api = {
     deleteAvatar:   ()            => req('DELETE', '/auth/me/avatar'),
     deleteMe:       (password)    => req('DELETE', '/auth/me', password ? { password } : {}),
   },
+  // Portada del visitante: actividad, próximas jornadas, inscripciones y totales en una sola petición.
+  home: {
+    get: () => req('GET', '/home'),
+  },
   groups: {
     list:          ()         => req('GET',    '/groups'),
     search:        (q)        => req('GET',    `/groups/search?q=${encodeURIComponent(q)}`),
     nearby:        (lat, lon, radius = 20) => req('GET', `/groups/nearby?lat=${lat}&lon=${lon}&radius=${radius}`),
-    featured:      (limit = 8) => req('GET', `/groups/featured?limit=${limit}`),
     participating: ()         => req('GET',    '/groups/participating'),
     collaborating: ()         => req('GET',    '/groups/collaborating'),
     get:           (id)       => req('GET',    `/groups/${id}`),
