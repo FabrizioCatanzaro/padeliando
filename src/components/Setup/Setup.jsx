@@ -8,6 +8,7 @@ import PairBuilder from "./PairBuilder";
 import ClubSelector from "../shared/ClubSelector";
 import SignupEditor from "../shared/SignupEditor";
 import { profileContacts } from "../../utils/signup";
+import { useToast } from "../../context/useToast";
 import { ChevronLeft, Check } from "lucide-react";
 import Btn from "../shared/Btn";
 
@@ -94,6 +95,7 @@ export default function Setup() {
   const { groupId } = useParams();
   const navigate = useNavigate();
   const { handleCreate: createTournament } = useTournament(groupId, null);
+  const { showToast } = useToast();
   const [format, setFormat]       = useState("liga");
   const [name, setName]           = useState("");
   const [playerNames, setPlayerNames] = useState(["", "", "", ""]);
@@ -206,6 +208,10 @@ export default function Setup() {
         signup_contacts:   signup.contacts.filter((c) => c.value.trim()),
       });
       navigate(`/cat/${groupId}/torneo/${tId}`);
+    } catch (e) {
+      // Sin esto el rechazo (cupo mensual lleno, club inexistente) sólo apagaba
+      // el botón y el formulario quedaba mudo.
+      showToast(e.message, 'error');
     } finally {
       setCreating(false);
     }

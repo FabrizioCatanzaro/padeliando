@@ -58,6 +58,17 @@ body {
   color: var(--color-content);
 }
 
+/* Portada: el negro plano dejaba todas las secciones leyéndose como un bloque
+   único. Estas capas van sobre --color-base y sirven igual en claro y oscuro. */
+.home-bg {
+  background:
+    radial-gradient(90% 26% at 50% 0%,   color-mix(in srgb, var(--color-brand) 9%, transparent) 0%, transparent 62%),
+    radial-gradient(70% 16% at 100% 24%, color-mix(in srgb, var(--color-cyan)  6%, transparent) 0%, transparent 70%),
+    radial-gradient(80% 18% at 0% 58%,   color-mix(in srgb, var(--color-brand) 6%, transparent) 0%, transparent 70%),
+    radial-gradient(85% 20% at 65% 88%,  color-mix(in srgb, var(--color-cyan)  5%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, var(--color-surface) 0%, var(--color-base) 26%, var(--color-base) 74%, var(--color-surface) 100%);
+}
+
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 

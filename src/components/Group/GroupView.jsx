@@ -22,6 +22,7 @@ import TournamentFilters from './TournamentFilters';
 import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../utils/tournamentFilters';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
+import { FREE_TOURNAMENTS_PER_MONTH } from '../../utils/plan';
 import ActionMenu from '../shared/ActionMenu';
 import SignupPricePill from '../shared/SignupPricePill';
 import ShareCategoryModal from '../shared/ShareCategoryModal';
@@ -41,6 +42,7 @@ export default function GroupView() {
   const [editingGroup,     setEditingGroup]     = useState(false);
   const [saving,           setSaving]           = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumReason,    setPremiumReason]    = useState(null);
   const [allTournaments, setAllTournaments] = useState([]);
   const [showShareModal,   setShowShareModal]   = useState(false);
   const [favBusy,          setFavBusy]          = useState(false);
@@ -670,7 +672,8 @@ export default function GroupView() {
                     const d = new Date(t.created_at);
                     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
                   }).length;
-                  if (thisMonthCount >= 2) {
+                  if (thisMonthCount >= FREE_TOURNAMENTS_PER_MONTH) {
+                    setPremiumReason(`Esta categoría ya usó sus ${FREE_TOURNAMENTS_PER_MONTH} jornadas del mes. El cupo se renueva el 1°; las jornadas ya creadas quedan intactas.`);
                     setShowPremiumModal(true);
                     return;
                   }
@@ -1012,7 +1015,9 @@ export default function GroupView() {
         />
       )}
 
-      {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+      {showPremiumModal && (
+        <PremiumModal reason={premiumReason} onClose={() => { setShowPremiumModal(false); setPremiumReason(null); }} />
+      )}
 
       {deleteModal && (
         <Modal

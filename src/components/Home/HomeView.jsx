@@ -1,15 +1,18 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import { useNavigate } from 'react-router-dom'
 import { useAuth }     from '../../context/useAuth'
-import { Globe, Lock, Plus, X, Search, MapPin, Smile, Check, Loader2, Trophy, ChevronLeft, ChevronRight, BarChart3, Radio, UserRound, Building2, Navigation } from 'lucide-react';
+import { Globe, Lock, Plus, X, Search, MapPin, Smile, Check, Loader2, Trophy, BarChart3, Radio, UserRound, Building2, Navigation } from 'lucide-react';
 import logoUrl from '../../assets/padeleando-logo.webp'
 import FadeInCard from '../shared/FadeInCard'
 import GroupCard from '../shared/GroupCard'
+import VisitorShowcase from './VisitorShowcase';
+import AppPreview from './AppPreview';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
+import { FREE_MAX_GROUPS, isPlanLimit } from '../../utils/plan';
 import { useToast } from '../../context/useToast';
 import Btn from '../shared/Btn';
 
@@ -77,23 +80,19 @@ export default function HomeView() {
   const [committing,     setCommitting]     = useState(false);
   const [error,             setError]             = useState(null)
   const [showPremiumModal,  setShowPremiumModal]  = useState(false)
+  const [premiumReason,     setPremiumReason]     = useState(null)
   const [creating,          setCreating]          = useState(false)
 
   const [nearbyClubs,    setNearbyClubs]    = useState([]);
   const [nearbyStatus,   setNearbyStatus]   = useState('idle'); // idle | loading | done | denied | error | unsupported
   const [nearbyPage,     setNearbyPage]     = useState(NEARBY_INITIAL);
 
-  const [featured,        setFeatured]        = useState([]);
+  const [homeData, setHomeData] = useState(null);
   // Arranca en true para visitantes: si empezara en false, la sección entera no
   // existiría en el primer render y se insertaría al arrancar la carga,
   // empujando todo lo de abajo. Ese salto era un CLS de 0,685 —el elemento que
   // Lighthouse marcaba como desplazado— y no lo causaba el logo.
-  const [featuredLoading, setFeaturedLoading] = useState(!isLoggedIn);
-  const featuredScrollRef = useRef(null);
-  const [canScrollL,  setCanScrollL]  = useState(false);
-  const [canScrollR,  setCanScrollR]  = useState(false);
-  const [scrollThumb, setScrollThumb] = useState(1); // proporción visible (0-1)
-  const [scrollPos,   setScrollPos]   = useState(0); // posición del pulgar (0-1)
+  const [homeLoading, setHomeLoading] = useState(!isLoggedIn);
 
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -138,43 +137,15 @@ export default function HomeView() {
     return () => { if (permStatus) permStatus.onchange = null; };
   }, []);
 
-  // Categorías públicas destacadas para la vitrina de visitantes
+  // Portada del visitante: en vivo, próximas, inscripciones y categorías activas en una petición
   useEffect(() => {
     if (isLoggedIn) return;
-    setFeaturedLoading(true);
-    api.groups.featured(10)
-      .then(setFeatured)
-      .catch(() => setFeatured([]))
-      .finally(() => setFeaturedLoading(false));
+    setHomeLoading(true);
+    api.home.get()
+      .then(setHomeData)
+      .catch(() => setHomeData(null))
+      .finally(() => setHomeLoading(false));
   }, [isLoggedIn]);
-
-  function updateFeaturedScroll() {
-    const el = featuredScrollRef.current;
-    if (!el) return;
-    const { scrollLeft, clientWidth, scrollWidth } = el;
-    const maxScroll = scrollWidth - clientWidth;
-    setCanScrollL(scrollLeft > 4);
-    setCanScrollR(scrollLeft < maxScroll - 4);
-    setScrollThumb(scrollWidth > 0 ? clientWidth / scrollWidth : 1);
-    setScrollPos(maxScroll > 0 ? scrollLeft / maxScroll : 0);
-  }
-
-  // Sincroniza flechas y barra de progreso con el scroll de la vitrina
-  useEffect(() => {
-    const el = featuredScrollRef.current;
-    if (!el) return;
-    updateFeaturedScroll();
-    el.addEventListener('scroll', updateFeaturedScroll, { passive: true });
-    window.addEventListener('resize', updateFeaturedScroll);
-    return () => {
-      el.removeEventListener('scroll', updateFeaturedScroll);
-      window.removeEventListener('resize', updateFeaturedScroll);
-    };
-  }, [featured.length]);
-
-  function scrollFeatured(dir) {
-    featuredScrollRef.current?.scrollBy({ left: dir * 290, behavior: 'smooth' });
-  }
 
   // Búsqueda de perfiles, categorías y clubes con debounce
   useEffect(() => {
@@ -295,13 +266,29 @@ export default function HomeView() {
       showToast('Categoría creada');
       navigate(`/cat/${g.id}`);
     } catch (e) {
-      setError(e.message);
+      // El cupo puede llenarse acá aunque la UI lo haya dejado pasar: el plan del
+      // usuario en localStorage puede haber vencido desde el último login.
+      if (isPlanLimit(e)) {
+        setShowNew(false);
+        setPremiumReason(e.message);
+        setShowPremiumModal(true);
+      } else {
+        setError(e.message);
+      }
       setCreating(false);
     }
   }
 
+  // Un ex-premium conserva las categorías que creó de más: el cupo sólo frena
+  // crear una nueva, y por eso se compara contra el total y no contra un excedente.
+  function quotaReason() {
+    if (groups.length <= FREE_MAX_GROUPS) return null;
+    return `Tenés ${groups.length} categorías y el plan Básico permite ${FREE_MAX_GROUPS}. Las conservás todas y siguen funcionando igual, pero para crear otra necesitás Premium.`;
+  }
+
   function openNewModal() {
-    if (user?.subscription?.plan !== 'premium' && groups.length >= 2) {
+    if (user?.subscription?.plan !== 'premium' && groups.length >= FREE_MAX_GROUPS) {
+      setPremiumReason(quotaReason());
       setShowPremiumModal(true);
       return;
     }
@@ -315,7 +302,7 @@ export default function HomeView() {
   }
 
   if (loading) return (
-    <div className="bg-base text-content font-sans pb-16">
+    <div className="home-bg text-content font-sans pb-16">
       <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto">
         <Skeleton className="h-11 w-full rounded-lg mb-8" />
         <div className="flex items-center justify-between mb-4">
@@ -334,7 +321,7 @@ export default function HomeView() {
   const nearbyVisible = nearbyClubs;
 
   return (
-    <div className="bg-base text-content font-sans pb-16">
+    <div className="home-bg text-content font-sans pb-16">
       <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto">
 
         {/* ── Hero (visitante no logueado) ── */}
@@ -358,7 +345,26 @@ export default function HomeView() {
                 Ver cómo funciona
               </Btn>
             </div>
-            <p className="font-mono text-[11px] text-dim mt-6">
+            {/* Altura fija: los totales llegan con la petición y sin reservarla empujarían el resto. */}
+            <div className="h-11 mt-8 flex items-center justify-center">
+              {homeData?.totals && (
+                <div className="flex items-center gap-5 sm:gap-7 font-mono text-[11px] text-dim">
+                  {[
+                    [homeData.totals.tournaments, 'torneos'],
+                    [homeData.totals.matches,     'partidos'],
+                    [homeData.totals.players,     'jugadores'],
+                    [homeData.totals.clubs,       'clubes'],
+                  ].filter(([n]) => n > 0).map(([n, label]) => (
+                    <div key={label} className="flex flex-col items-center gap-0.5">
+                      <span className="font-condensed font-bold text-lg text-soft leading-none">{n.toLocaleString('es-AR')}</span>
+                      <span className="tracking-widest">{label.toUpperCase()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="font-mono text-[11px] text-dim mt-4">
               ¿Ya tenés cuenta?{' '}
               <button
                 onClick={() => navigate('/login')}
@@ -460,62 +466,9 @@ export default function HomeView() {
           )}
         </div>
 
-        {/* ── Vitrina: se está jugando (visitantes) ── */}
-        {!isLoggedIn && !committedQ && (featuredLoading || featured.length > 0) && (
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green opacity-60" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green" />
-                </span>
-                <h2 className="font-condensed font-bold text-sm tracking-widest text-muted">SE ESTÁ JUGANDO</h2>
-              </div>
-              {!featuredLoading && featured.length > 1 && (canScrollL || canScrollR) && (
-                <div className="hidden sm:flex items-center gap-1.5">
-                  <button
-                    onClick={() => scrollFeatured(-1)}
-                    disabled={!canScrollL}
-                    aria-label="Anterior"
-                    className="flex items-center justify-center w-7 h-7 rounded-full border border-border-mid text-muted hover:border-border-strong hover:text-soft transition-colors cursor-pointer bg-transparent disabled:opacity-25 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft size={15} />
-                  </button>
-                  <button
-                    onClick={() => scrollFeatured(1)}
-                    disabled={!canScrollR}
-                    aria-label="Siguiente"
-                    className="flex items-center justify-center w-7 h-7 rounded-full border border-border-mid text-muted hover:border-border-strong hover:text-soft transition-colors cursor-pointer bg-transparent disabled:opacity-25 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight size={15} />
-                  </button>
-                </div>
-              )}
-            </div>
-            <div
-              ref={featuredScrollRef}
-              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 snap-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {featuredLoading
-                ? [0, 1, 2].map(i => (
-                    <div key={i} className="snap-start shrink-0 w-[270px]"><CardSkeleton lines={3} /></div>
-                  ))
-                : featured.map((g, i) => (
-                    <div key={g.id} className="snap-start shrink-0 w-[270px] flex">
-                      <GroupCard g={g} delay={i * 60} className="h-full w-full" onClick={() => navigate(`/cat/${g.id}`)} />
-                    </div>
-                  ))}
-            </div>
-            {/* Barra de progreso (indicador de scroll en mobile) */}
-            {!featuredLoading && (canScrollL || canScrollR) && (
-              <div className="sm:hidden mx-auto mt-1 h-1 w-20 rounded-full bg-border-mid relative overflow-hidden">
-                <div
-                  className="absolute top-0 h-full rounded-full bg-muted transition-[left] duration-75"
-                  style={{ width: `${scrollThumb * 100}%`, left: `${scrollPos * (100 - scrollThumb * 100)}%` }}
-                />
-              </div>
-            )}
-          </div>
+        {/* ── Vitrinas del visitante: en vivo, próximas, inscripciones y categorías activas ── */}
+        {!isLoggedIn && !committedQ && (
+          <VisitorShowcase data={homeData} loading={homeLoading} />
         )}
 
         {/* ── Clubes cerca tuyo ── */}
@@ -640,7 +593,8 @@ export default function HomeView() {
                 </div>
               ))}
             </div>
-            <div className="flex justify-center mt-8">
+            <AppPreview />
+            <div className="flex justify-center mt-12">
               <Btn variant="primary" size="lg" icon={Trophy} onClick={() => navigate('/register')}>
                 EMPEZÁ GRATIS
               </Btn>
@@ -971,7 +925,9 @@ export default function HomeView() {
         </div>
       )}
 
-      {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+      {showPremiumModal && (
+        <PremiumModal reason={premiumReason} onClose={() => { setShowPremiumModal(false); setPremiumReason(null); }} />
+      )}
     </div>
   );
 }

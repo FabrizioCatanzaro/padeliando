@@ -58,7 +58,7 @@ const ORIGINAL_PRICE = 7000;
 const MONTHLY_PRICE  = 3500;
 const ANNUAL_PRICE   = Math.round(ORIGINAL_PRICE * 0.8);
 
-export default function PremiumModal({ onClose }) {
+export default function PremiumModal({ onClose, reason }) {
   const [billing, setBilling] = useState('monthly');
   const [openFaq, setOpenFaq] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -102,6 +102,12 @@ export default function PremiumModal({ onClose }) {
             Unite al club Premium
           </h2>
           <p className="text-secondary text-sm">Llevá tus estadísticas a mano siempre</p>
+
+          {reason && (
+            <p className="max-w-md mx-auto mt-4 bg-surface-alt border border-border-strong rounded-xl px-4 py-3 text-sm text-soft">
+              {reason}
+            </p>
+          )}
 
           {/* Social proof */}
           <div className="inline-flex items-center gap-2 bg-surface-alt border border-border-strong rounded-full px-4 py-2 mt-5">
