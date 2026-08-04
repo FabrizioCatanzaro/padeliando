@@ -128,7 +128,7 @@ export default function VisitorShowcase({ data, loading }) {
       )}
 
       {upcoming.length > 0 && (
-        <Carousel title="PRÓXIMAS JORNADAS" count={upcoming.length} icon={<CalendarDays size={13} className="text-muted" />}>
+        <Carousel title="PRÓXIMOS TORNEOS" count={upcoming.length} icon={<CalendarDays size={13} className="text-muted" />}>
           {upcoming.map((t, i) => (
             <Slot key={t.id}>
               <EventCard t={t} delay={i * 60} className="h-full w-full" onClick={() => goTournament(t)} />
