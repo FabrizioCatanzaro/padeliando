@@ -2,7 +2,6 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fmt, fmtHora, calcStandings, compareStandingRows, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, managementWarnings } from "../../utils/helpers";
 import { useTournament } from "../../hooks/useTournament";
-import { useAuth } from "../../context/useAuth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import Standings    from "../Standings/Standings";
 import Matches      from "../Matches/Matches";
@@ -56,9 +55,6 @@ function WarningMark({ className = "", count }) {
 export default function Main() {
   const { groupId, tournamentId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  
-  const isPremium = user?.subscription?.plan === 'premium';
   const {
     tournament, groupName, groupEmojis, groupOwnerIsPremium, loading, error, notFound, isOwner,
     handleAddMatch, handleEditMatch, handleDeleteMatch,
@@ -364,7 +360,7 @@ export default function Main() {
         <PhotoGallery
           tournamentId={tournament.id}
           isOwner={isOwner}
-          isPremium={isPremium}
+          isPremium={groupOwnerIsPremium}
         />
       </div>
 

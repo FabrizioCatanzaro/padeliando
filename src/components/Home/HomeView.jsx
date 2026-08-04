@@ -12,6 +12,7 @@ import AppPreview from './AppPreview';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
+import { FREE_MAX_GROUPS, isPlanLimit } from '../../utils/plan';
 import { useToast } from '../../context/useToast';
 import Btn from '../shared/Btn';
 
@@ -79,6 +80,7 @@ export default function HomeView() {
   const [committing,     setCommitting]     = useState(false);
   const [error,             setError]             = useState(null)
   const [showPremiumModal,  setShowPremiumModal]  = useState(false)
+  const [premiumReason,     setPremiumReason]     = useState(null)
   const [creating,          setCreating]          = useState(false)
 
   const [nearbyClubs,    setNearbyClubs]    = useState([]);
@@ -264,13 +266,29 @@ export default function HomeView() {
       showToast('Categoría creada');
       navigate(`/cat/${g.id}`);
     } catch (e) {
-      setError(e.message);
+      // El cupo puede llenarse acá aunque la UI lo haya dejado pasar: el plan del
+      // usuario en localStorage puede haber vencido desde el último login.
+      if (isPlanLimit(e)) {
+        setShowNew(false);
+        setPremiumReason(e.message);
+        setShowPremiumModal(true);
+      } else {
+        setError(e.message);
+      }
       setCreating(false);
     }
   }
 
+  // Un ex-premium conserva las categorías que creó de más: el cupo sólo frena
+  // crear una nueva, y por eso se compara contra el total y no contra un excedente.
+  function quotaReason() {
+    if (groups.length <= FREE_MAX_GROUPS) return null;
+    return `Tenés ${groups.length} categorías y el plan Básico permite ${FREE_MAX_GROUPS}. Las conservás todas y siguen funcionando igual, pero para crear otra necesitás Premium.`;
+  }
+
   function openNewModal() {
-    if (user?.subscription?.plan !== 'premium' && groups.length >= 2) {
+    if (user?.subscription?.plan !== 'premium' && groups.length >= FREE_MAX_GROUPS) {
+      setPremiumReason(quotaReason());
       setShowPremiumModal(true);
       return;
     }
@@ -332,7 +350,7 @@ export default function HomeView() {
               {homeData?.totals && (
                 <div className="flex items-center gap-5 sm:gap-7 font-mono text-[11px] text-dim">
                   {[
-                    [homeData.totals.tournaments, 'jornadas'],
+                    [homeData.totals.tournaments, 'torneos'],
                     [homeData.totals.matches,     'partidos'],
                     [homeData.totals.players,     'jugadores'],
                     [homeData.totals.clubs,       'clubes'],
@@ -907,7 +925,9 @@ export default function HomeView() {
         </div>
       )}
 
-      {showPremiumModal && <PremiumModal onClose={() => setShowPremiumModal(false)} />}
+      {showPremiumModal && (
+        <PremiumModal reason={premiumReason} onClose={() => { setShowPremiumModal(false); setPremiumReason(null); }} />
+      )}
     </div>
   );
 }
