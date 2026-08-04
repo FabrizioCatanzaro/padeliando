@@ -8,6 +8,7 @@ import logoUrl from '../../assets/padeleando-logo.webp'
 import FadeInCard from '../shared/FadeInCard'
 import GroupCard from '../shared/GroupCard'
 import VisitorShowcase from './VisitorShowcase';
+import AppPreview from './AppPreview';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
@@ -283,7 +284,7 @@ export default function HomeView() {
   }
 
   if (loading) return (
-    <div className="bg-base text-content font-sans pb-16">
+    <div className="home-bg text-content font-sans pb-16">
       <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto">
         <Skeleton className="h-11 w-full rounded-lg mb-8" />
         <div className="flex items-center justify-between mb-4">
@@ -302,7 +303,7 @@ export default function HomeView() {
   const nearbyVisible = nearbyClubs;
 
   return (
-    <div className="bg-base text-content font-sans pb-16">
+    <div className="home-bg text-content font-sans pb-16">
       <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto">
 
         {/* ── Hero (visitante no logueado) ── */}
@@ -574,7 +575,8 @@ export default function HomeView() {
                 </div>
               ))}
             </div>
-            <div className="flex justify-center mt-8">
+            <AppPreview />
+            <div className="flex justify-center mt-12">
               <Btn variant="primary" size="lg" icon={Trophy} onClick={() => navigate('/register')}>
                 EMPEZÁ GRATIS
               </Btn>
