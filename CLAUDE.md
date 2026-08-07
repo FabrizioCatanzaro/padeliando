@@ -28,7 +28,7 @@ Both repos are independent — they are **not** a monorepo.
 **Backend**
 - Node.js + Express 5.2
 - Neon serverless PostgreSQL (`@neondatabase/serverless`)
-- JWT authentication (1h access token, 30d refresh token via httpOnly cookies)
+- JWT authentication (1h access token, 3h opaque refresh token — both httpOnly cookies; the refresh token is stored hashed and rotated on every use)
 - Bcrypt for password hashing
 - Resend for transactional email (password reset, email verification)
 - Cloudinary for image uploads (avatars, tournament photos)
