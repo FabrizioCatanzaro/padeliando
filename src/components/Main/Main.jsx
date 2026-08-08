@@ -81,7 +81,7 @@ export default function Main() {
     }
   }, [loading, tournament, isOwner, tournamentId, navigate]);
 
-  useDocumentTitle(notFound ? 'Jornada no encontrada' : tournament?.name);
+  useDocumentTitle(notFound ? 'Torneo no encontrado' : tournament?.name);
 
   if (loading) return (
     <div className="bg-base text-content font-sans pb-24 sm:pb-15">

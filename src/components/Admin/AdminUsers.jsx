@@ -341,7 +341,7 @@ export default function AdminUsers() {
           <p className="mb-3">
             Se borrará permanentemente la cuenta de{' '}
             <span className="text-white font-semibold">{deleteUser.name}</span> (@{deleteUser.username}).
-            Sus grupos y torneos se conservan bajo una cuenta anónima; sus partidos en grupos ajenos
+            Sus categorías y torneos se conservan bajo una cuenta anónima; sus partidos en categorías ajenas
             quedan sin vincular. Esta acción no se puede deshacer.
           </p>
           <label className="block text-[11px] tracking-widest text-muted font-mono mb-1.5">

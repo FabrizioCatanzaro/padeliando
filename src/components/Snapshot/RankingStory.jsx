@@ -63,7 +63,7 @@ export default function RankingStory({
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: 22, letterSpacing: 3, color: C.muted, fontWeight: 700 }}>
-            {tournamentsCount} {tournamentsCount === 1 ? 'JORNADA' : 'JORNADAS'}
+            {tournamentsCount} {tournamentsCount === 1 ? 'TORNEO' : 'TORNEOS'}
           </div>
           {/* Encabezado de columnas: sin él, "103 62 62%" no se interpreta solo.
               El padding derecho compensa el de las filas para que quede a plomo. */}

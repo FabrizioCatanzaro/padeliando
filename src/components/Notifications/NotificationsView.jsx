@@ -252,10 +252,10 @@ function NotifText({ n, navigate }) {
             onClick={() => navigate(`/cat/${n.group_id}`)}
             className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
           >
-            {n.group_name ?? 'un grupo'}
+            {n.group_name ?? 'una categoría'}
           </span>
         ) : (
-          <span className="text-white font-semibold">{n.group_name ?? 'un grupo'}</span>
+          <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
         )}
         {n.player_name ? <> como <span className="text-brand">{n.player_name}</span></> : null}
       </div>
@@ -264,16 +264,16 @@ function NotifText({ n, navigate }) {
   if (n.type === 'new_tournament') {
     return (
       <div className="text-[13px] text-secondary">
-        {actorEl} creó la jornada{' '}
+        {actorEl} creó el torneo{' '}
         {n.tournament_id && n.group_id ? (
           <span
             onClick={() => navigate(`/cat/${n.group_id}/torneo/${n.tournament_id}`)}
             className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
           >
-            {n.tournament_name ?? 'una jornada'}
+            {n.tournament_name ?? 'un torneo'}
           </span>
         ) : (
-          <span className="text-white font-semibold">{n.tournament_name ?? 'una jornada'}</span>
+          <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span>
         )}
         {' '}en{' '}
         {n.group_id ? (

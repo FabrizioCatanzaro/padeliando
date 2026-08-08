@@ -9,7 +9,7 @@ import Fronton from './Fronton'
 const SUBJECTS = {
   page:       { eyebrow: 'Error 404',               desc: 'Esta página no existe, pero el punto sigue vivo.' },
   category:   { eyebrow: 'Categoría no encontrada', desc: 'Esta categoría no existe o la borraron. El punto, en cambio, sigue vivo.' },
-  tournament: { eyebrow: 'Jornada no encontrada',   desc: 'Esta jornada no existe o la borraron. El link puede estar vencido.' },
+  tournament: { eyebrow: 'Torneo no encontrado',    desc: 'Este torneo no existe o lo borraron. El link puede estar vencido.' },
   club:       { eyebrow: 'Club no encontrado',      desc: 'Este club no existe o lo dieron de baja.' },
   profile:    { eyebrow: 'Perfil no encontrado',    desc: 'No hay ninguna cuenta con ese nombre de usuario.' },
 }
