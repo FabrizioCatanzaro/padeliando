@@ -25,7 +25,7 @@ export default function EditarCategoriaSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Edición de nombre y descripción del torneo" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422824/torneo-editar-nombre2_zo9kpm.png'} aspect='aspect-auto'/>
+      <TutorialMedia caption="Menú de la categoría, con la opción de editar" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159237/tutorial/menu-categoria.png" aspect="aspect-auto" />
     </TutorialSection>
   )
 }

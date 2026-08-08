@@ -23,7 +23,7 @@ export default function FotosSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Galería de fotos de un torneo" />
+      <TutorialMedia caption="Galería de fotos del torneo" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159228/tutorial/fotos.png" aspect="aspect-auto" />
 
       <Note>
         Es una función Premium, y se evalúa contra el dueño de la categoría: si el dueño tiene plan

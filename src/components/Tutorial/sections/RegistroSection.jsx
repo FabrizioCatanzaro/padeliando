@@ -25,7 +25,7 @@ export default function RegistroSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Pantalla de registro e inicio de sesión" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422830/login_aiydnq.png'}/>
+      <TutorialMedia caption="Pantalla de registro e inicio de sesión" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159259/tutorial/registro.png" aspect="aspect-auto" />
     </TutorialSection>
   )
 }

@@ -23,7 +23,7 @@ export default function CoOrganizadoresSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Bloque de co-organizadores en la categoría" />
+      <TutorialMedia caption="Menú de la categoría, con co-organizadores" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159237/tutorial/menu-categoria.png" aspect="aspect-auto" />
 
       <h3 className="font-condensed font-bold text-[18px] text-white mb-2 mt-2">
         Qué puede hacer un co-organizador

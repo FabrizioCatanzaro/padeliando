@@ -22,7 +22,7 @@ export default function InstalarSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Aviso para instalar la app" />
+      <TutorialMedia caption="Instalar la app desde el menú de tu cuenta" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159239/tutorial/menu-cuenta.png" aspect="aspect-auto" />
 
       <Bullets
         items={[

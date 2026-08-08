@@ -29,7 +29,7 @@ export default function CrearTorneoSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Formulario de creación de torneo" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422829/crear-torneo-modo_kpwsa0.png'}/>
+      <TutorialMedia caption="Formulario de creación de torneo" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159220/tutorial/crear-torneo.png" aspect="aspect-auto" />
     </TutorialSection>
   )
 }

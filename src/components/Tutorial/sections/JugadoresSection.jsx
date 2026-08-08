@@ -25,7 +25,7 @@ export default function JugadoresSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Panel de gestión de jugadores y parejas" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422825/editar-jugadores_ag2pe5.png'} aspect='aspect-auto'/>
+      <TutorialMedia caption="Panel de gestión del torneo" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159232/tutorial/gestion-jugadores.png" aspect="aspect-auto" />
     </TutorialSection>
   )
 }

@@ -22,7 +22,7 @@ export default function HistoriasSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Vista previa de una historia" aspect="aspect-[9/16]" />
+      <TutorialMedia caption="Vista previa de una historia" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159759/tutorial/historias.png" aspect="aspect-auto" />
 
       <h3 className="font-condensed font-bold text-[18px] text-white mb-2 mt-2">
         Qué se puede convertir en historia
