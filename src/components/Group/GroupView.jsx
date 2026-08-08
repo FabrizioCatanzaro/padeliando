@@ -2,23 +2,21 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Modal from '../shared/Modal';
 import { api } from '../../utils/api';
-import { adaptTournament, fmt, fmtHora, tournamentDisplayStatus, TOURNAMENT_STATUS_META, isAmericanoDraft, isDeletedAccount, entityClub } from '../../utils/helpers';
+import { adaptTournament, isDeletedAccount, entityClub } from '../../utils/helpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useParams } from 'react-router-dom';
-import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Trophy, Smile, Check, X, Users, User, Flame, User2, Building2, Share2, UserPlus, Star, ArrowLeftRight, Link2, LogOut, Copy, Unlink } from 'lucide-react';
+import { Trash2, Pencil, Globe, Lock, ChevronLeft, Plus, Smile, Check, X, Users, User, User2, Building2, Share2, UserPlus, Star, ArrowLeftRight, Link2, LogOut, Copy, Unlink, BarChart3, MapPin, CalendarDays } from 'lucide-react';
 import Btn from '../shared/Btn';
-import Badge from '../shared/Badge';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
-import FadeInCard from '../shared/FadeInCard';
-import WhenVisible from '../shared/WhenVisible';
-// Este bloque ocupa 2872 px de los 3935 de la página y arranca en y=1064, o sea
-// entero bajo el pliegue, pero arrastraba los 111 KB de Recharts a la carga
-// inicial. Se difiere hasta que está por entrar en pantalla.
+// Recharts son 111 KB: nunca debe entrar en el bundle inicial. Ahora además
+// vive detrás de una pestaña, así que sólo se descarga si la abren.
 const HistoricalStats = lazy(() => import('../Stats/Stats').then(m => ({ default: m.HistoricalStats })));
-import TournamentFilters from './TournamentFilters';
+import GroupTournaments from './GroupTournaments';
+import GroupPlayers from './GroupPlayers';
+import GroupClubs from './GroupClubs';
 import { EMPTY_FILTERS, filterTournaments, countActiveFilters } from '../../utils/tournamentFilters';
 import ClubSelector from '../shared/ClubSelector';
 import PremiumModal from '../shared/PremiumModal';
@@ -33,6 +31,13 @@ import LazyNotFound from '../NotFound/LazyNotFound';
 
 const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
+const TABS = [
+  { id: 'torneos',      label: 'TORNEOS',      icon: CalendarDays },
+  { id: 'estadisticas', label: 'ESTADÍSTICAS', icon: BarChart3 },
+  { id: 'jugadores',    label: 'JUGADORES',    icon: Users },
+  { id: 'canchas',      label: 'CANCHAS',      icon: MapPin },
+];
+
 export default function GroupView() {
   const { groupId } = useParams();
   const [group, setGroup] = useState(null);
@@ -44,6 +49,8 @@ export default function GroupView() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumReason,    setPremiumReason]    = useState(null);
   const [allTournaments, setAllTournaments] = useState([]);
+  const [histLoaded,     setHistLoaded]     = useState(false);
+  const [tab,            setTab]            = useState('torneos');
   const [showShareModal,   setShowShareModal]   = useState(false);
   const [favBusy,          setFavBusy]          = useState(false);
   const [visibleCount,     setVisibleCount]     = useState(5);
@@ -76,6 +83,11 @@ export default function GroupView() {
 
   // invitación de jugador pendiente para quien mira (viene en GET /groups/:id)
   const [invitationBusy,    setInvitationBusy]    = useState(false);
+
+  // Reclamar un lugar en la categoría
+  const [claimPick,      setClaimPick]      = useState('');
+  const [claimBusy,      setClaimBusy]      = useState(false);
+  const [claimRequested, setClaimRequested] = useState(false);
   const [unlinkConfirm,     setUnlinkConfirm]     = useState(false);
   const [unlinkBusy,        setUnlinkBusy]        = useState(false);
 
@@ -83,12 +95,17 @@ export default function GroupView() {
   const { user } = useAuth();
   const { showToast } = useToast();
 
+  // El histórico trae TODOS los partidos de la categoría y sólo lo consumen las
+  // pestañas de estadísticas y canchas. Antes se pedía siempre al entrar; ahora
+  // se pide la primera vez que abren alguna de las dos.
   async function handleAllTournaments() {
     try {
       const data = await api.groups.history(groupId);
       setAllTournaments(data.map(adaptTournament));
     } catch {
       // El historial es accesorio: si falla, la categoría se muestra igual.
+    } finally {
+      setHistLoaded(true);
     }
   }
 
@@ -122,6 +139,23 @@ export default function GroupView() {
     }
   }
 
+  // Reclamar un lugar libre. La solicitud viaja contra una jornada concreta
+  // (es lo que espera el endpoint), pero el vínculo que resulta vale para toda
+  // la categoría: una cuenta ocupa un solo slot por categoría.
+  async function requestClaim(target) {
+    if (claimBusy || !target?.tournament_id) return;
+    setClaimBusy(true);
+    try {
+      await api.joinRequests.send(target.tournament_id, target.id);
+      setClaimRequested(true);
+      showToast('Solicitud enviada al organizador.');
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setClaimBusy(false);
+    }
+  }
+
   async function respondInvitation(action) {
     const inv = group?.my_invitation;
     if (invitationBusy || !inv) return;
@@ -145,11 +179,18 @@ export default function GroupView() {
     api.groups.get(groupId)
       .then(setGroup)
       .catch((e) => { if (e.status === 404) setNotFound(true); else showToast(e.message, 'error'); });
-    handleAllTournaments();
+    setAllTournaments([]);
+    setHistLoaded(false);
+    setTab('torneos');
     setVisibleCount(5);
     setFilters(EMPTY_FILTERS);
     setFiltersOpen(false);
   }, [groupId]);
+
+  // Historial bajo demanda: sólo lo necesitan Estadísticas y Canchas.
+  useEffect(() => {
+    if ((tab === 'estadisticas' || tab === 'canchas') && !histLoaded) handleAllTournaments();
+  }, [tab, histLoaded]);
 
   function toggleEmoji(e) {
     setEditEmojis(prev =>
@@ -370,6 +411,11 @@ export default function GroupView() {
   // can_manage: dueño O co-organizador (crear/gestionar jornadas).
   const isOwner   = group.is_owner ?? (!!user && String(group.user_id) === String(user.id));
   const canManage = group.can_manage ?? isOwner;
+
+  // Slots libres que el visitante podría reclamar. El seleccionado es su
+  // elección mientras siga estando disponible; si no, el primero de la lista.
+  const claimable = group.claimable_players ?? [];
+  const claimId   = claimable.some((p) => p.id === claimPick) ? claimPick : (claimable[0]?.id ?? '');
   const isCollaborator = canManage && !isOwner;
 
   if (!group.is_public && !canManage) {
@@ -435,7 +481,7 @@ export default function GroupView() {
   ];
 
   return (
-    <div className="bg-base text-content font-sans pb-15">
+    <div className="bg-base text-content font-sans pb-24 sm:pb-15">
       <div className="px-6 pt-6 pb-5 flex flex-col gap-3 border-b border-border">
         <div className="flex justify-between items-center">
           <Btn size="sm" icon={ChevronLeft} onClick={() => navigate('/')}>Volver</Btn>
@@ -524,7 +570,7 @@ export default function GroupView() {
               <div>
                 <label className="block text-[10px] font-mono tracking-widest text-[#555] mb-1.5">CLUB (opcional)</label>
                 <ClubSelector value={editClub} onChange={setEditClub} />
-                <p className="text-[10px] text-dim font-mono mt-1.5">Se usa como club por defecto en las jornadas nuevas.</p>
+                <p className="text-[10px] text-dim font-mono mt-1.5">Se usa como club por defecto en los torneos nuevos.</p>
               </div>
 
               <div className="border-t border-border-mid pt-4">
@@ -534,7 +580,7 @@ export default function GroupView() {
                   onChange={setEditSignup}
                   profile={profileContacts(group.owner_social_links)}
                 />
-                <p className="text-[10px] text-dim font-mono mt-2">Cada jornada lo hereda y puede cambiarlo.</p>
+                <p className="text-[10px] text-dim font-mono mt-2">Cada torneo lo hereda y puede cambiarlo.</p>
               </div>
 
               {/* Íconos */}
@@ -653,155 +699,147 @@ export default function GroupView() {
             </Btn>
           </div>
         )}
+
+        {/* Reclamar un lugar en la categoría. Antes sólo se podía desde el link
+            público de un torneo, así que quien entraba por acá no tenía cómo. */}
+        {!group.my_player && !group.my_invitation && claimable.length > 0 && (
+          claimRequested ? (
+            <div className="flex items-center gap-2 bg-surface border border-border-mid rounded-md px-3 py-2">
+              <span className="text-[12px] font-mono text-muted">
+                ⏳ Solicitud enviada. Te avisamos cuando el organizador la responda.
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 flex-wrap bg-brand/5 border border-brand/25 rounded-md px-3 py-2">
+              <span className="flex items-center gap-2 text-brand text-[12px] font-mono tracking-wide">
+                <UserPlus size={14} className="shrink-0" />
+                ¿Jugás en esta categoría?
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <select
+                  value={claimId}
+                  onChange={(e) => setClaimPick(e.target.value)}
+                  className="bg-surface border border-brand/40 text-white text-[12px] font-mono rounded px-2 py-1.5 cursor-pointer outline-none max-w-[45vw] sm:max-w-none"
+                >
+                  {claimable.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <Btn
+                  variant="primary"
+                  size="sm"
+                  disabled={claimBusy}
+                  onClick={() => requestClaim(claimable.find((p) => p.id === claimId))}
+                >
+                  {claimBusy ? 'ENVIANDO...' : 'SOLICITAR UNIRME'}
+                </Btn>
+              </div>
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Pestañas. Antes todo esto era una sola página larguísima: la lista de
+          torneos, las estadísticas históricas y las canchas, una debajo de otra.
+          Desktop arriba; en mobile van abajo fijas, como en el torneo, así no
+          hay que arrastrar una tira horizontal para llegar a la última. */}
+      <div className="hidden sm:flex border-b border-border px-2 items-center overflow-x-auto">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`bg-transparent border-0 px-3.5 py-3.5 font-condensed font-bold text-[13px] tracking-wide cursor-pointer border-b-2 whitespace-nowrap transition-all hover:text-brand flex items-center gap-1.5 ${
+                tab === t.id ? 'text-brand border-b-brand' : 'text-muted border-b-transparent'
+              }`}
+            >
+              <Icon size={13} />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Barra inferior — sólo mobile */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-base border-t border-border flex">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 border-0 cursor-pointer transition-colors ${
+                tab === t.id ? 'text-brand bg-brand/10' : 'text-muted bg-transparent'
+              }`}
+            >
+              <Icon size={20} />
+              <span className="text-[9px] font-mono tracking-wide leading-none">{t.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">TORNEOS</div>
-          {canManage && (
-            <Btn
-              variant="primary"
-              size="sm"
-              icon={Plus}
-              onClick={() => {
-                // El cupo mensual del plan free se evalúa contra el DUEÑO de la categoría,
-                // no contra quien crea (un co-organizador premium no evade el límite del dueño).
-                if (!group.owner_is_premium) {
-                  const now = new Date();
-                  const thisMonthCount = (group.tournaments ?? []).filter(t => {
-                    const d = new Date(t.created_at);
-                    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-                  }).length;
-                  if (thisMonthCount >= FREE_TOURNAMENTS_PER_MONTH) {
-                    setPremiumReason(`Esta categoría ya usó sus ${FREE_TOURNAMENTS_PER_MONTH} jornadas del mes. El cupo se renueva el 1°; las jornadas ya creadas quedan intactas.`);
-                    setShowPremiumModal(true);
-                    return;
-                  }
-                }
-                navigate(`/cat/${groupId}/torneo/new`);
-              }}
-            >
-              NUEVO TORNEO
-            </Btn>
-          )}
-        </div>
-        {(!group.tournaments || group.tournaments.length === 0) && !canManage && (
-          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">No hay torneos todavía.<br/>¡Creá el primero!</div>
-        )}
-
-        {group.tournaments?.length > 0 && (
-          <TournamentFilters
-            filters={filters}
-            onChange={changeFilters}
-            open={filtersOpen}
-            onToggle={() => setFiltersOpen(o => !o)}
-            total={group.tournaments.length}
-            shown={filtered.length}
-          />
-        )}
-
-        {activeFilters > 0 && filtered.length === 0 && (
-          <div className="text-center text-dim py-10 px-5 font-sans leading-loose">
-            Ningún torneo coincide con los filtros.
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2.5">
-          {filtered.slice(0, visibleCount).map((t, i) => {
-            const isAmericano = t.format === 'americano';
-            const fmtColor = isAmericano ? '#e8f04a' : '#63b3ed';
-            const fmtBg    = isAmericano ? 'rgba(232,240,74,0.07)' : 'rgba(99,179,237,0.07)';
-            const fmtBorder = isAmericano ? 'rgba(232,240,74,0.18)' : 'rgba(99,179,237,0.18)';
-            const count = isAmericano ? t.pair_count : t.player_count;
-            const CountIcon = isAmericano ? Users : User;
-            const displayStatus = tournamentDisplayStatus({
-              status: t.status, hasLiveMatch: !!t.live_match, hasPlayed: (t.match_count ?? 0) > 0,
-              isDraft: isAmericanoDraft({ format: t.format, pairCount: t.pair_count }),
-            });
-            const statusMeta = TOURNAMENT_STATUS_META[displayStatus];
-            // Línea superior: brand si es borrador, cyan si es próximo, verde si está en curso/en vivo, nada si finalizó.
-            const topLineClass = displayStatus === 'draft'
-              ? 'from-brand/50 via-brand/20 to-transparent'
-              : displayStatus === 'upcoming'
-                ? 'from-cyan/50 via-cyan/20 to-transparent'
-                : 'from-green/50 via-green/20 to-transparent';
-            return (
-            <FadeInCard key={t.id} delay={Math.min(i, 5) * 60}
-              className="border border-border-mid rounded-lg cursor-pointer overflow-hidden card-link"
-              style={{ background: 'linear-gradient(145deg, #0d0d0d 0%, #1c1c1c 100%)' }}
-              onClick={() => { navigate(`/cat/${groupId}/torneo/${t.id}`); }}>
-              {displayStatus !== 'finished' && (
-                <div className={`h-px ml-7 bg-gradient-to-r ${topLineClass}`} />
-              )}
-              <div className="flex min-w-0">
-                <div
-                  className="flex items-center justify-center shrink-0 w-7"
-                  style={{ background: fmtBg, borderRight: `1px solid ${fmtBorder}` }}
+        {tab === 'torneos' && (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <div className="font-condensed font-bold text-[16px] tracking-[3px] text-muted">TORNEOS</div>
+              {canManage && (
+                <Btn
+                  variant="primary"
+                  size="sm"
+                  icon={Plus}
+                  onClick={() => {
+                    // El cupo mensual del plan free se evalúa contra el DUEÑO de la categoría,
+                    // no contra quien crea (un co-organizador premium no evade el límite del dueño).
+                    if (!group.owner_is_premium) {
+                      const now = new Date();
+                      const thisMonthCount = (group.tournaments ?? []).filter(t => {
+                        const d = new Date(t.created_at);
+                        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+                      }).length;
+                      if (thisMonthCount >= FREE_TOURNAMENTS_PER_MONTH) {
+                        setPremiumReason(`Esta categoría ya usó sus ${FREE_TOURNAMENTS_PER_MONTH} torneos del mes. El cupo se renueva el 1°; los torneos ya creados quedan intactos.`);
+                        setShowPremiumModal(true);
+                        return;
+                      }
+                    }
+                    navigate(`/cat/${groupId}/torneo/new`);
+                  }}
                 >
-                  <span
-                    className="font-mono font-bold tracking-widest select-none"
-                    style={{ fontSize: 8, color: fmtColor, writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.2em' }}
-                  >
-                    {isAmericano ? 'AMERICANO' : 'LIGA'}
-                  </span>
-                </div>
-                <div className="px-4 py-3.5 flex-1 min-w-0">
-                  <div className="flex justify-between items-start gap-2 mb-2">
-                    <div className="font-condensed font-bold text-lg text-content leading-tight">{t.name}</div>
-                    <Badge variant="status" color={statusMeta.color} icon={statusMeta.icon} pulse={statusMeta.pulse}>
-                      {statusMeta.label}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {count > 0 && (
-                      <span className="flex items-center gap-1 font-mono text-sm text-dim">
-                        <CountIcon size={11} />{count}
-                      </span>
-                    )}
-                    {t.match_count > 0 && (
-                      <span className="flex items-center gap-1 font-mono text-sm text-dim">
-                        <Flame size={11} />{t.match_count}
-                      </span>
-                    )}
-                    {!isAmericano && t.mode && (
-                      <span className="font-mono text-sm text-dim">
-                        {t.mode === 'pairs' ? '(en parejas)' : '(equipos libres)'}
-                      </span>
-                    )}
-                    <span className="font-mono text-sm text-dim ml-auto">
-                      {fmt(t.event_date ?? t.created_at)}
-                      {t.event_time && <span className="text-brand ml-1.5">{fmtHora(t.event_time)}</span>}
-                    </span>
-                  </div>
-                  {t.club_name && (
-                    <div className="flex items-center gap-1.5 text-sm text-secondary font-mono mt-2">
-                      <Building2 size={11} className="shrink-0" />
-                      <span className="truncate">{t.club_name}</span>
-                    </div>
-                  )}
-                  {t.status === 'finished' && t.winner_label && (
-                    <div className="flex items-center gap-1.5 text-sm text-brand font-mono mt-2">
-                      <Trophy size={11} /> {t.winner_label}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </FadeInCard>
-            );
-          })}
-        </div>
-        {visibleCount < filtered.length && (
-          <div className="flex justify-center mt-4">
-            <Btn size="sm" onClick={() => setVisibleCount(c => c + 10)}>
-              CARGAR MÁS ({filtered.length - visibleCount} restantes)
-            </Btn>
-          </div>
+                  NUEVO TORNEO
+                </Btn>
+              )}
+            </div>
+            <GroupTournaments
+              group={group} groupId={groupId} canManage={canManage}
+              filters={filters} changeFilters={changeFilters}
+              filtersOpen={filtersOpen} setFiltersOpen={setFiltersOpen}
+              activeFilters={activeFilters} filtered={filtered}
+              visibleCount={visibleCount} setVisibleCount={setVisibleCount}
+            />
+          </>
         )}
-        <WhenVisible minHeight={680}>
+
+        {/* Recharts pesa 111 KB: sigue entrando por lazy, ahora además sólo
+            cuando el usuario abre la pestaña. */}
+        {tab === 'estadisticas' && (
           <Suspense fallback={<div style={{ minHeight: 680 }} />}>
-            <HistoricalStats tournaments={allTournaments} showTorneos={false} ownerIsPremium={group.owner_is_premium ?? false} groupName={group.name} title="ESTADÍSTICAS HISTÓRICAS" />
+            <HistoricalStats
+              tournaments={allTournaments}
+              showTorneos={false}
+              showClubs={false}
+              ownerIsPremium={group.owner_is_premium ?? false}
+              groupName={group.name}
+              title="ESTADÍSTICAS HISTÓRICAS"
+            />
           </Suspense>
-        </WhenVisible>
+        )}
+
+        {tab === 'jugadores' && <GroupPlayers groupId={groupId} canManage={canManage} />}
+
+        {tab === 'canchas' && <GroupClubs tournaments={allTournaments} loading={!histLoaded} />}
       </div>
 
       {/* Modal emojis */}
@@ -855,7 +893,7 @@ export default function GroupView() {
               </button>
             </div>
             <p className="text-secondary text-[13px] leading-relaxed mb-4">
-              Pueden gestionar las jornadas de esta categoría igual que vos, pero <strong className="text-white">no</strong> editar/borrar la categoría ni transferirla.
+              Pueden gestionar los torneos de esta categoría igual que vos, pero <strong className="text-white">no</strong> editar/borrar la categoría ni transferirla.
             </p>
 
             <div className="flex flex-col gap-2 mb-4">
@@ -974,7 +1012,7 @@ export default function GroupView() {
           onCancel={() => setRemoveCollabTarget(null)}
         >
           <strong className="text-white">{removeCollabTarget.name}</strong>
-          {removeCollabTarget.username ? ` (@${removeCollabTarget.username})` : ''} dejará de poder gestionar las jornadas de esta categoría. Podés volver a invitarlo cuando quieras.
+          {removeCollabTarget.username ? ` (@${removeCollabTarget.username})` : ''} dejará de poder gestionar los torneos de esta categoría. Podés volver a invitarlo cuando quieras.
         </Modal>
       )}
 
@@ -987,7 +1025,7 @@ export default function GroupView() {
           onConfirm={handleLeaveCollab}
           onCancel={() => setLeaveConfirm(false)}
         >
-          Vas a perder el acceso para gestionar las jornadas de <strong className="text-white">{group.name}</strong>. Solo el dueño podría volver a invitarte.
+          Vas a perder el acceso para gestionar los torneos de <strong className="text-white">{group.name}</strong>. Solo el dueño podría volver a invitarte.
         </Modal>
       )}
 
