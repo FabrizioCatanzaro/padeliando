@@ -1,7 +1,7 @@
 import TutorialSection from '../TutorialSection'
 import TutorialMedia from '../TutorialMedia'
 
-export default function EditarTorneoSection() {
+export default function EditarCategoriaSection() {
   return (
     <TutorialSection
       title="Editar nombre y descripción de una categoría"

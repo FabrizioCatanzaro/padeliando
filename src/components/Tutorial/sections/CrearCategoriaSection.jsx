@@ -1,11 +1,11 @@
 import TutorialSection from '../TutorialSection'
 import TutorialMedia from '../TutorialMedia'
 
-export default function CrearTorneoSection() {
+export default function CrearCategoriaSection() {
   return (
     <TutorialSection
       title="Crear una categoría"
-      description='Una categoría en Padeleando agrupa todos los torneos de un mismo grupo de jugadores. Podés personalizarlo con nombre, descripción, emojis y privacidad. Para crearlo necesitás estar registrado e iniciar sesión.'
+      description='Una categoría en Padeleando reúne todos los torneos que juega un mismo grupo de gente. Podés personalizarlo con nombre, descripción, emojis y privacidad. Para crearlo necesitás estar registrado e iniciar sesión.'
       steps={[
         {
           label: 'Ir al inicio',
