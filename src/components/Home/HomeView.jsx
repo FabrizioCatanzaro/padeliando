@@ -1,9 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth }     from '../../context/useAuth'
-import { Globe, Lock, Plus, X, Search, MapPin, Smile, Check, Loader2, Trophy, BarChart3, Radio, UserRound, Building2, Navigation } from 'lucide-react';
+import { Globe, Lock, Plus, X, Search, MapPin, Smile, Check, Loader2, Trophy, BarChart3, Radio, UserRound, Building2, Navigation, ChevronLeft } from 'lucide-react';
 import logoUrl from '../../assets/padeleando-logo.webp'
 import FadeInCard from '../shared/FadeInCard'
 import GroupCard from '../shared/GroupCard'
@@ -11,12 +11,26 @@ import VisitorShowcase from './VisitorShowcase';
 import AppPreview from './AppPreview';
 import { Skeleton, CardSkeleton } from '../shared/Skeleton';
 import ClubSelector from '../shared/ClubSelector';
+import SignupEditor from '../shared/SignupEditor';
+import StepBar from '../shared/StepBar';
+import { profileContacts } from '../../utils/signup';
 import PremiumModal from '../shared/PremiumModal';
 import { FREE_MAX_GROUPS, isPlanLimit } from '../../utils/plan';
 import { useToast } from '../../context/useToast';
 import Btn from '../shared/Btn';
+import RolePicker from './RolePicker';
+import FirstSteps from './FirstSteps';
+import { buildSteps, isRoleDismissed, isFirstStepsDismissed, dismissFirstSteps } from '../../utils/onboarding';
 
-const EMOJI_LIST = ['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
+const EMPTY_SIGNUP = { open: false, price: null, unit: 'player', contacts: [] };
+
+const NEW_GROUP_STEPS = [
+  { id: 'datos',       label: 'DATOS' },
+  { id: 'visibilidad', label: 'VISIBILIDAD' },
+  { id: 'inscripcion', label: 'INSCRIPCIÓN' },
+];
+
+const EMOJI_LIST =['🔥','⚡','🚻','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🎲','🔝','🚨','🌹','🌼','🥑','🍺','🍷','🧉','🍕','❄️','❤️‍🩹','💫','☢️','💸','🗿','♂️','♀️','🪄','🎉','👑']
 
 const FEATURES = [
   { icon: Trophy,     title: 'Torneos Americanos o Ligas', desc: 'Elegí el formato, con parejas fijas o jugadores libres, y armá el fixture en minutos.' },
@@ -66,6 +80,10 @@ export default function HomeView() {
   const [isPublic,     setIsPublic]     = useState(true);
   const [showNew,      setShowNew]      = useState(false);
   const [selectedEmojis, setSelectedEmojis] = useState([]);
+  // Alta de categoría por pasos, igual que la de torneo: datos → visibilidad →
+  // inscripción. El tercero es opcional y se puede saltear.
+  const [newStep, setNewStep] = useState(0);
+  const [signup,  setSignup]  = useState(EMPTY_SIGNUP);
   const [showEmojiModal, setShowEmojiModal] = useState(false);
   const [club,           setClub]           = useState(null);
   const [searchQ,        setSearchQ]        = useState('');
@@ -86,6 +104,12 @@ export default function HomeView() {
   const [nearbyClubs,    setNearbyClubs]    = useState([]);
   const [nearbyStatus,   setNearbyStatus]   = useState('idle'); // idle | loading | done | denied | error | unsupported
   const [nearbyPage,     setNearbyPage]     = useState(NEARBY_INITIAL);
+
+  // Onboarding. `pickedRole` sólo existe para que la tarjeta cambie en el mismo
+  // render en que el usuario elige, sin esperar al PATCH ni al refresco de /me.
+  const [pickedRole,    setPickedRole]    = useState(null);
+  const [roleDismissed, setRoleDismissed] = useState(isRoleDismissed);
+  const [stepsDismissed, setStepsDismissed] = useState(isFirstStepsDismissed);
 
   const [homeData, setHomeData] = useState(null);
   // Arranca en true para visitantes: si empezara en false, la sección entera no
@@ -262,6 +286,16 @@ export default function HomeView() {
         emojis: selectedEmojis,
         club_id: club?.pending ? null : (club?.id ?? null),
         pending_club_request_id: club?.pending ? club.request_id : null,
+        // Con la inscripción cerrada no se manda nada: la categoría queda con
+        // los campos en NULL, igual que antes de que el alta los ofreciera.
+        ...(signup.open
+          ? {
+              signup_open:       true,
+              signup_price:      signup.price,
+              signup_price_unit: signup.unit,
+              signup_contacts:   signup.contacts.filter((c) => c.value.trim()),
+            }
+          : {}),
       });
       showToast('Categoría creada');
       navigate(`/cat/${g.id}`);
@@ -297,6 +331,8 @@ export default function HomeView() {
     setIsPublic(true);
     setSelectedEmojis([]);
     setClub(null);
+    setSignup(EMPTY_SIGNUP);
+    setNewStep(0);
     setError(null);
     setShowNew(true);
   }
@@ -319,6 +355,23 @@ export default function HomeView() {
   );
 
   const nearbyVisible = nearbyClubs;
+
+  // Onboarding. El rol viene del servidor; `pickedRole` sólo cubre el instante
+  // entre que el usuario toca y que /me se refresca.
+  const role = pickedRole ?? user?.onboarding_role ?? null;
+  const showRolePicker = isLoggedIn && !role && !roleDismissed;
+
+  // Los pasos se derivan de los datos ya cargados, así que no hay nada que
+  // guardar: si hizo algo desde otro lado, aparece tildado igual. Quien esquivó
+  // la pregunta de rol tampoco ve el checklist — pidió que lo dejen tranquilo.
+  const allSteps = role ? buildSteps({ role, groups, partGroups, favGroups, user }) : null;
+  const firstSteps =
+    allSteps && !stepsDismissed && allSteps.some((s) => !s.done) ? allSteps : null;
+
+  function handleDismissSteps() {
+    dismissFirstSteps();
+    setStepsDismissed(true);
+  }
 
   return (
     <div className="home-bg text-content font-sans pb-16">
@@ -682,6 +735,13 @@ export default function HomeView() {
           </div>
         )}
 
+        {/* ── Onboarding: una pregunta, después el checklist ── */}
+        {!committedQ && isLoggedIn && !loading && (
+          showRolePicker
+            ? <RolePicker onPick={(r) => { setPickedRole(r); setRoleDismissed(r == null); }} />
+            : firstSteps && <FirstSteps steps={firstSteps} onDismiss={handleDismissSteps} />
+        )}
+
         {/* ── Mis categorías ── */}
         {!committedQ && isLoggedIn && (
           <>
@@ -693,8 +753,16 @@ export default function HomeView() {
 
             {groups.length === 0 ? (
               <div className="border border-dashed border-border-strong rounded-lg p-8 text-center mb-8">
-                <p className="text-muted text-sm font-sans mb-4">Todavía no tenés categorías creadas.</p>
+                <p className="text-muted text-sm font-sans mb-1">Todavía no tenés categorías creadas.</p>
+                <p className="text-dim text-[12px] font-mono mb-4">
+                  Una categoría agrupa a la gente que juega junta; los torneos van adentro.
+                </p>
                 <Btn variant="primary" icon={Plus} onClick={openNewModal}>CREAR PRIMERA CATEGORÍA</Btn>
+                <div className="mt-3">
+                  <Link to="/tutorial#crear-categoria" className="text-[12px] font-mono text-muted hover:text-brand transition-colors">
+                    Ver cómo funciona
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 mb-10">
@@ -773,7 +841,13 @@ export default function HomeView() {
               </button>
             </div>
 
+            <div className="px-6 pt-5">
+              <StepBar steps={NEW_GROUP_STEPS} currentIdx={newStep} className="mb-1" />
+            </div>
+
             <div className="px-6 py-5 space-y-5">
+              {/* ── Paso 1: datos ── */}
+              {newStep === 0 && (<>
               {/* Nombre */}
               <div>
                 <label className="block text-[11px] tracking-widest text-dim font-mono mb-2">NOMBRE DE LA CATEGORÍA</label>
@@ -798,41 +872,6 @@ export default function HomeView() {
                   onChange={(e) => setDesc(e.target.value)}
                   maxLength={50}
                 />
-              </div>
-
-              {/* Club */}
-              <div>
-                <label className="block text-[11px] tracking-widest text-dim font-mono mb-2">CLUB <span className="text-muted normal-case tracking-normal">(opcional)</span></label>
-                <ClubSelector value={club} onChange={setClub} />
-                <p className="text-[11px] text-dim font-mono mt-2">
-                  Se usará por defecto en los torneos de esta categoría (podés cambiarlo en cada uno).
-                </p>
-              </div>
-
-              {/* Visibilidad */}
-              <div>
-                <label className="block text-[11px] tracking-widest text-dim font-mono mb-2">VISIBILIDAD</label>
-                <div className="flex gap-2">
-                  {valsPrivacy.map((v) => (
-                    <button
-                      key={String(v.val)}
-                      type="button"
-                      onClick={() => setIsPublic(v.val)}
-                      className={`flex items-center gap-2 bg-transparent border px-3 py-2 text-xs rounded-lg cursor-pointer transition-colors ${
-                        isPublic === v.val
-                          ? (v.val ? 'border-cyan text-cyan' : 'border-yellow-400 text-yellow-400')
-                          : 'border-border-strong text-muted hover:border-border-mid'
-                      }`}
-                    >
-                      <v.icon size={14} />{v.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[11px] text-dim font-mono mt-2">
-                  {isPublic
-                    ? 'Cualquiera puede ver esta categoría en tu perfil.'
-                    : 'Solo vos podés ver esta categoría.'}
-                </p>
               </div>
 
               {/* Íconos */}
@@ -867,14 +906,86 @@ export default function HomeView() {
                 </div>
               </div>
 
+              {/* Club */}
+              <div>
+                <label className="block text-[11px] tracking-widest text-dim font-mono mb-2">CLUB <span className="text-muted normal-case tracking-normal">(opcional)</span></label>
+                <ClubSelector value={club} onChange={setClub} />
+                <p className="text-[11px] text-dim font-mono mt-2">
+                  Se usará por defecto en los torneos de esta categoría (podés cambiarlo en cada uno).
+                </p>
+              </div>
+              </>)}
+
+              {/* ── Paso 2: visibilidad ── */}
+              {newStep === 1 && (
+              <div>
+                <label className="block text-[11px] tracking-widest text-dim font-mono mb-2">VISIBILIDAD</label>
+                <div className="flex gap-2">
+                  {valsPrivacy.map((v) => (
+                    <button
+                      key={String(v.val)}
+                      type="button"
+                      onClick={() => setIsPublic(v.val)}
+                      className={`flex items-center gap-2 bg-transparent border px-3 py-2 text-xs rounded-lg cursor-pointer transition-colors ${
+                        isPublic === v.val
+                          ? (v.val ? 'border-cyan text-cyan' : 'border-yellow-400 text-yellow-400')
+                          : 'border-border-strong text-muted hover:border-border-mid'
+                      }`}
+                    >
+                      <v.icon size={14} />{v.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-dim font-mono mt-2">
+                  {isPublic
+                    ? 'Cualquiera puede ver esta categoría en tu perfil.'
+                    : 'Solo vos podés ver esta categoría.'}
+                </p>
+              </div>
+              )}
+
+              {/* ── Paso 3: inscripción (opcional) ── */}
+              {newStep === 2 && (
+              <div>
+                <label className="block text-[11px] tracking-widest text-dim font-mono mb-2">
+                  INSCRIPCIÓN <span className="text-muted normal-case tracking-normal">(opcional)</span>
+                </label>
+                <SignupEditor
+                  value={signup}
+                  onChange={setSignup}
+                  profile={profileContacts(user?.social_links)}
+                />
+                <p className="text-[11px] text-dim font-mono mt-2">
+                  Se muestra en la vista pública para que se anoten. Cada torneo lo hereda y puede cambiarlo.
+                </p>
+              </div>
+              )}
+
               {error && <p className="text-danger text-xs font-mono">{error}</p>}
             </div>
 
             {/* Footer del modal */}
-            <div className="sticky bottom-0 bg-surface border-t border-border-mid px-6 py-4">
-              <Btn variant="primary" full size="lg" onClick={handleCreate} disabled={!name.trim()} loading={creating}>
-                CREAR CATEGORÍA
-              </Btn>
+            <div className="sticky bottom-0 bg-surface border-t border-border-mid px-6 py-4 flex items-center gap-3">
+              {newStep > 0 && (
+                <Btn variant="secondary" size="lg" icon={ChevronLeft} onClick={() => setNewStep((s) => s - 1)}>
+                  ATRÁS
+                </Btn>
+              )}
+              {newStep < NEW_GROUP_STEPS.length - 1 ? (
+                <Btn
+                  variant="primary"
+                  full
+                  size="lg"
+                  onClick={() => { if (name.trim()) { setError(null); setNewStep((s) => s + 1); } else setError('Poné un nombre para la categoría.'); }}
+                  disabled={newStep === 0 && !name.trim()}
+                >
+                  SIGUIENTE
+                </Btn>
+              ) : (
+                <Btn variant="primary" full size="lg" onClick={handleCreate} disabled={!name.trim()} loading={creating}>
+                  CREAR CATEGORÍA
+                </Btn>
+              )}
             </div>
           </div>
         </div>
