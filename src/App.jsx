@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { useAuth } from './context/useAuth'
 import { Titled } from './hooks/useDocumentTitle'
+import useScrollToTop from './hooks/useScrollToTop'
 import Header       from './components/shared/Header'
 import Footer       from './components/shared/Footer'
 import AdBanner     from './components/shared/AdBanner'
@@ -51,6 +52,8 @@ function RedirectToView() {
 }
 
 function Layout() {
+  useScrollToTop()
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
