@@ -126,7 +126,10 @@ function JoinBanner({ user, tournament, joinStatus, claimablePlayers = [], hidde
     );
   }
 
-  if (tournament?.status !== 'active') return null;
+  // También en los terminados: reclamar el lugar en un torneo ya jugado es
+  // justamente el caso en que a alguien le interesa que esos partidos le cuenten
+  // en el perfil. El backend nunca miró el estado para aceptar la solicitud.
+  if (tournament?.status !== 'active' && tournament?.status !== 'finished') return null;
 
   // Invitado sin cuenta → CTA de inicio de sesión.
   if (!user) {
@@ -235,7 +238,9 @@ export default function ReadonlyView() {
   // ── Modo TV (rotación automática de pantallas) ─────────────────────────────
   // La vista de espectador arranca directo en Modo TV; la cruz (onExit) vuelve al
   // modo normal con tabs.
-  const [tvMode, setTvMode]     = useState(true);
+  // Arranca apagado: el modo TV sirve para dejar puesta una pantalla en el club,
+  // no para el que abre el link a mirar un resultado. Se entra con el botón.
+  const [tvMode, setTvMode]     = useState(false);
   const [tvPaused, setTvPaused] = useState(false);
   const [tvStep, setTvStep]     = useState(0);
   const [soundOn, setSoundOn]   = useState(false);
@@ -385,7 +390,7 @@ export default function ReadonlyView() {
     }
   }
 
-  useDocumentTitle(error === 'notfound' ? 'Jornada no encontrada' : tournament?.name);
+  useDocumentTitle(error === 'notfound' ? 'Torneo no encontrado' : tournament?.name);
 
   if (error === 'notfound') return <LazyNotFound subject="tournament" />;
 
