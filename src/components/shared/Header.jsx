@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { User, CircleHelp, Bell, Download, Volume2, VolumeX, UserPlus } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 import { usePwaInstall } from '../../hooks/usePwaInstall'
+import useHideOnScroll from '../../hooks/useHideOnScroll'
 import { openInstallPrompt } from '../../utils/pwa'
 import { api } from '../../utils/api'
 import { renderRichText } from '../../utils/richText'
@@ -45,9 +46,9 @@ function NotifItemText({ n, onNavigate }) {
         <span
           onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}`); }}
           className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
-        >{n.group_name ?? 'un grupo'}</span>
+        >{n.group_name ?? 'una categoría'}</span>
       ) : (
-        <span className="text-white font-semibold">{n.group_name ?? 'un grupo'}</span>
+        <span className="text-white font-semibold">{n.group_name ?? 'una categoría'}</span>
       )}
       {n.player_name ? <> como <span className="text-brand">{n.player_name}</span></> : null}</>
   );
@@ -62,9 +63,9 @@ function NotifItemText({ n, onNavigate }) {
         <span
           onClick={(e) => { e.stopPropagation(); onNavigate(`/cat/${n.group_id}/torneo/${n.tournament_id}`); }}
           className="text-white font-semibold cursor-pointer hover:text-brand transition-colors"
-        >{n.tournament_name ?? 'una jornada'}</span>
+        >{n.tournament_name ?? 'un torneo'}</span>
       ) : (
-        <span className="text-white font-semibold">{n.tournament_name ?? 'una jornada'}</span>
+        <span className="text-white font-semibold">{n.tournament_name ?? 'un torneo'}</span>
       )}{' '}en{' '}
       {n.group_id ? (
         <span
@@ -256,6 +257,10 @@ export default function Header() {
     } catch { /* ignore */ }
   }
 
+  // Con un desplegable abierto el header se queda quieto: si se ocultara, se
+  // llevaría el menú o las notificaciones con él.
+  const hideHeader = useHideOnScroll({ disabled: menuOpen || notifOpen || shareAppOpen });
+
   function go(path) {
     setMenuOpen(false);
     navigate(path);
@@ -272,7 +277,11 @@ export default function Header() {
   );
 
   return (
-    <div className="px-5 py-3 flex justify-between items-center border-b border-border bg-base">
+    <div
+      className={`sticky top-0 z-40 px-5 py-3 flex justify-between items-center border-b border-border bg-base transition-transform duration-300 ${
+        hideHeader ? '-translate-y-full' : 'translate-y-0'
+      }`}
+    >
       {/* Logo */}
       <div
         className="flex flex-row gap-2 items-center cursor-pointer"

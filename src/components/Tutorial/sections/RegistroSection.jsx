@@ -12,12 +12,12 @@ export default function RegistroSection() {
           text: 'Creá y administrá tus propias categorías. Controlás los torneos, los participantes, los resultados y las estadísticas.',
         },
         {
-          label: 'Aceptar invitaciones',
-          text: 'Otros usuarios pueden invitarte a sus categorías. Con una cuenta podés ver y aceptar esas invitaciones desde la sección "Invitaciones" del menú.',
+          label: 'Sumarte a los torneos que jugás',
+          text: 'Podés reclamar tu lugar en un torneo que organizó otra persona, o aceptar la invitación que te manden. Todo llega a la campana de notificaciones del menú.',
         },
         {
           label: 'Estadísticas propias',
-          text: 'Tu perfil acumula tus resultados en todas las categorías en las que participás: partidos jugados, ganados, puntos, y más.',
+          text: 'Una vez que tu cuenta queda vinculada a un jugador, tu perfil acumula esos resultados en todas las categorías en las que participás: partidos jugados, ganados, racha, compañeros frecuentes y títulos.',
         },
         {
           label: 'Perfil público',
@@ -25,7 +25,7 @@ export default function RegistroSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Pantalla de registro e inicio de sesión" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422830/login_aiydnq.png'}/>
+      <TutorialMedia caption="Pantalla de registro e inicio de sesión" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159259/tutorial/registro.png" aspect="aspect-auto" />
     </TutorialSection>
   )
 }

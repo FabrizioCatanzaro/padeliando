@@ -818,8 +818,8 @@ export default function ProfileView() {
                     <span className="font-condensed font-bold text-sm tracking-[3px] text-danger">ELIMINAR CUENTA</span>
                   </div>
                   <div style={{ fontSize: 12, color: '#777', fontFamily: "'Albert Sans',monospace", marginBottom: 12 }}>
-                    Se borra tu cuenta de forma permanente. Tus grupos y torneos se conservan bajo una cuenta anónima
-                    y tus partidos en grupos de otros quedan sin vincular. No se puede deshacer.
+                    Se borra tu cuenta de forma permanente. Tus categorías y torneos se conservan bajo una cuenta anónima
+                    y tus partidos en categorías de otros quedan sin vincular. No se puede deshacer.
                   </div>
                   <button
                     type="button"
@@ -1309,8 +1309,8 @@ export default function ProfileView() {
           onCancel={() => { if (!deleteBusy) setShowDeleteModal(false); }}
         >
           <p className="mb-3">
-            Esta acción es permanente y no se puede deshacer. Tus grupos y torneos se conservan bajo una
-            cuenta anónima; tus partidos en grupos de otros quedan sin vincular.
+            Esta acción es permanente y no se puede deshacer. Tus categorías y torneos se conservan bajo una
+            cuenta anónima; tus partidos en categorías de otros quedan sin vincular.
           </p>
           <label className="block text-[11px] tracking-widest text-muted font-mono mb-1.5">
             CONTRASEÑA

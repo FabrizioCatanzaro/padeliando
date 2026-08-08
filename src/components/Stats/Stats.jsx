@@ -18,6 +18,7 @@ import RankingStory, { RANKING_STORY_LIMIT } from "../Snapshot/RankingStory";
 import { TournamentMeta, ClubBadge } from "../Snapshot/StoryFrame";
 import { C } from "../Snapshot/story-theme";
 import groupStatsPreview from "../../assets/group-advanced-stats-preview.svg";
+import { buildClubRows } from "../../utils/clubRows";
 
 export default function Stats({ tournament, ownerIsPremium = false }) {
   const [allTournaments, setAllTournaments] = useState([]);
@@ -719,7 +720,10 @@ function buildHeadToHead(tournaments) {
   return { byKey, names };
 }
 
-export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremium = false, groupName, title }) {
+// `showClubs`: en la categoría el bloque de canchas es su propia pestaña, así
+// que se apaga acá para no mostrarlo dos veces. En Torneo → Estadísticas sigue
+// viniendo con el resto.
+export function HistoricalStats({ tournaments, showTorneos = true, showClubs = true, ownerIsPremium = false, groupName, title }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [rankMode, setRankMode] = useState('wins'); // 'wins' | 'winrate'
   const [rankScope, setRankScope] = useState(null); // null = segun las jornadas; 'players' | 'pairs'
@@ -852,19 +856,9 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
   const histTimed      = allHistMatches.filter((m) => (m.duration_seconds ?? 0) > 0);
   const histSeconds    = histTimed.reduce((acc, m) => acc + m.duration_seconds, 0);
 
-  // Los torneos sin club quedan afuera.
-  const clubRows = (() => {
-    const by = new Map();
-    tournaments.forEach((t) => {
-      if (!t.club_id) return;
-      const row = by.get(t.club_id)
-        ?? { id: t.club_id, name: t.club_name ?? 'Club', photo_url: t.club_photo_url ?? null, jornadas: 0, partidos: 0 };
-      row.jornadas++;
-      row.partidos += t.matches.length + bracketPlayedCount(t);
-      by.set(t.club_id, row);
-    });
-    return [...by.values()].sort((a, b) => b.jornadas - a.jornadas || b.partidos - a.partidos);
-  })();
+  // Los torneos sin club quedan afuera. El cálculo vive en GroupClubs, que es
+  // quien lo muestra como pestaña propia en la categoría.
+  const clubRows = buildClubRows(tournaments);
 
   // ── Datos para gráficos avanzados ──────────────────────────────────────
   const champChartData = champRows.slice(0, 5).map((c) => ({ key: c.key, name: c.name.split(' ')[0], torneos: c.count }));
@@ -1057,7 +1051,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
             }
             {showPairTable && !allPairMode && (
               <div className="mt-2 text-[10px] font-mono text-dim">
-                Sólo cuenta las jornadas de parejas fijas ({tournaments.filter((t) => t.mode === 'pairs').length} de {tournaments.length}).
+                Sólo cuenta los torneos de parejas fijas ({tournaments.filter((t) => t.mode === 'pairs').length} de {tournaments.length}).
               </div>
             )}
           </div>
@@ -1081,7 +1075,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
             {attendance.length > 0 && (
               <div className="bg-surface border border-border-mid rounded-lg p-4">
                 <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">
-                  ASISTENCIA ({attendance[0].total} {attendance[0].total === 1 ? 'JORNADA' : 'JORNADAS'})
+                  ASISTENCIA ({attendance[0].total} {attendance[0].total === 1 ? 'TORNEO' : 'TORNEOS'})
                 </div>
                 <div className="flex flex-col gap-2">
                   {(showAllAttendance ? attendance : attendance.slice(0, 6)).map((r) => (
@@ -1115,7 +1109,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
           {rankHistory.length >= 3 && rankTop.length > 1 && (
             <div className="bg-surface border border-border-mid rounded-lg p-4 mb-6">
               <div className="text-[10px] font-mono tracking-[2px] text-muted mb-3">
-                PUESTO POR JORNADA (TOP {rankTop.length})
+                PUESTO POR TORNEO (TOP {rankTop.length})
               </div>
               <ResponsiveContainer width="100%" height={170}>
                 <LineChart data={rankHistory} margin={{ top: 4, right: 10, left: -30, bottom: 0 }}>
@@ -1201,7 +1195,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
         </div>
       )}
 
-      {clubRows.length > 0 && (
+      {showClubs && clubRows.length > 0 && (
         <div className="mt-6">
           <div className="font-condensed font-bold text-[13px] tracking-[3px] text-muted mb-3">CANCHAS</div>
           <div className="flex flex-col gap-2">
@@ -1212,7 +1206,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
                 <ClubLogo name={c.name} src={c.photo_url} size={28} />
                 <div className="flex-1 min-w-0 truncate text-content text-[14px]">{c.name}</div>
                 <div className="shrink-0 font-mono text-soft text-[13px]">
-                  {c.jornadas} {c.jornadas === 1 ? 'jornada' : 'jornadas'} · {c.partidos}P
+                  {c.jornadas} {c.jornadas === 1 ? 'torneo' : 'torneos'} · {c.partidos}P
                 </div>
               </div>
             ))}
@@ -1257,7 +1251,7 @@ export function HistoricalStats({ tournaments, showTorneos = true, ownerIsPremiu
               tournamentsCount={tournaments.length}
               hiddenCount={rankStoryAll.length - rankStoryRows.length}
               note={showPairTable && !allPairMode
-                ? `Sólo jornadas de parejas fijas (${tournaments.filter((t) => t.mode === 'pairs').length} de ${tournaments.length})`
+                ? `Sólo torneos de parejas fijas (${tournaments.filter((t) => t.mode === 'pairs').length} de ${tournaments.length})`
                 : null}
             />
           }

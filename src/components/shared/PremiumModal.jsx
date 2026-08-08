@@ -122,7 +122,7 @@ export default function PremiumModal({ onClose, reason }) {
               ))}
             </div>
             <span className="text-xs text-soft">
-              <span className="text-brand font-semibold">+100 padeleros</span> ya son Premium
+              <span className="text-brand font-semibold">+30 padeleros</span> ya son Premium
             </span>
           </div>
         </div>

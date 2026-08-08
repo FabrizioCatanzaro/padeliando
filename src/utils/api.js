@@ -134,6 +134,7 @@ export const api = {
   },
   players: {
     search:               (q, groupId, mine) => req('GET', `/players?q=${encodeURIComponent(q)}${groupId ? `&groupId=${groupId}` : ''}${mine ? '&mine=true' : ''}`),
+    byGroup:              (groupId) => req('GET', `/players/group/${groupId}`),
     resolve:              (name, groupId, tournamentId) => req('POST', '/players/resolve', { name, groupId, tournamentId }),
     rename:               (id, name, groupId) => req('PATCH',  `/players/${id}`, { name, groupId }),
     removeFromTournament: (pId, tId)      => req('DELETE', `/players/${pId}/tournament/${tId}`),
@@ -167,10 +168,12 @@ export const api = {
   readonly: {
     get: (id) => req('GET', `/readonly/${id}`),
   },
+  // Las invitaciones se listan y se resuelven desde las notificaciones, así que
+  // acá sólo quedan las que se usan: mandar, responder y cancelar.
   invitations: {
-    list:   ()                           => req('GET',    '/invitations'),
-    count:  ()                           => req('GET',    '/invitations/count'),
     send:   (playerId, groupId, identifier) => req('POST', '/invitations', { playerId, groupId, identifier }),
+    // Link para quien todavía no tiene cuenta: se acepta desde /invitacion/:token
+    createLink: (playerId, groupId) => req('POST', '/invitations', { playerId, groupId, link: true }),
     respond:(id, action)                 => req('PATCH',  `/invitations/${id}`, { action }),
     cancel: (id)                         => req('DELETE', `/invitations/${id}`),
   },

@@ -1,5 +1,7 @@
 import TutorialSection from '../TutorialSection'
 import TutorialMedia from '../TutorialMedia'
+import Bullets from '../Bullets'
+import Note from '../Note'
 
 export default function PrivacidadSection() {
   return (
@@ -21,7 +23,24 @@ export default function PrivacidadSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Ícono de privacidad en la cabecera de la categoría" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422826/privacidad-torneo_zuzrt2.png'} aspect='aspect-auto'/>
+      <TutorialMedia caption="Elección de visibilidad al crear la categoría" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159753/tutorial/crear-categoria-2.png" aspect="aspect-auto" />
+
+      <h3 className="font-condensed font-bold text-[18px] text-white mb-2 mt-2">
+        Qué cambia al ponerla privada
+      </h3>
+      <Bullets
+        items={[
+          'Deja de aparecer en la búsqueda de categorías y en el listado de categorías cercanas.',
+          'Nadie la puede agregar a favoritas.',
+          'Los jugadores que ya están adentro la siguen viendo con normalidad, igual que los co-organizadores.',
+        ]}
+      />
+
+      <Note>
+        Privada no quiere decir con contraseña: el link de un torneo sigue funcionando para
+        cualquiera que lo tenga. La privacidad la saca de las búsquedas y los listados, pero no
+        convierte el link en secreto.
+      </Note>
     </TutorialSection>
   )
 }

@@ -28,8 +28,8 @@ export default function FormatosSection() {
               </li>
             ))}
           </ul>
-          <TutorialMedia caption="Vista de agregado de jugadores en Modo Liga" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422828/crear-torneo-liga_yxngkf.png'} aspect='aspect-auto'/>
-          <TutorialMedia caption="Tabla de posiciones en Modo Liga" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422825/tabla-liga_t81xes.png'} aspect='aspect-auto'/>
+          <TutorialMedia caption="Elección del formato al crear el torneo" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159220/tutorial/crear-torneo.png" aspect="aspect-auto" />
+          <TutorialMedia caption="Tabla de posiciones en Modo Liga" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159269/tutorial/tabla-liga.png" aspect="aspect-auto" />
         </div>
 
         <div className="border-t border-border pt-8">
@@ -42,7 +42,7 @@ export default function FormatosSection() {
           <ul className="flex flex-col gap-2 mb-4">
             {[
               'No pueden haber jugadores sueltos.', 
-              'Se requieren mínimo 8 parejas para iniciar. Con menos, la jornada queda en BORRADOR: la podés crear igual y sumar las parejas que faltan más tarde, pero no se pueden cargar partidos ni generar el cuadro hasta llegar al mínimo.',
+              'Se requieren mínimo 8 parejas para iniciar. Con menos, el torneo queda en BORRADOR: lo podés crear igual y sumar las parejas que faltan más tarde, pero no se pueden cargar partidos ni generar el cuadro hasta llegar al mínimo.',
               'Fase previa: 2 partidos al azar que suman a una tabla general para clasificar al cuadro final.',
               'Cuadro final: octavos, cuartos, semifinales y final por eliminación directa.',
               'El torneo se resuelve en una sola fecha.',
@@ -53,8 +53,8 @@ export default function FormatosSection() {
               </li>
             ))}
           </ul>
-          <TutorialMedia caption="Vista de agregado de parejas en Modo Americano" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422827/crear-torneo-americano_g7rv88.png'} aspect='aspect-auto'/>
-          <TutorialMedia caption="Vista de cuadro final en Modo Americano" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422825/cuadro-americano_krttbd.png'} aspect='aspect-auto'/>
+          <TutorialMedia caption="Vista de agregado de parejas en Modo Americano" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159196/tutorial/americano-parejas.png" aspect="aspect-auto" />
+          <TutorialMedia caption="Vista de cuadro final en Modo Americano" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159192/tutorial/americano-cuadro.png" aspect="aspect-auto" />
         </div>
       </div>
     </TutorialSection>

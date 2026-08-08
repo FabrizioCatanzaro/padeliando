@@ -21,7 +21,7 @@ export default function FinalizarSection() {
         },
       ]}
     >
-      <TutorialMedia caption="Botón para finalizar un torneo y confirmación" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422825/finalizar-torneo_o7hvno.png'} aspect='aspect-auto'/>
+      <TutorialMedia caption="Un torneo finalizado, con su campeón" src="https://res.cloudinary.com/dm80qflwa/image/upload/f_auto,q_auto,w_900,c_limit/v1786159269/tutorial/tabla-liga.png" aspect="aspect-auto" />
     </TutorialSection>
   )
 }

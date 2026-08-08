@@ -105,7 +105,7 @@ export default function AdminDashboard() {
       <section className="mb-8">
         <div className="font-condensed font-bold text-[12px] tracking-[3px] text-muted mb-3">TORNEOS Y CATEGORÍAS</div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard icon={Layers} label="Grupos"           value={stats.total_groups}      sub={`+${stats.groups_30d} en 30d`} />
+          <StatCard icon={Layers} label="Categorías"       value={stats.total_groups}      sub={`+${stats.groups_30d} en 30d`} />
           <StatCard icon={Trophy} label="Torneos totales"  value={stats.total_tournaments} sub={`+${stats.tournaments_30d} en 30d`} />
           <StatCard icon={Trophy} label="Torneos activos"  value={stats.active_tournaments} />
           <StatCard icon={Trophy} label="Torneos 7d"       value={stats.tournaments_7d} />

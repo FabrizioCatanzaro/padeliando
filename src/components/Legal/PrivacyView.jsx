@@ -108,7 +108,7 @@ export default function PrivacyView() {
           <ul className="list-disc list-inside space-y-1 pl-2">
             <li>Crear y gestionar tu cuenta de usuario.</li>
             <li>Permitirte crear, participar y gestionar torneos.</li>
-            <li>Calcular y mostrar estadísticas personales y de grupo.</li>
+            <li>Calcular y mostrar estadísticas personales y de categoría.</li>
             <li>Enviar correos de verificación de cuenta y recuperación de contraseña.</li>
             <li>Notificarte sobre actividad relevante (invitaciones, seguidores, resultados).</li>
             <li>Gestionar suscripciones Premium y procesar pagos a través de terceros.</li>

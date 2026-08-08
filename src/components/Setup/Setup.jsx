@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { uid, clubCourts, entityClub, AMERICANO_MIN_PAIRS, AMERICANO_MAX_PAIRS } from "../../utils/helpers";
 import { api } from "../../utils/api";
@@ -11,6 +11,7 @@ import { profileContacts } from "../../utils/signup";
 import { useToast } from "../../context/useToast";
 import { ChevronLeft, Check } from "lucide-react";
 import Btn from "../shared/Btn";
+import StepBar from "../shared/StepBar";
 
 function EventMeta({ club, setClub, eventDate, setEventDate, eventTime, setEventTime, signup, setSignup, inheritedSignup, profile }) {
   const courts = club ? clubCourts(club) : null;
@@ -52,41 +53,9 @@ function EventMeta({ club, setClub, eventDate, setEventDate, eventTime, setEvent
         <label className="block text-[11px] tracking-[2px] text-muted font-mono mb-2">INSCRIPCIÓN (opcional)</label>
         <SignupEditor value={signup} onChange={setSignup} inherited={inheritedSignup} profile={profile} />
         <p className="text-[11px] font-mono mt-2 text-dim">
-          Lo que cargues vale sólo para esta jornada; lo que dejes vacío se hereda de la categoría.
+          Lo que cargues vale sólo para este torneo; lo que dejes vacío se hereda de la categoría.
         </p>
       </div>
-    </div>
-  );
-}
-
-function StepBar({ steps, currentIdx }) {
-  return (
-    <div className="flex items-start mb-7">
-      {steps.map((s, i) => {
-        const done   = i < currentIdx;
-        const active = i === currentIdx;
-        return (
-          <Fragment key={s.id}>
-            <div className="flex flex-col items-center gap-1.5 shrink-0">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono transition-all ${
-                done   ? 'bg-brand text-base' :
-                active ? 'border-2 border-brand text-brand bg-brand/10' :
-                         'border border-border-strong text-dim bg-transparent'
-              }`}>
-                {done ? <Check size={11} strokeWidth={3} /> : i + 1}
-              </div>
-              <span className={`text-[9px] font-mono tracking-widest whitespace-nowrap transition-colors ${
-                active ? 'text-brand' : done ? 'text-muted' : 'text-dim'
-              }`}>
-                {s.label}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <div className={`flex-1 h-px mt-3 mx-1 transition-colors ${done ? 'bg-brand' : 'bg-border-strong'}`} />
-            )}
-          </Fragment>
-        );
-      })}
     </div>
   );
 }
