@@ -4,32 +4,32 @@ import TutorialMedia from '../TutorialMedia'
 export default function CrearTorneoSection() {
   return (
     <TutorialSection
-      title="Crear una categoría"
-      description='Una categoría en Padeleando agrupa todos los torneos de un mismo grupo de jugadores. Podés personalizarlo con nombre, descripción, emojis y privacidad. Para crearlo necesitás estar registrado e iniciar sesión.'
+      title="Crear un torneo"
+      description='Una torneo en Padeleando es una fecha específica dentro de una categoría donde se juegan partidos. Podés personalizarla con nombre y descripción.'
       steps={[
         {
-          label: 'Ir al inicio',
-          text: 'Desde la pantalla principal, presioná el botón "NUEVA CATEGORÍA" (el primero en la grilla de tus categorías).',
+          label: 'Ir a la categoría',
+          text: 'Desde la pantalla de tu categoría, presioná el botón "NUEVO TORNEO" (el primero en la grilla de tus categorías).',
+        },
+        {
+          label: 'Elegir el Modo de juego',
+          text: 'Seleccioná el modo de juego que vas a utilizar, no lo podés cambiar una vez creada. Para entender las diferencias entre los modos, revisá la sección "Modo Liga vs Modo Americano" de este tutorial.',
         },
         {
           label: 'Completar el nombre',
-          text: 'El nombre es obligatorio y debe tener entre 2 y 30 caracteres. La descripción es opcional.',
+          text: 'El nombre es obligatorio y debe tener entre 2 y 30 caracteres.',
         },
         {
-          label: 'Elegir privacidad',
-          text: 'Público: cualquiera puede buscar y ver los torneos de esa categoría desde la página principal o desde tu perfil. Privado: solo vos podés verlo. Podés cambiarlo en cualquier momento.',
+          label: 'Agregar jugadores/parejas',
+          text: 'Dependiendo si tu elección fue "Modo Liga" o "Modo Americano", deberás agregar jugadores o parejas para el torneo. En el "Modo Liga", al no tener restricciones por número de jugadores (mínimo 4), podés formar parejas libremente para cada torneo o asignar parejas fijas en el siguiente paso. En el "Modo Americano", directamente tenés que agregar parejas fijas para el torneo: se juega con un mínimo de 8 parejas (16 jugadores), pero si todavía no las tenés a todas podés crearlo igual como BORRADOR y completar las parejas restantes desde GESTIÓN.',
         },
         {
-          label: 'Agregar íconos',
-          text: 'Podés seleccionar hasta 2 emojis de una lista predefinida para identificar visualmente la categoría en la grilla.',
-        },
-        {
-          label: 'Crear torneos',
-          text: 'Dentro de una CATEGORÍA podés crear tantos TORNEOS como quieras. Cada torneo es una como una fecha de la categoría, por ejemplo: La categoría se puede llamar CABALLEROS 8VA y los torneos pueden ser: "Fecha 1", "18/12/2022", etc. Para entender más acerca de los torneos y cómo crearlos, revisá la sección "Crear un torneo" de este tutorial.',
+          label: 'Crear torneo',
+          text: 'Dentro de un torneo podés crear tantos partidos como quieras a excepción del "Modo Americano" que permite como máximo 2 partidos por pareja en la Fase Previa. Una vez creada el torneo, podés editar su nombre y compartir el link de "solo visualización" para que los jugadores puedan ver en tiempo real la tabla de posiciones, los resultados y sus estadísticas.',
         },
       ]}
     >
-      <TutorialMedia caption="Formulario de creación de categoría" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422829/crear-torneo_lseyop.png'} aspect='aspect-auto'/>
+      <TutorialMedia caption="Formulario de creación de torneo" src={'https://res.cloudinary.com/dm80qflwa/image/upload/v1775422829/crear-torneo-modo_kpwsa0.png'}/>
     </TutorialSection>
   )
 }
